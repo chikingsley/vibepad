@@ -9,7 +9,6 @@
 /* Begin PBXBuildFile section */
 		3B4F459A2F3FB16A00A4CD74 /* Citadel in Frameworks */ = {isa = PBXBuildFile; platformFilter = ios; productRef = 3B4F45992F3FB16A00A4CD74 /* Citadel */; };
 		AA000001AAAAAAAA00000001 /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = AA000002AAAAAAAA00000002 /* MarkdownUI */; };
-		AA000004AAAAAAAA00000004 /* NetworkImage in Frameworks */ = {isa = PBXBuildFile; productRef = AA000005AAAAAAAA00000005 /* NetworkImage */; };
 		BB000001BBBBBBBB00000001 /* VoiceFlowKit in Frameworks */ = {isa = PBXBuildFile; productRef = BB000002BBBBBBBB00000002 /* VoiceFlowKit */; };
 /* End PBXBuildFile section */
 
@@ -60,7 +59,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				AA000001AAAAAAAA00000001 /* MarkdownUI in Frameworks */,
-				AA000004AAAAAAAA00000004 /* NetworkImage in Frameworks */,
 				3B4F459A2F3FB16A00A4CD74 /* Citadel in Frameworks */,
 				BB000001BBBBBBBB00000001 /* VoiceFlowKit in Frameworks */,
 			);
@@ -124,7 +122,6 @@
 			name = OpenCodeClient;
 			packageProductDependencies = (
 				AA000002AAAAAAAA00000002 /* MarkdownUI */,
-				AA000005AAAAAAAA00000005 /* NetworkImage */,
 				BB000002BBBBBBBB00000002 /* VoiceFlowKit */,
 			);
 			productName = OpenCodeClient;
@@ -184,18 +181,18 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 2610;
-				LastUpgradeCheck = 2610;
+				LastSwiftUpdateCheck = 2660;
+				LastUpgradeCheck = 2660;
 				TargetAttributes = {
 					3B4F44012F3E642500A4CD74 = {
-						CreatedOnToolsVersion = 26.1;
+						CreatedOnToolsVersion = 26.6;
 					};
 					3B4F440E2F3E642600A4CD74 = {
-						CreatedOnToolsVersion = 26.1;
+						CreatedOnToolsVersion = 26.6;
 						TestTargetID = 3B4F44012F3E642500A4CD74;
 					};
 					3B4F44182F3E642600A4CD74 = {
-						CreatedOnToolsVersion = 26.1;
+						CreatedOnToolsVersion = 26.6;
 						TestTargetID = 3B4F44012F3E642500A4CD74;
 					};
 				};
@@ -211,7 +208,6 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				AA000003AAAAAAAA00000003 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */,
-				AA000006AAAAAAAA00000006 /* XCRemoteSwiftPackageReference "NetworkImage" */,
 				3B4F45982F3FB16A00A4CD74 /* XCRemoteSwiftPackageReference "Citadel" */,
 				BB000003BBBBBBBB00000003 /* XCRemoteSwiftPackageReference "voiceflow" */,
 			);
@@ -324,7 +320,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = Y2T99LVU9E;
+				DEVELOPMENT_TEAM = XM69J99HWP;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -388,7 +384,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = Y2T99LVU9E;
+				DEVELOPMENT_TEAM = XM69J99HWP;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -417,36 +413,35 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = Y2T99LVU9E;
+				DEVELOPMENT_TEAM = XM69J99HWP;
 				ENABLE_PREVIEWS = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = VibePad;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
-				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "OpenCode Remote needs local network access to connect to your OpenCode server on the same network.";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "OpenCode Remote uses the microphone to record voice input, which is transcribed to text and added to the message input field.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "VibePad needs local network access to connect to your OpenCode server on the same network.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "VibePad uses the microphone to record voice input, which is transcribed to text and added to the message input field.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.grapeot.OpenCodeClient;
+				PRODUCT_BUNDLE_IDENTIFIER = com.vibepad.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator xros xrsimulator";
-				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,7";
-				XROS_DEPLOYMENT_TARGET = 26.0;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "2";
 			};
 			name = Debug;
 		};
@@ -457,36 +452,35 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = Y2T99LVU9E;
+				DEVELOPMENT_TEAM = XM69J99HWP;
 				ENABLE_PREVIEWS = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = VibePad;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
-				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "OpenCode Remote needs local network access to connect to your OpenCode server on the same network.";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "OpenCode Remote uses the microphone to record voice input, which is transcribed to text and added to the message input field.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "VibePad needs local network access to connect to your OpenCode server on the same network.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "VibePad uses the microphone to record voice input, which is transcribed to text and added to the message input field.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.grapeot.OpenCodeClient;
+				PRODUCT_BUNDLE_IDENTIFIER = com.vibepad.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator xros xrsimulator";
-				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,7";
-				XROS_DEPLOYMENT_TARGET = 26.0;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "2";
 			};
 			name = Release;
 		};
@@ -496,18 +490,18 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = Y2T99LVU9E;
+				DEVELOPMENT_TEAM = XM69J99HWP;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.grapeot.OpenCodeClientTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.vibepad.app.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/OpenCodeClient.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/OpenCodeClient";
 			};
 			name = Debug;
@@ -518,18 +512,18 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = Y2T99LVU9E;
+				DEVELOPMENT_TEAM = XM69J99HWP;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.grapeot.OpenCodeClientTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.vibepad.app.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/OpenCodeClient.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/OpenCodeClient";
 			};
 			name = Release;
@@ -539,17 +533,17 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = Y2T99LVU9E;
+				DEVELOPMENT_TEAM = XM69J99HWP;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.grapeot.OpenCodeClientUITests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.vibepad.app.uitests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "2";
 				TEST_TARGET_NAME = OpenCodeClient;
 			};
 			name = Debug;
@@ -559,17 +553,17 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = Y2T99LVU9E;
+				DEVELOPMENT_TEAM = XM69J99HWP;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.grapeot.OpenCodeClientUITests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.vibepad.app.uitests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "2";
 				TEST_TARGET_NAME = OpenCodeClient;
 			};
 			name = Release;
@@ -632,14 +626,6 @@
 				version = "2.4.1-visionos.1";
 			};
 		};
-		AA000006AAAAAAAA00000006 /* XCRemoteSwiftPackageReference "NetworkImage" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/grapeot/NetworkImage";
-			requirement = {
-				kind = exactVersion;
-				version = "6.0.1-visionos.1";
-			};
-		};
 		BB000003BBBBBBBB00000003 /* XCRemoteSwiftPackageReference "voiceflow" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/grapeot/voiceflow.git";
@@ -660,11 +646,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = AA000003AAAAAAAA00000003 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */;
 			productName = MarkdownUI;
-		};
-		AA000005AAAAAAAA00000005 /* NetworkImage */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = AA000006AAAAAAAA00000006 /* XCRemoteSwiftPackageReference "NetworkImage" */;
-			productName = NetworkImage;
 		};
 		BB000002BBBBBBBB00000002 /* VoiceFlowKit */ = {
 			isa = XCSwiftPackageProductDependency;

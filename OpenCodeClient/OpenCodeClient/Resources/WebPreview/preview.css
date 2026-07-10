@@ -1,6 +1,6 @@
 /* preview.css
  * Theme is driven by [data-theme="dark"|"light"] on <html> (set by renderMarkdown).
- * Designed for a narrow iPhone WKWebView viewport.
+ * Designed for a narrow mobile-shaped WKWebView viewport.
  */
 
 /* ---- Theme variables ---- */
@@ -77,7 +77,7 @@ body {
 
 #content {
   padding: 16px;
-  /* respect iPhone safe areas (notch / home indicator) */
+  /* respect mobile safe areas (notch / home indicator) */
   padding-left: max(16px, env(safe-area-inset-left));
   padding-right: max(16px, env(safe-area-inset-right));
   max-width: 100%;

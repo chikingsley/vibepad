@@ -13,68 +13,69 @@ import XCTest
 
 final class ToolCardsUITests: XCTestCase {
 
-    override func setUpWithError() throws {
-        continueAfterFailure = false
-    }
+  override func setUpWithError() throws {
+    continueAfterFailure = false
+  }
 
-    @MainActor
-    func testToolCardsFixtureRendersFileCardsAndMergedToolCalls() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["UITEST_TOOL_CARDS_FIXTURE"]
-        app.launch()
+  @MainActor
+  func testToolCardsFixtureRendersFileCardsAndMergedToolCalls() {
+    let app = XCUIApplication()
+    app.launchArguments = ["UITEST_TOOL_CARDS_FIXTURE"]
+    app.launch()
 
-        // Assistant fixture content.
-        let assistantText = app.staticTexts.containing(
-            NSPredicate(format: "label CONTAINS[c] 'Here are the changes I made'")
-        ).firstMatch
-        XCTAssertTrue(assistantText.waitForExistence(timeout: 12), "fixture assistant text 应可见")
+    // Assistant fixture content.
+    let assistantText = app.staticTexts.containing(
+      NSPredicate(format: "label CONTAINS[c] 'Here are the changes I made'")
+    ).firstMatch
+    XCTAssertTrue(assistantText.waitForExistence(timeout: 12), "fixture assistant text 应可见")
 
-        // Read/write file cards must be distinguishable in the accessibility tree.
-        let readCardPredicate = NSPredicate(format: "identifier BEGINSWITH 'toolcard.read.'")
-        let writeCardPredicate = NSPredicate(format: "identifier BEGINSWITH 'toolcard.write.'")
-        let readCards = app.descendants(matching: .any).matching(readCardPredicate)
-        let writeCards = app.descendants(matching: .any).matching(writeCardPredicate)
+    // Read/write file cards must be distinguishable in the accessibility tree.
+    let readCardPredicate = NSPredicate(format: "identifier BEGINSWITH 'toolcard.read.'")
+    let writeCardPredicate = NSPredicate(format: "identifier BEGINSWITH 'toolcard.write.'")
+    let readCards = app.descendants(matching: .any).matching(readCardPredicate)
+    let writeCards = app.descendants(matching: .any).matching(writeCardPredicate)
 
-        XCTAssertTrue(readCards.firstMatch.waitForExistence(timeout: 8), "至少一个 toolcard.read.* 读文件卡应渲染")
-        XCTAssertTrue(writeCards.firstMatch.waitForExistence(timeout: 8), "至少一个 toolcard.write.* 写文件卡应渲染")
+    XCTAssertTrue(readCards.firstMatch.waitForExistence(timeout: 8), "至少一个 toolcard.read.* 读文件卡应渲染")
+    XCTAssertTrue(writeCards.firstMatch.waitForExistence(timeout: 8), "至少一个 toolcard.write.* 写文件卡应渲染")
 
-        // XCUITest only exposes currently materialized cells in the scroll view on
-        // some simulator/orientation combinations. The stable contract here is
-        // that read and write cards are distinguishable, not that every fixture
-        // card is simultaneously present in the accessibility snapshot.
+    // XCUITest only exposes currently materialized cells in the scroll view on
+    // some simulator/orientation combinations. The stable contract here is
+    // that read and write cards are distinguishable, not that every fixture
+    // card is simultaneously present in the accessibility snapshot.
 
-        // The merged "N tool calls" disclosure row.
-        let toolCalls = app.descendants(matching: .any)["toolcard.toolcalls"]
-        XCTAssertTrue(toolCalls.waitForExistence(timeout: 8), "toolcard.toolcalls 合并行应存在")
+    // The merged "N tool calls" disclosure row.
+    let toolCalls = app.descendants(matching: .any)["toolcard.toolcalls"]
+    XCTAssertTrue(toolCalls.waitForExistence(timeout: 8), "toolcard.toolcalls 合并行应存在")
 
-        // Capture the collapsed state before expanding.
-        attachScreenshot(named: "oc_toolcards_collapsed")
+    // Capture the collapsed state before expanding.
+    attachScreenshot(named: "oc_toolcards_collapsed")
 
-        // Expand the disclosure group and assert it reveals merged tool content.
-        // "list" tool output contains "client.ts" — a string only visible once expanded.
-        let expandedMarkerBefore = app.staticTexts.containing(
-            NSPredicate(format: "label CONTAINS[c] 'client.ts'")
-        ).count
+    // Expand the disclosure group and assert it reveals merged tool content.
+    // "list" tool output contains "client.ts" — a string only visible once expanded.
+    let expandedMarkerBefore = app.staticTexts.containing(
+      NSPredicate(format: "label CONTAINS[c] 'client.ts'")
+    ).count
 
-        toolCalls.tap()
+    toolCalls.tap()
 
-        let expandedMarker = app.staticTexts.containing(
-            NSPredicate(format: "label CONTAINS[c] 'npm test'")
-        ).firstMatch
-        let revealed = expandedMarker.waitForExistence(timeout: 6)
-            || app.staticTexts.containing(NSPredicate(format: "label CONTAINS[c] 'client.ts'")).count > expandedMarkerBefore
-        XCTAssertTrue(revealed, "展开 toolcard.toolcalls 后应出现合并工具的内容（如 'npm test' / 'client.ts'）")
+    let expandedMarker = app.staticTexts.containing(
+      NSPredicate(format: "label CONTAINS[c] 'npm test'")
+    ).firstMatch
+    let revealed =
+      expandedMarker.waitForExistence(timeout: 6)
+      || app.staticTexts.containing(NSPredicate(format: "label CONTAINS[c] 'client.ts'")).count > expandedMarkerBefore
+    XCTAssertTrue(revealed, "展开 toolcard.toolcalls 后应出现合并工具的内容（如 'npm test' / 'client.ts'）")
 
-        // Capture the expanded state — primary visual QA artifact.
-        attachScreenshot(named: "oc_toolcards")
-    }
+    // Capture the expanded state — primary visual QA artifact.
+    attachScreenshot(named: "oc_toolcards")
+  }
 
-    @MainActor
-    private func attachScreenshot(named name: String) {
-        let screenshot = XCUIScreen.main.screenshot()
-        let attachment = XCTAttachment(screenshot: screenshot)
-        attachment.name = name
-        attachment.lifetime = .keepAlways
-        add(attachment)
-    }
+  @MainActor
+  private func attachScreenshot(named name: String) {
+    let screenshot = XCUIScreen.main.screenshot()
+    let attachment = XCTAttachment(screenshot: screenshot)
+    attachment.name = name
+    attachment.lifetime = .keepAlways
+    add(attachment)
+  }
 }

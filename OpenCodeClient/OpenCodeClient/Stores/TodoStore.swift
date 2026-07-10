@@ -8,5 +8,5 @@ import Observation
 
 @Observable
 final class TodoStore {
-    var sessionTodos: [String: [TodoItem]] = [:]
+  var sessionTodos: [String: [TodoItem]] = [:]
 }

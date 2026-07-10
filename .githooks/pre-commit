@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root"
+
+if ! ./scripts/lint.sh; then
+  echo "Pre-commit checks failed. Run ./scripts/format.sh, then retry the commit." >&2
+  exit 1
+fi

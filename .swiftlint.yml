@@ -1,0 +1,113 @@
+strict: true
+
+included:
+  - OpenCodeClient/OpenCodeClient
+  - OpenCodeClient/OpenCodeClientTests
+  - OpenCodeClient/OpenCodeClientUITests
+
+excluded:
+  - .build
+  - .swiftpm
+  - DerivedData
+  - SourcePackages
+  - "**/*.xcodeproj"
+  - "**/*.xcworkspace"
+
+# Apple swift-format owns mechanical layout. SwiftLint owns safety, correctness,
+# accessibility, and structural limits. Keep their rule sets non-overlapping.
+disabled_rules:
+  - attribute_name_spacing
+  - closing_brace
+  - closure_parameter_position
+  - colon
+  - comma
+  - comment_spacing
+  - control_statement
+  - function_name_whitespace
+  - identifier_name
+  - leading_whitespace
+  - line_length
+  - opening_brace
+  - return_arrow_whitespace
+  - statement_position
+  - switch_case_alignment
+  - trailing_comma
+  - trailing_newline
+  - trailing_whitespace
+  - vertical_parameter_alignment
+  - vertical_whitespace
+
+opt_in_rules:
+  - async_without_await
+  - balanced_xctest_lifecycle
+  - closure_spacing
+  - collection_alignment
+  - contains_over_first_not_nil
+  - empty_count
+  - empty_string
+  - fatal_error_message
+  - first_where
+  - force_unwrapping
+  - identical_operands
+  - implicitly_unwrapped_optional
+  - last_where
+  - operator_usage_whitespace
+  - overridden_super_call
+  - prefer_self_type_over_type_of_self
+  - redundant_nil_coalescing
+  - sorted_first_last
+  - unneeded_parentheses_in_closure_argument
+  - unneeded_throws_rethrows
+  - unavailable_function
+  - unowned_variable_capture
+  - yoda_condition
+
+analyzer_rules:
+  - unused_declaration
+  - unused_import
+
+force_cast:
+  severity: error
+force_try:
+  severity: error
+force_unwrapping:
+  severity: error
+implicitly_unwrapped_optional:
+  severity: error
+
+file_length:
+  warning: 1350
+  error: 1600
+
+type_body_length:
+  warning: 1000
+  error: 1200
+
+function_body_length:
+  warning: 80
+  error: 120
+
+function_parameter_count:
+  warning: 6
+  error: 8
+
+cyclomatic_complexity:
+  warning: 15
+  error: 25
+
+large_tuple:
+  warning: 3
+  error: 4
+
+nesting:
+  type_level:
+    warning: 2
+  function_level:
+    warning: 3
+
+custom_rules:
+  explicit_boolean_comparison:
+    name: "Explicit Boolean Comparison"
+    regex: "(==|!=)\\s*(true|false)"
+    message: "Use the Boolean directly, negate it, or normalize an optional into a named nonoptional fact."
+    severity: error

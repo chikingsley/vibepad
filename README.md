@@ -1,98 +1,116 @@
-# OpenCode iOS Client
+# VibePad
 
-A native iOS, iPadOS, and visionOS client for [OpenCode](https://github.com/opencode-ai/opencode). Connect to your OpenCode server from your iPhone, iPad, or Apple Vision Pro to chat with AI agents, monitor tool calls in real time, and browse code changes on the go.
+VibePad is a native iPad client for [OpenCode](https://github.com/opencode-ai/opencode). It connects to an OpenCode server so you can work with sessions, chat, tool calls, diffs, files, voice input, and host/SSH profiles from an iPad.
 
-## Install via TestFlight
+VibePad is under active development. There is no VibePad TestFlight or App Store build yet; the current goal is a stable developer beta.
 
-Don't want to build from source? Join the TestFlight beta:
+## What works today
 
-**https://testflight.apple.com/join/2cWrmPVq**
+- Chat with streaming responses, reasoning, tool cards, permissions, questions, todos, image attachments, and model/agent selection.
+- Browse remote files, search, diffs, Markdown, code, and images.
+- Create, fork, archive, restore, and delete sessions.
+- Connect directly over LAN, VPN, Tailscale, or HTTPS with optional Basic Auth.
+- Connect through a key-authenticated Citadel SSH tunnel with TOFU host-key checking.
+- Dictate through the existing VoiceFlowKit integration.
+- Select an OpenCode project or enter a custom remote directory; project-scoped API requests carry that directory.
 
-No Apple Developer account needed. Just tap the link on your iOS device.
-
-## Features
-
-- **Chat**: send messages, switch models, view AI replies with streaming, inspect tool calls and reasoning
-- **Files**: file tree browser, session diffs, markdown preview, image preview with zoom/pan, code view with line numbers
-- **Settings**: server connection, Basic Auth, SSH tunnel, theme, voice transcription
-
-### Apple Vision Pro support
-
-The main `OpenCodeClient` target builds as a single native app for iPhone, iPad, and Apple Vision Pro. On visionOS it reuses the existing iPad-style three-column `NavigationSplitView` layout: sidebar, file preview, and chat. It deliberately avoids the iPhone tab-based layout.
-
-Current visionOS baseline limitations:
-
-- SSH tunnel settings are hidden and SSH tunneling is not available. Connect directly to a LAN or HTTPS OpenCode server instead.
-- Markdown rendering uses pinned SPM forks of MarkdownUI and NetworkImage (see **Building from Source** below). Those forks carry the minimal manifest / platform support changes so the same renderer builds for iOS, iPadOS, and visionOS.
-
-### Hardware keyboard behavior on iPad
-
-- `Enter`: insert a newline
-- Send: use the circular arrow button on the right side of the composer
-- Chinese/Japanese IME composition is allowed to commit marked text normally
+The active project context is the connected host, selected remote directory/worktree, and current session. It is the place where OpenCode requests run—not the model's context window. The next product slice will make that context persistently visible before adding live previews and Pencil markup.
 
 ## Requirements
 
-- iOS 17.0+ or visionOS 26.0+
-- A running OpenCode server (`opencode serve` or `opencode web`)
-- Xcode 16+ (only if building from source)
+- iPadOS 17.6 or later.
+- A reachable OpenCode server started with `opencode serve` or `opencode web`.
+- For development: Xcode 26.6 or later with iOS/iPadOS platform support.
+- For repository checks: Apple's `swift-format` and SwiftLint.
 
-## Quick Start
+The current baseline uses the Swift 6 language mode, complete strict concurrency checking, the Swift 6.3.3 compiler, and the iOS/iPadOS 26.5 SDK. The deployment target remains iPadOS 17.6 so the app supports more than only the newest iPadOS release.
 
-1. Start OpenCode on your Mac: `opencode serve --port 4096`
-2. Open the iOS app, go to Settings, enter the server address (e.g. `http://192.168.x.x:4096`)
-3. Tap Test Connection
-4. Switch to Chat, create or select a session, and start talking
+## Connect an iPad
 
-## Remote Access
+1. Start OpenCode on the host, for example with `opencode serve --port 4096`.
+2. Make the service reachable from the iPad. Prefer a trusted LAN, VPN/Tailscale route, HTTPS, or the built-in SSH tunnel.
+3. In VibePad, add or select a host, test the connection, and choose a project/directory.
+4. Create or select a session and open Chat.
 
-The app is designed for LAN use by default. Two options for remote access:
-
-**HTTPS + public server (recommended)**: deploy OpenCode on a public server with TLS. Point the iOS app to `https://your-server.com:4096` and configure Basic Auth credentials.
-
-**SSH Tunnel**: the app has a built-in SSH tunnel (powered by Citadel). Ask your OpenCode host admin to add the device public key shown in Settings and give you the assigned remote port, then configure Settings > SSH Tunnel. The iOS app connects to `127.0.0.1:4096` through that SSH gateway.
+Do not expose an unauthenticated OpenCode server directly to the public internet.
 
 ## Repository layout
 
-This repo ships only the iOS/visionOS app and its docs/scripts. Large local-only directories are gitignored:
+| Path | Purpose |
+|---|---|
+| `OpenCodeClient/` | The only shipped app tree: Xcode project, sources, unit tests, and UI tests. |
+| `docs/` | Product requirements, API notes, test notes, and the active TODO. |
+| `scripts/` | Deterministic formatting and lint helpers plus small maintenance scripts. |
+| `opencode-official/` | Optional, gitignored checkout of the OpenCode server for integration work. |
+| `VibePad.xcworkspace/` | Shared workspace and pinned Swift package resolution. |
 
-| Path | In git | Purpose |
-|---|---|---|
-| `OpenCodeClient/` | yes | Xcode project, app sources, unit/UI tests |
-| `docs/` | yes | PRD, RFC, API notes, working notes |
-| `scripts/` | yes | One-off maintenance scripts |
-| `opencode-official/` | no | Optional local checkout of upstream OpenCode server for integration testing |
-| `.venv/` | no | Python venv for `scripts/` |
-| `OpenCodeClient/build/`, `DerivedData/` | no | Xcode build artifacts |
+## Development
 
-`opencode-official/` is optional. Clone it only when you need to build or patch the server alongside the client. See `docs/WORKING.md` for the default rebase-on-`origin/dev` workflow.
-
-## Building from Source
+Install the checks once:
 
 ```bash
-git clone https://github.com/grapeot/opencode_ios_client.git
-cd opencode_ios_client/OpenCodeClient
-open OpenCodeClient.xcodeproj
+brew install swift-format swiftlint
 ```
 
-Select the `OpenCodeClient` scheme, then pick an iPhone, iPad, or Apple Vision Pro destination. The same scheme and bundle identifier are used across iOS, iPadOS, and native visionOS, so TestFlight/App Store distribution remains a single app. Swift Package dependencies resolve automatically on first build.
-
-This repo uses pinned forked Swift Package dependencies for Markdown rendering on visionOS:
-
-- `https://github.com/grapeot/swift-markdown-ui`, exact `2.4.1-visionos.1`
-- `https://github.com/grapeot/NetworkImage`, exact `6.0.1-visionos.1`
-
-Those forks contain the minimal package manifest and placeholder-image changes needed for visionOS while the upstream packages do not advertise visionOS support.
-
-For native visionOS, build the shared `OpenCodeClient` scheme with an Apple Vision Pro destination:
+Format and lint:
 
 ```bash
-xcodebuild -project "OpenCodeClient.xcodeproj" \
-  -scheme "OpenCodeClient" \
-  -destination 'platform=visionOS Simulator,name=Apple Vision Pro' \
+./scripts/format.sh
+./scripts/lint.sh
+```
+
+Enable the repository-managed pre-commit check once per clone:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+The hook verifies Apple `swift-format` and SwiftLint without rewriting files. If it fails, run `./scripts/format.sh` and retry. Builds and tests stay out of pre-commit because they are substantially slower.
+
+Open the workspace, not a second app tree:
+
+```bash
+open VibePad.xcworkspace
+```
+
+Build from the command line:
+
+```bash
+xcodebuild -workspace VibePad.xcworkspace \
+  -scheme OpenCodeClient \
+  -destination 'generic/platform=iOS Simulator' \
   CODE_SIGNING_ALLOWED=NO build
 ```
 
-## License
+Build tests and run unit tests sequentially against an installed iPad simulator:
 
-MIT
+```bash
+xcodebuild -workspace VibePad.xcworkspace \
+  -scheme OpenCodeClient \
+  -destination 'platform=iOS Simulator,name=iPad (A16)' \
+  CODE_SIGNING_ALLOWED=NO build-for-testing
+
+xcodebuild -workspace VibePad.xcworkspace \
+  -scheme OpenCodeClient \
+  -destination 'platform=iOS Simulator,name=iPad (A16)' \
+  CODE_SIGNING_ALLOWED=NO test-without-building \
+  -only-testing:OpenCodeClientTests
+```
+
+Do not run build and test concurrently: they share Xcode's build database. The shared scheme keeps UI tests serial because parallel UI workers require cloned simulators and proved unreliable on this Xcode/runtime combination. The command-line override below makes that intent explicit:
+
+```bash
+xcodebuild -workspace VibePad.xcworkspace \
+  -scheme OpenCodeClient \
+  -destination 'platform=iOS Simulator,name=iPad (A16)' \
+  -parallel-testing-enabled NO \
+  CODE_SIGNING_ALLOWED=NO test-without-building \
+  -only-testing:OpenCodeClientUITests \
+  -skip-testing:OpenCodeClientUITests/Tier4DriverUITests
+```
+
+`Tier4DriverUITests` is environment-driven live-server testing. Its send flow requires an explicit `OPENCODE_SERVER_URL` or `TIER4_SERVER_URL` plus `TIER4_PROMPT`. Never point it at an OpenCode process someone is actively using; use a separate temporary server and port.
+
+## Upstream
+
+The app began as a fork of [`grapeot/opencode_ios_client`](https://github.com/grapeot/opencode_ios_client). Preserve that upstream as a read-only Git remote after the VibePad repository is created.

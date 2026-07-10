@@ -3,6 +3,11 @@
 # Local dev checkouts (not part of this repo)
 opencode-official/
 
+# Local prototypes / generated handoff artifacts (not shipped app code)
+orb-ui/
+*.previbepad.bak
+vipepad-demo.mp4
+
 # Python tooling (scripts/resize_icon.py)
 .venv/
 
@@ -34,6 +39,10 @@ OpenCodeClient/build_log*.txt
 # CocoaPods
 Pods/
 *.xcworkspace
+!VibePad.xcworkspace/
+!VibePad.xcworkspace/**
+VibePad.xcworkspace/xcuserdata/
+VibePad.xcworkspace/**/*.xcuserstate
 !default.xcworkspace
 !**/*.xcodeproj/project.xcworkspace/
 !**/*.xcodeproj/project.xcworkspace/**
