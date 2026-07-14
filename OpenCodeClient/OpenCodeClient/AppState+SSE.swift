@@ -48,31 +48,61 @@ extension AppState {
   // should be called explicitly when needed (e.g., on background/terminate).
 
   func handleSSEEvent(_ event: SSEEvent) async {
-    let properties = event.payload.properties ?? [:]
+    let properties = event.properties
 
-    switch event.payload.type {
+    guard !event.type.hasPrefix("session.next.") else {
+      await handleSessionNextEvent(type: event.type, properties)
+      return
+    }
+
+    switch event.type {
     case "server.connected":
       await syncSessionStatusesFromPoll(markMissingBusyAsIdle: true)
     case "session.status":
       handleSessionStatusEvent(properties)
-    case "session.updated":
+    case "session.created", "session.updated":
       handleSessionUpdatedEvent(properties)
     case "session.deleted":
       await handleSessionDeletedEvent(properties)
-    case "message.updated":
-      await handleMessageUpdatedEvent(properties)
-    case "message.part.updated":
-      await handleMessagePartUpdatedEvent(properties)
-    case "permission.asked":
+    case "session.idle":
+      handleSessionIdleEvent(properties)
+    case "session.error":
+      await handleSessionErrorEvent(properties)
+    case "permission.v2.asked":
       handlePermissionAskedEvent(properties)
-    case "permission.replied":
+    case "permission.v2.replied":
       PermissionController.applyRepliedEvent(properties: properties, to: &pendingPermissions)
-    case "question.asked":
+    case "question.v2.asked":
       handleQuestionAskedEvent(properties)
-    case "question.replied", "question.rejected":
+    case "question.v2.replied", "question.v2.rejected":
       QuestionController.applyResolvedEvent(properties: properties, to: &pendingQuestions)
     case "todo.updated":
       handleTodoUpdatedEvent(properties)
+    default:
+      break
+    }
+  }
+
+  /// Run-lifecycle and streaming events emitted by the v2 session engine.
+  private func handleSessionNextEvent(type: String, _ properties: [String: AnyCodable]) async {
+    switch type {
+    case "session.next.prompt.admitted", "session.next.prompted", "session.next.step.started",
+      "session.next.shell.started":
+      handleSessionRunActiveEvent(properties)
+    case "session.next.retried":
+      handleSessionRetriedEvent(properties)
+    case "session.next.text.delta", "session.next.reasoning.delta":
+      handleStreamDeltaEvent(type: type, properties)
+    case "session.next.text.ended", "session.next.reasoning.ended":
+      await handleStreamEndedEvent(properties)
+    case "session.next.tool.called":
+      await handleToolEvent(properties, reloadDiff: false)
+    case "session.next.tool.success", "session.next.tool.failed":
+      await handleToolEvent(properties, reloadDiff: true)
+    case "session.next.step.ended":
+      await handleStepEndedEvent(properties)
+    case "session.next.step.failed":
+      await handleStepFailedEvent(properties)
     default:
       break
     }
@@ -85,7 +115,12 @@ extension AppState {
       let statusData = try? JSONSerialization.data(withJSONObject: statusObject),
       let status = try? JSONDecoder().decode(SessionStatus.self, from: statusData)
     else { return }
+    applySessionStatus(sessionID: sessionID, status: status)
+  }
 
+  /// Applies an event-derived status transition and drives the same
+  /// bookkeeping the polled reconcile path uses.
+  private func applySessionStatus(sessionID: String, status: SessionStatus) {
     let previousStatus = sessionStatuses[sessionID]
     guard previousStatus != status else { return }
     sessionStatuses[sessionID] = status
@@ -101,6 +136,103 @@ extension AppState {
     if sessionID == currentSessionID, !isBusySession(status) {
       messageStore.resetStreaming()
     }
+  }
+
+  private func handleSessionIdleEvent(_ properties: [String: AnyCodable]) {
+    guard let sessionID = properties["sessionID"]?.value as? String else { return }
+    applySessionStatus(sessionID: sessionID, status: SessionStatus(type: "idle", attempt: nil, message: nil, next: nil))
+  }
+
+  private func handleSessionErrorEvent(_ properties: [String: AnyCodable]) async {
+    guard let sessionID = properties["sessionID"]?.value as? String else { return }
+    applySessionStatus(sessionID: sessionID, status: SessionStatus(type: "idle", attempt: nil, message: nil, next: nil))
+    guard sessionID == currentSessionID else { return }
+    messageStore.resetStreaming()
+    await loadMessages()
+  }
+
+  /// Any run-lifecycle event implies the session is busy; the polled
+  /// reconcile keeps this honest if a terminal event is missed.
+  private func handleSessionRunActiveEvent(_ properties: [String: AnyCodable]) {
+    guard let sessionID = properties["sessionID"]?.value as? String else { return }
+    applySessionStatus(sessionID: sessionID, status: SessionStatus(type: "busy", attempt: nil, message: nil, next: nil))
+  }
+
+  private func handleSessionRetriedEvent(_ properties: [String: AnyCodable]) {
+    guard let sessionID = properties["sessionID"]?.value as? String else { return }
+    let attempt = properties["attempt"]?.value as? Int
+    applySessionStatus(
+      sessionID: sessionID, status: SessionStatus(type: "retry", attempt: attempt, message: nil, next: nil))
+  }
+
+  private func handleStreamDeltaEvent(type: String, _ properties: [String: AnyCodable]) {
+    guard
+      let sessionID = properties["sessionID"]?.value as? String,
+      sessionID == currentSessionID,
+      let messageID = properties["assistantMessageID"]?.value as? String,
+      let delta = properties["delta"]?.value as? String,
+      !delta.isEmpty
+    else { return }
+
+    let isReasoning = type == "session.next.reasoning.delta"
+    let partID =
+      (properties[isReasoning ? "reasoningID" : "textID"]?.value as? String) ?? "stream"
+    messageStore.appendStreamingDelta(
+      messageID: messageID,
+      partID: partID,
+      sessionID: sessionID,
+      type: isReasoning ? "reasoning" : "text",
+      delta: delta
+    )
+    if !isBusySession(sessionStatuses[sessionID]) {
+      applySessionStatus(
+        sessionID: sessionID, status: SessionStatus(type: "busy", attempt: nil, message: nil, next: nil))
+    }
+    refreshSessionActivityText(sessionID: sessionID)
+  }
+
+  /// `*.ended` events carry the final text, so the durable projection is
+  /// complete: drop the typewriter buffer and reload the real message.
+  private func handleStreamEndedEvent(_ properties: [String: AnyCodable]) async {
+    guard
+      let sessionID = properties["sessionID"]?.value as? String,
+      sessionID == currentSessionID,
+      let messageID = properties["assistantMessageID"]?.value as? String
+    else { return }
+    messageStore.clearStreamingState(messageID: messageID)
+    await loadMessages()
+    await loadSessionDiff()
+  }
+
+  private func handleToolEvent(_ properties: [String: AnyCodable], reloadDiff: Bool) async {
+    guard
+      let sessionID = properties["sessionID"]?.value as? String,
+      sessionID == currentSessionID
+    else { return }
+    await loadMessages()
+    if reloadDiff {
+      await loadSessionDiff()
+    }
+    refreshSessionActivityText(sessionID: sessionID)
+  }
+
+  private func handleStepEndedEvent(_ properties: [String: AnyCodable]) async {
+    guard let sessionID = properties["sessionID"]?.value as? String else { return }
+    let finish = properties["finish"]?.value as? String
+    // Intermediate steps end with finish == "tool-calls" and the run continues.
+    guard finish != "tool-calls" else { return }
+    applySessionStatus(sessionID: sessionID, status: SessionStatus(type: "idle", attempt: nil, message: nil, next: nil))
+    guard sessionID == currentSessionID else { return }
+    await loadMessages()
+    await loadSessionDiff()
+  }
+
+  private func handleStepFailedEvent(_ properties: [String: AnyCodable]) async {
+    guard let sessionID = properties["sessionID"]?.value as? String else { return }
+    applySessionStatus(sessionID: sessionID, status: SessionStatus(type: "idle", attempt: nil, message: nil, next: nil))
+    guard sessionID == currentSessionID else { return }
+    messageStore.resetStreaming()
+    await loadMessages()
   }
 
   private func handleSessionUpdatedEvent(_ properties: [String: AnyCodable]) {
@@ -137,28 +269,6 @@ extension AppState {
     }
     Self.logger.debug("session.deleted id=\(sessionID, privacy: .public)")
     await handleRemoteSessionDeleted(sessionID: sessionID)
-  }
-
-  private func handleMessageUpdatedEvent(_ properties: [String: AnyCodable]) async {
-    let sessionID = properties["sessionID"]?.value as? String
-    guard Self.shouldProcessMessageEvent(eventSessionID: sessionID, currentSessionID: currentSessionID) else {
-      return
-    }
-    messageStore.resetStreaming()
-    await loadMessages()
-    await loadSessionDiff()
-  }
-
-  private func handleMessagePartUpdatedEvent(_ properties: [String: AnyCodable]) async {
-    switch messageStore.applyMessagePartUpdate(properties: properties, currentSessionID: currentSessionID) {
-    case .ignored:
-      break
-    case .appended(let sessionID):
-      refreshSessionActivityText(sessionID: sessionID)
-    case .finalized:
-      await loadMessages()
-      await loadSessionDiff()
-    }
   }
 
   private func handlePermissionAskedEvent(_ properties: [String: AnyCodable]) {

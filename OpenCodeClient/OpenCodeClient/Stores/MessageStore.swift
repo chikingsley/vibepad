@@ -8,12 +8,6 @@ import Observation
 
 @Observable
 final class MessageStore {
-  enum MessagePartUpdateOutcome {
-    case ignored
-    case appended(sessionID: String)
-    case finalized(sessionID: String)
-  }
-
   var messages: [MessageWithParts] = []
   var partsByMessage: [String: [Part]] = [:]
   /// Delta accumulation: key = "messageID:partID", used for the typewriter effect
@@ -128,38 +122,6 @@ final class MessageStore {
         text: text
       )
     }
-  }
-
-  func applyMessagePartUpdate(
-    properties: [String: AnyCodable],
-    currentSessionID: String?
-  ) -> MessagePartUpdateOutcome {
-    guard let sessionID = properties["sessionID"]?.value as? String,
-      sessionID == currentSessionID,
-      let partObject = properties["part"]?.value as? [String: Any],
-      let messageID = partObject["messageID"] as? String,
-      let partID = partObject["id"] as? String
-    else {
-      return .ignored
-    }
-
-    let partType = (partObject["type"] as? String) ?? "text"
-
-    if let delta = properties["delta"]?.value as? String,
-      !delta.isEmpty
-    {
-      appendStreamingDelta(
-        messageID: messageID,
-        partID: partID,
-        sessionID: sessionID,
-        type: partType,
-        delta: delta
-      )
-      return .appended(sessionID: sessionID)
-    }
-
-    clearStreamingState(messageID: messageID)
-    return .finalized(sessionID: sessionID)
   }
 
   func clearStreamingState(messageID: String) {

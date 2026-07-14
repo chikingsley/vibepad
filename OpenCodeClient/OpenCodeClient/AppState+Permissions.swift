@@ -34,7 +34,11 @@ extension AppState {
   func respondQuestion(_ request: QuestionRequest, answers: [[String]]) async {
     do {
       try await apiClient.replyQuestion(
-        requestID: request.id, answers: answers, scope: scope(forSessionID: request.sessionID))
+        sessionID: request.sessionID,
+        requestID: request.id,
+        answers: answers,
+        scope: scope(forSessionID: request.sessionID)
+      )
       pendingQuestions.removeAll { $0.id == request.id }
     } catch {
       connectionError = error.localizedDescription
@@ -43,7 +47,8 @@ extension AppState {
 
   func rejectQuestion(_ request: QuestionRequest) async {
     do {
-      try await apiClient.rejectQuestion(requestID: request.id, scope: scope(forSessionID: request.sessionID))
+      try await apiClient.rejectQuestion(
+        sessionID: request.sessionID, requestID: request.id, scope: scope(forSessionID: request.sessionID))
       pendingQuestions.removeAll { $0.id == request.id }
     } catch {
       connectionError = error.localizedDescription

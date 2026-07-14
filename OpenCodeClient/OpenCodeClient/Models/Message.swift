@@ -124,6 +124,14 @@ nonisolated struct Message: Codable, Identifiable {
       case cache
     }
 
+    init(total: Int? = nil, input: Int, output: Int, reasoning: Int, cache: CacheInfo?) {
+      self.input = input
+      self.output = output
+      self.reasoning = reasoning
+      self.cache = cache
+      self.total = total ?? (input + output + reasoning)
+    }
+
     init(from decoder: Decoder) throws {
       let c = try decoder.container(keyedBy: CodingKeys.self)
       input = try c.decodeIfPresent(Int.self, forKey: .input) ?? 0
@@ -278,6 +286,19 @@ nonisolated struct PartStateBridge: Codable {
       path: input.path,
       todos: todos
     )
+  }
+
+  /// Builds a bridge from a v2 tool state (`SessionMessageToolState*` /
+  /// `session.next.tool.*` payloads), which carry a typed status plus an
+  /// input object and text content instead of the legacy state blob.
+  init(v2Status status: String, input: [String: Any]?, outputText: String?) {
+    displayString = status
+    title = nil
+    let decodedInput = Self.decodeInput(input)
+    inputSummary = decodedInput.summary
+    pathFromInput = decodedInput.path
+    output = outputText
+    todos = decodedInput.todos ?? Self.decodeTodos(fromJSONText: outputText)
   }
 
   init(from decoder: Decoder) throws {

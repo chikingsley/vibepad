@@ -111,95 +111,89 @@ struct OpenCodeClientTests {
     #expect(message.tokens?.total == 15)
   }
 
-  // Regression: server.connected event has no directory; SSEEvent.directory must be optional
+  // Regression: server.connected event has no location; SSEEvent.directory must be optional
   @Test func sseEventDecodingWithoutDirectory() throws {
     let json = """
-      {"payload":{"type":"server.connected","properties":{}}}
+      {"id":"evt_1","type":"server.connected","data":{}}
       """
     let data = json.data(using: .utf8)!
     let event = try JSONDecoder().decode(SSEEvent.self, from: data)
     #expect(event.directory == nil)
-    #expect(event.payload.type == "server.connected")
+    #expect(event.type == "server.connected")
   }
 
-  @Test func sseEventDecodingWithDirectory() throws {
+  @Test func sseEventDecodingWithLocation() throws {
     let json = """
-      {"directory":"/path/to/workspace","payload":{"type":"message.updated","properties":{}}}
+      {"id":"evt_2","type":"session.created","location":{"directory":"/path/to/workspace"},"data":{"sessionID":"s1"}}
       """
     let data = json.data(using: .utf8)!
     let event = try JSONDecoder().decode(SSEEvent.self, from: data)
     #expect(event.directory == "/path/to/workspace")
-    #expect(event.payload.type == "message.updated")
+    #expect(event.type == "session.created")
   }
 
   // handleSSEEvent depends on these event structures - document expected format
   @Test func sseEventSessionStatus() throws {
     let json = """
-      {"payload":{"type":"session.status","properties":{"sessionID":"s1","status":{"type":"busy","attempt":1,"message":"Processing","next":null}}}}
+      {"id":"evt_3","type":"session.status","data":{"sessionID":"s1","status":{"type":"busy","attempt":1,"message":"Processing","next":null}}}
       """
     let data = json.data(using: .utf8)!
     let event = try JSONDecoder().decode(SSEEvent.self, from: data)
-    #expect(event.payload.type == "session.status")
-    let props = event.payload.properties ?? [:]
+    #expect(event.type == "session.status")
+    let props = event.properties
     #expect((props["sessionID"]?.value as? String) == "s1")
     let statusObj = props["status"]?.value as? [String: Any]
     #expect(statusObj != nil)
     #expect((statusObj?["type"] as? String) == "busy")
   }
 
-  @Test func sseEventPermissionAsked() throws {
+  @Test func sseEventPermissionV2Asked() throws {
     let json = """
-      {"payload":{"type":"permission.asked","properties":{"sessionID":"s1","permissionID":"perm1","description":"Run command","tool":"run_terminal_cmd"}}}
+      {"id":"evt_4","type":"permission.v2.asked","location":{"directory":"/p"},"data":{"id":"per_1","sessionID":"s1","action":"bash","resources":["echo hi"],"save":["echo hi"],"source":{"type":"tool","messageID":"msg_1","callID":"bash_1"}}}
       """
     let data = json.data(using: .utf8)!
     let event = try JSONDecoder().decode(SSEEvent.self, from: data)
-    #expect(event.payload.type == "permission.asked")
-    let props = event.payload.properties ?? [:]
+    #expect(event.type == "permission.v2.asked")
+    let props = event.properties
     #expect((props["sessionID"]?.value as? String) == "s1")
-    #expect((props["permissionID"]?.value as? String) == "perm1")
-    #expect((props["description"]?.value as? String) == "Run command")
-    #expect((props["tool"]?.value as? String) == "run_terminal_cmd")
+    #expect((props["id"]?.value as? String) == "per_1")
+    #expect((props["action"]?.value as? String) == "bash")
+    #expect(((props["resources"]?.value as? [Any])?.first as? String) == "echo hi")
   }
 
   @Test func sseEventTodoUpdated() throws {
     let json = """
-      {"payload":{"type":"todo.updated","properties":{"sessionID":"s1","todos":[{"id":"t1","content":"Task 1","completed":false},{"id":"t2","content":"Task 2","completed":true}]}}}
+      {"id":"evt_5","type":"todo.updated","data":{"sessionID":"s1","todos":[{"id":"t1","content":"Task 1","completed":false},{"id":"t2","content":"Task 2","completed":true}]}}
       """
     let data = json.data(using: .utf8)!
     let event = try JSONDecoder().decode(SSEEvent.self, from: data)
-    #expect(event.payload.type == "todo.updated")
-    let props = event.payload.properties ?? [:]
+    #expect(event.type == "todo.updated")
+    let props = event.properties
     #expect((props["sessionID"]?.value as? String) == "s1")
     let todosObj = props["todos"]?.value
     #expect(JSONSerialization.isValidJSONObject(todosObj ?? []))
   }
 
-  @Test func sseEventMessageUpdated() throws {
-    let json = """
-      {"payload":{"type":"message.updated","properties":{"sessionID":"s1","messageID":"m1"}}}
+  // Streaming: session.next.text.delta drives the typing effect; deltas are
+  // ephemeral (no durable seq), ended events carry the durable seq.
+  @Test func sseEventTextDeltaAndDurableSeq() throws {
+    let deltaJSON = """
+      {"id":"evt_6","type":"session.next.text.delta","location":{"directory":"/p"},"data":{"timestamp":1,"sessionID":"s1","assistantMessageID":"m1","textID":"text-0","delta":"Hello "}}
       """
-    let data = json.data(using: .utf8)!
-    let event = try JSONDecoder().decode(SSEEvent.self, from: data)
-    #expect(event.payload.type == "message.updated")
-    let props = event.payload.properties ?? [:]
-    #expect((props["sessionID"]?.value as? String) == "s1")
-  }
+    let delta = try JSONDecoder().decode(SSEEvent.self, from: deltaJSON.data(using: .utf8)!)
+    #expect(delta.type == "session.next.text.delta")
+    #expect(delta.seq == nil)
+    #expect((delta.properties["assistantMessageID"]?.value as? String) == "m1")
+    #expect((delta.properties["textID"]?.value as? String) == "text-0")
+    #expect((delta.properties["delta"]?.value as? String) == "Hello ")
 
-  // Think Streaming: message.part.updated with delta for typing effect
-  @Test func sseEventMessagePartUpdatedWithDelta() throws {
-    let json = """
-      {"payload":{"type":"message.part.updated","properties":{"sessionID":"s1","messageID":"m1","delta":"Hello ","part":{"id":"p1","messageID":"m1","sessionID":"s1","type":"reasoning"}}}}
+    let endedJSON = """
+      {"id":"evt_7","type":"session.next.text.ended","durable":{"aggregateID":"s1","seq":5,"version":1},"data":{"timestamp":2,"sessionID":"s1","assistantMessageID":"m1","textID":"text-0","text":"Hello world"}}
       """
-    let data = json.data(using: .utf8)!
-    let event = try JSONDecoder().decode(SSEEvent.self, from: data)
-    #expect(event.payload.type == "message.part.updated")
-    let props = event.payload.properties ?? [:]
-    #expect((props["sessionID"]?.value as? String) == "s1")
-    #expect((props["delta"]?.value as? String) == "Hello ")
-    let partObj = props["part"]?.value as? [String: Any]
-    #expect(partObj != nil)
-    #expect((partObj?["messageID"] as? String) == "m1")
-    #expect((partObj?["id"] as? String) == "p1")
+    let ended = try JSONDecoder().decode(SSEEvent.self, from: endedJSON.data(using: .utf8)!)
+    #expect(ended.type == "session.next.text.ended")
+    #expect(ended.seq == 5)
+    #expect((ended.properties["text"]?.value as? String) == "Hello world")
   }
 
   // Regression: Part.state can be String or object (ToolState); was causing loadMessages decode failure during thinking
@@ -503,22 +497,6 @@ private func withIsolatedHostProfileDefaults(_ body: () -> Void) {
 // MARK: - Session Filtering (Code Review 1.3)
 
 struct SessionFilteringTests {
-
-  @Test func shouldProcessWhenSessionMatches() {
-    #expect(AppState.shouldProcessMessageEvent(eventSessionID: "s1", currentSessionID: "s1") == true)
-  }
-
-  @Test func shouldNotProcessWhenSessionMismatch() {
-    #expect(AppState.shouldProcessMessageEvent(eventSessionID: "s2", currentSessionID: "s1") == false)
-  }
-
-  @Test func shouldNotProcessWhenNoCurrentSession() {
-    #expect(AppState.shouldProcessMessageEvent(eventSessionID: "s1", currentSessionID: nil) == false)
-  }
-
-  @Test func shouldProcessWhenNoEventSessionIDForBackwardCompat() {
-    #expect(AppState.shouldProcessMessageEvent(eventSessionID: nil, currentSessionID: "s1") == true)
-  }
 
   @Test func shouldApplySessionScopedResultWhenRequestedStillCurrent() {
     #expect(AppState.shouldApplySessionScopedResult(requestedSessionID: "s1", currentSessionID: "s1") == true)
@@ -1356,11 +1334,11 @@ struct APIConstantsTests {
   }
 
   @Test func sseEndpoint() {
-    #expect(APIConstants.sseEndpoint == "/global/event")
+    #expect(APIConstants.sseEndpoint == "/api/event")
   }
 
   @Test func healthEndpoint() {
-    #expect(APIConstants.healthEndpoint == "/global/health")
+    #expect(APIConstants.healthEndpoint == "/api/health")
   }
 
   @Test func timeoutValues() {
@@ -1631,38 +1609,36 @@ struct PermissionControllerTests {
     #expect(mapped[0].patterns == ["src/**"])
   }
 
-  @Test func parseAskedEventWithNestedRequest() {
+  @Test func parseAskedEventFromPermissionV2Payload() {
     let props: [String: AnyCodable] = [
-      "request": AnyCodable([
-        "sessionID": "s1",
-        "permissionID": "perm1",
-        "permission": "run_terminal_cmd",
-        "tool": "bash",
-        "patterns": ["src/**"],
-        "always": true,
-        "description": "Run command",
-      ])
+      "id": AnyCodable("per_1"),
+      "sessionID": AnyCodable("s1"),
+      "action": AnyCodable("bash"),
+      "resources": AnyCodable(["echo hi"]),
+      "save": AnyCodable(["echo hi"]),
+      "source": AnyCodable(["type": "tool", "messageID": "msg_1", "callID": "bash_1"]),
     ]
 
     let parsed = PermissionController.parseAskedEvent(properties: props)
     #expect(parsed?.sessionID == "s1")
-    #expect(parsed?.permissionID == "perm1")
-    #expect(parsed?.tool == "bash")
+    #expect(parsed?.permissionID == "per_1")
+    #expect(parsed?.permission == "bash")
+    #expect(parsed?.patterns == ["echo hi"])
     #expect(parsed?.allowAlways == true)
-    #expect(parsed?.description == "Run command")
+    #expect(parsed?.description == "bash: echo hi")
   }
 
-  @Test func parseAskedEventWithFallbackFields() {
+  @Test func parseAskedEventWithoutSaveOptions() {
     let props: [String: AnyCodable] = [
+      "id": AnyCodable("per_2"),
       "sessionID": AnyCodable("s2"),
-      "id": AnyCodable("perm2"),
-      "permission": AnyCodable("edit_file"),
-      "tool": AnyCodable(["name": "edit"]),
+      "action": AnyCodable("edit"),
+      "resources": AnyCodable([String]()),
     ]
 
     let parsed = PermissionController.parseAskedEvent(properties: props)
-    #expect(parsed?.id == "s2/perm2")
-    #expect(parsed?.tool == "edit")
+    #expect(parsed?.id == "s2/per_2")
+    #expect(parsed?.allowAlways == false)
     #expect(parsed?.description == "edit")
   }
 
@@ -2594,38 +2570,38 @@ struct QuestionControllerTests {
 
 struct QuestionSSEEventTests {
 
-  @Test func sseEventQuestionAsked() throws {
+  @Test func sseEventQuestionV2Asked() throws {
     let json = """
-      {"payload":{"type":"question.asked","properties":{"id":"question_1","sessionID":"s1","questions":[{"question":"Pick one","header":"Choice","options":[{"label":"A","description":"Option A"},{"label":"B","description":"Option B"}],"multiple":false}]}}}
+      {"id":"evt_q1","type":"question.v2.asked","data":{"id":"que_1","sessionID":"s1","questions":[{"question":"Pick one","header":"Choice","options":[{"label":"A","description":"Option A"},{"label":"B","description":"Option B"}],"multiple":false}]}}
       """
     let data = json.data(using: .utf8)!
     let event = try JSONDecoder().decode(SSEEvent.self, from: data)
-    #expect(event.payload.type == "question.asked")
-    let props = event.payload.properties ?? [:]
-    #expect((props["id"]?.value as? String) == "question_1")
+    #expect(event.type == "question.v2.asked")
+    let props = event.properties
+    #expect((props["id"]?.value as? String) == "que_1")
     #expect((props["sessionID"]?.value as? String) == "s1")
   }
 
-  @Test func sseEventQuestionReplied() throws {
+  @Test func sseEventQuestionV2Replied() throws {
     let json = """
-      {"payload":{"type":"question.replied","properties":{"sessionID":"s1","requestID":"question_1","answers":[["A"]]}}}
+      {"id":"evt_q2","type":"question.v2.replied","data":{"sessionID":"s1","requestID":"que_1","answers":[["A"]]}}
       """
     let data = json.data(using: .utf8)!
     let event = try JSONDecoder().decode(SSEEvent.self, from: data)
-    #expect(event.payload.type == "question.replied")
-    let props = event.payload.properties ?? [:]
-    #expect((props["requestID"]?.value as? String) == "question_1")
+    #expect(event.type == "question.v2.replied")
+    let props = event.properties
+    #expect((props["requestID"]?.value as? String) == "que_1")
   }
 
-  @Test func sseEventQuestionRejected() throws {
+  @Test func sseEventQuestionV2Rejected() throws {
     let json = """
-      {"payload":{"type":"question.rejected","properties":{"sessionID":"s1","requestID":"question_1"}}}
+      {"id":"evt_q3","type":"question.v2.rejected","data":{"sessionID":"s1","requestID":"que_1"}}
       """
     let data = json.data(using: .utf8)!
     let event = try JSONDecoder().decode(SSEEvent.self, from: data)
-    #expect(event.payload.type == "question.rejected")
-    let props = event.payload.properties ?? [:]
-    #expect((props["requestID"]?.value as? String) == "question_1")
+    #expect(event.type == "question.v2.rejected")
+    let props = event.properties
+    #expect((props["requestID"]?.value as? String) == "que_1")
   }
 }
 
@@ -2830,8 +2806,8 @@ actor MockAPIClient: APIClientProtocol {
     sessionID: String, permissionID: String, response: APIClient.PermissionResponse, scope: OpenCodeScope?
   ) {}
   func pendingQuestions(scope: OpenCodeScope?) -> [QuestionRequest] { [] }
-  func replyQuestion(requestID: String, answers: [[String]], scope: OpenCodeScope?) {}
-  func rejectQuestion(requestID: String, scope: OpenCodeScope?) {}
+  func replyQuestion(sessionID: String, requestID: String, answers: [[String]], scope: OpenCodeScope?) {}
+  func rejectQuestion(sessionID: String, requestID: String, scope: OpenCodeScope?) {}
   func providers(scope: OpenCodeScope?) throws -> ProvidersResponse {
     try JSONDecoder().decode(ProvidersResponse.self, from: Data("{\"providers\":[]}".utf8))
   }
@@ -3313,7 +3289,7 @@ struct AppStateFlowTests {
     #expect(state.partsByMessage[tempMessageID] == nil)
   }
 
-  @Test @MainActor func messageUpdatedIgnoresOtherSession() async {
+  @Test @MainActor func textEndedIgnoresOtherSession() async {
     let apiClient = MockAPIClient()
     let state = AppState(apiClient: apiClient, sseClient: MockSSEClient(), sshTunnelManager: SSHTunnelManager())
     state.currentSessionID = "s1"
@@ -3322,7 +3298,7 @@ struct AppStateFlowTests {
     await state.applySSEEventForTesting(
       Self.makeSSEEvent(
         """
-        {"payload":{"type":"message.updated","properties":{"sessionID":"s2","messageID":"m2"}}}
+        {"type":"session.next.text.ended","data":{"timestamp":1,"sessionID":"s2","assistantMessageID":"m2","textID":"text-0","text":"done"}}
         """))
 
     #expect(state.streamingPartTexts["m1:p1"] == "partial")
@@ -3330,7 +3306,7 @@ struct AppStateFlowTests {
     #expect(await apiClient.sessionDiffCallCount == 0)
   }
 
-  @Test @MainActor func messageUpdatedForCurrentSessionClearsStreamingAndReloads() async {
+  @Test @MainActor func textEndedForCurrentSessionClearsStreamingAndReloads() async {
     let apiClient = MockAPIClient()
     await apiClient.setMessagesResult([Self.makeMessageRow(messageID: "m1", sessionID: "s1", text: "Final")])
     await apiClient.setSessionDiffResult([Self.makeDiff(file: "Sources/MessageStore.swift")])
@@ -3342,7 +3318,7 @@ struct AppStateFlowTests {
     await state.applySSEEventForTesting(
       Self.makeSSEEvent(
         """
-        {"payload":{"type":"message.updated","properties":{"sessionID":"s1","messageID":"m1"}}}
+        {"type":"session.next.text.ended","durable":{"aggregateID":"s1","seq":5,"version":1},"data":{"timestamp":1,"sessionID":"s1","assistantMessageID":"m1","textID":"p1","text":"Final"}}
         """))
 
     #expect(state.streamingPartTexts.isEmpty)
@@ -3364,7 +3340,7 @@ struct AppStateFlowTests {
     await state.applySSEEventForTesting(
       Self.makeSSEEvent(
         """
-        {"payload":{"type":"session.updated","properties":{"session":{"id":"s-other","slug":"s-other","projectID":"p1","directory":"/project/b","parentID":null,"title":"Other","version":"1","time":{"created":0,"updated":20},"share":null,"summary":null}}}}
+        {"type":"session.updated","data":{"sessionID":"s-other","info":{"id":"s-other","slug":"s-other","projectID":"p1","directory":"/project/b","parentID":null,"title":"Other","version":"1","time":{"created":0,"updated":20},"share":null,"summary":null}}}
         """))
 
     #expect(state.sessions.count == 1)
@@ -3382,7 +3358,7 @@ struct AppStateFlowTests {
     await state.applySSEEventForTesting(
       Self.makeSSEEvent(
         """
-        {"payload":{"type":"session.updated","properties":{"session":{"id":"s-current","slug":"s-current","projectID":"p1","directory":"/project/b","parentID":null,"title":"New Title","version":"1","time":{"created":0,"updated":30},"share":null,"summary":null}}}}
+        {"type":"session.updated","data":{"sessionID":"s-current","info":{"id":"s-current","slug":"s-current","projectID":"p1","directory":"/project/b","parentID":null,"title":"New Title","version":"1","time":{"created":0,"updated":30},"share":null,"summary":null}}}
         """))
 
     #expect(state.sessions.count == 1)
@@ -3405,7 +3381,7 @@ struct AppStateFlowTests {
     await state.applySSEEventForTesting(
       Self.makeSSEEvent(
         """
-        {"payload":{"type":"session.updated","properties":{"session":{"id":"s-current","slug":"s-current","projectID":"p1","directory":"/tmp","parentID":null,"title":"Fresh","version":"2","time":{"created":0,"updated":30},"share":null,"summary":null}}}}
+        {"type":"session.updated","data":{"sessionID":"s-current","info":{"id":"s-current","slug":"s-current","projectID":"p1","directory":"/tmp","parentID":null,"title":"Fresh","version":"2","time":{"created":0,"updated":30},"share":null,"summary":null}}}
         """))
 
     #expect(state.sessions.map(\.id) == ["s-current", "s-other"])
@@ -3425,13 +3401,13 @@ struct AppStateFlowTests {
     await state.applySSEEventForTesting(
       Self.makeSSEEvent(
         """
-        {"payload":{"type":"session.updated","properties":{"session":{"id":"s-current","slug":"s-current","projectID":"p1","directory":"/tmp","parentID":null,"title":"Current","version":"1","time":{"created":0,"updated":10},"share":null,"summary":null}}}}
+        {"type":"session.updated","data":{"sessionID":"s-current","info":{"id":"s-current","slug":"s-current","projectID":"p1","directory":"/tmp","parentID":null,"title":"Current","version":"1","time":{"created":0,"updated":10},"share":null,"summary":null}}}
         """))
 
     #expect(state.sessions == [current, Self.makeSession(id: "s-other", updated: 8, title: "Other")])
   }
 
-  @Test @MainActor func messagePartUpdatedAccumulatesStreamingMessageText() async {
+  @Test @MainActor func textDeltaAccumulatesStreamingMessageText() async {
     let apiClient = MockAPIClient()
     let state = AppState(apiClient: apiClient, sseClient: MockSSEClient(), sshTunnelManager: SSHTunnelManager())
     state.currentSessionID = "s1"
@@ -3439,12 +3415,12 @@ struct AppStateFlowTests {
     await state.applySSEEventForTesting(
       Self.makeSSEEvent(
         """
-        {"payload":{"type":"message.part.updated","properties":{"sessionID":"s1","delta":"Hello","part":{"id":"p1","messageID":"m1","sessionID":"s1","type":"text"}}}}
+        {"type":"session.next.text.delta","data":{"timestamp":1,"sessionID":"s1","assistantMessageID":"m1","textID":"p1","delta":"Hello"}}
         """))
     await state.applySSEEventForTesting(
       Self.makeSSEEvent(
         """
-        {"payload":{"type":"message.part.updated","properties":{"sessionID":"s1","delta":" world","part":{"id":"p1","messageID":"m1","sessionID":"s1","type":"text"}}}}
+        {"type":"session.next.text.delta","data":{"timestamp":2,"sessionID":"s1","assistantMessageID":"m1","textID":"p1","delta":" world"}}
         """))
 
     #expect(state.streamingPartTexts["m1:p1"] == "Hello world")
@@ -3452,9 +3428,10 @@ struct AppStateFlowTests {
     #expect(state.messages.first?.info.id == "m1")
     #expect(state.messages.first?.parts.first?.text == "Hello world")
     #expect(state.partsByMessage["m1"]?.first?.text == "Hello world")
+    #expect(state.sessionStatuses["s1"]?.type == "busy")
   }
 
-  @Test @MainActor func messagePartUpdatedWithoutDeltaReloadsAndClearsStreamingState() async {
+  @Test @MainActor func textEndedAfterDeltaReloadsAndClearsStreamingState() async {
     let apiClient = MockAPIClient()
     await apiClient.setMessagesResult([Self.makeMessageRow(messageID: "m1", sessionID: "s1", text: "Final")])
     await apiClient.setSessionDiffResult([Self.makeDiff(file: "Sources/AppState.swift")])
@@ -3464,12 +3441,12 @@ struct AppStateFlowTests {
     await state.applySSEEventForTesting(
       Self.makeSSEEvent(
         """
-        {"payload":{"type":"message.part.updated","properties":{"sessionID":"s1","delta":"Draft","part":{"id":"p1","messageID":"m1","sessionID":"s1","type":"text"}}}}
+        {"type":"session.next.text.delta","data":{"timestamp":1,"sessionID":"s1","assistantMessageID":"m1","textID":"p1","delta":"Draft"}}
         """))
     await state.applySSEEventForTesting(
       Self.makeSSEEvent(
         """
-        {"payload":{"type":"message.part.updated","properties":{"sessionID":"s1","part":{"id":"p1","messageID":"m1","sessionID":"s1","type":"text"}}}}
+        {"type":"session.next.text.ended","durable":{"aggregateID":"s1","seq":4,"version":1},"data":{"timestamp":2,"sessionID":"s1","assistantMessageID":"m1","textID":"p1","text":"Final"}}
         """))
 
     #expect(state.streamingPartTexts["m1:p1"] == nil)
@@ -3480,7 +3457,7 @@ struct AppStateFlowTests {
     #expect(await apiClient.sessionDiffCallCount == 1)
   }
 
-  @Test @MainActor func messagePartUpdatedIgnoresNonCurrentSession() async {
+  @Test @MainActor func textDeltaIgnoresNonCurrentSession() async {
     let apiClient = MockAPIClient()
     let state = AppState(apiClient: apiClient, sseClient: MockSSEClient(), sshTunnelManager: SSHTunnelManager())
     state.currentSessionID = "s1"
@@ -3488,7 +3465,7 @@ struct AppStateFlowTests {
     await state.applySSEEventForTesting(
       Self.makeSSEEvent(
         """
-        {"payload":{"type":"message.part.updated","properties":{"sessionID":"s2","delta":"ignored","part":{"id":"p1","messageID":"m2","sessionID":"s2","type":"text"}}}}
+        {"type":"session.next.text.delta","data":{"timestamp":1,"sessionID":"s2","assistantMessageID":"m2","textID":"p1","delta":"ignored"}}
         """))
 
     #expect(state.streamingPartTexts.isEmpty)
@@ -3497,7 +3474,7 @@ struct AppStateFlowTests {
     #expect(await apiClient.sessionDiffCallCount == 0)
   }
 
-  @Test @MainActor func sessionStatusIdleClearsStreamingStateForCurrentSession() async {
+  @Test @MainActor func sessionIdleClearsStreamingStateForCurrentSession() async {
     let apiClient = MockAPIClient()
     let state = AppState(apiClient: apiClient, sseClient: MockSSEClient(), sshTunnelManager: SSHTunnelManager())
     state.currentSessionID = "s1"
@@ -3505,19 +3482,46 @@ struct AppStateFlowTests {
     await state.applySSEEventForTesting(
       Self.makeSSEEvent(
         """
-        {"payload":{"type":"message.part.updated","properties":{"sessionID":"s1","delta":"thinking","part":{"id":"p-reasoning","messageID":"m1","sessionID":"s1","type":"reasoning"}}}}
+        {"type":"session.next.reasoning.delta","data":{"timestamp":1,"sessionID":"s1","assistantMessageID":"m1","reasoningID":"p-reasoning","delta":"thinking"}}
         """))
     #expect(state.streamingReasoningPart?.messageID == "m1")
 
     await state.applySSEEventForTesting(
       Self.makeSSEEvent(
         """
-        {"payload":{"type":"session.status","properties":{"sessionID":"s1","status":{"type":"idle","attempt":null,"message":null,"next":null}}}}
+        {"type":"session.idle","data":{"sessionID":"s1"}}
         """))
 
     #expect(state.sessionStatuses["s1"]?.type == "idle")
     #expect(state.streamingReasoningPart == nil)
     #expect(state.streamingPartTexts.isEmpty)
+  }
+
+  @Test @MainActor func stepEndedWithToolCallsKeepsSessionBusy() async {
+    let apiClient = MockAPIClient()
+    let state = AppState(apiClient: apiClient, sseClient: MockSSEClient(), sshTunnelManager: SSHTunnelManager())
+    state.currentSessionID = "s1"
+
+    await state.applySSEEventForTesting(
+      Self.makeSSEEvent(
+        """
+        {"type":"session.next.prompted","durable":{"aggregateID":"s1","seq":1,"version":1},"data":{"timestamp":1,"sessionID":"s1","messageID":"msg_1","prompt":{"text":"hi"},"delivery":"steer"}}
+        """))
+    #expect(state.sessionStatuses["s1"]?.type == "busy")
+
+    await state.applySSEEventForTesting(
+      Self.makeSSEEvent(
+        """
+        {"type":"session.next.step.ended","durable":{"aggregateID":"s1","seq":2,"version":1},"data":{"timestamp":2,"sessionID":"s1","assistantMessageID":"m1","finish":"tool-calls","cost":0,"tokens":{"input":1,"output":1,"reasoning":0,"cache":{"read":0,"write":0}}}}
+        """))
+    #expect(state.sessionStatuses["s1"]?.type == "busy")
+
+    await state.applySSEEventForTesting(
+      Self.makeSSEEvent(
+        """
+        {"type":"session.next.step.ended","durable":{"aggregateID":"s1","seq":3,"version":2},"data":{"timestamp":3,"sessionID":"s1","assistantMessageID":"m1","finish":"stop","cost":0,"tokens":{"input":1,"output":1,"reasoning":0,"cache":{"read":0,"write":0}}}}
+        """))
+    #expect(state.sessionStatuses["s1"]?.type == "idle")
   }
 
   @Test @MainActor func deleteCurrentSessionSelectsNextMostRecentSession() async throws {

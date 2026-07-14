@@ -33,6 +33,22 @@ nonisolated struct OpenCodeScope: Equatable, Hashable, Sendable {
     return result
   }
 
+  /// v2 `/api/*` endpoints take the scope as a deepObject `location`
+  /// query parameter: `location[directory]=…&location[workspace]=…`.
+  func applyingV2Location(to queryItems: [URLQueryItem]) -> [URLQueryItem] {
+    guard !isEmpty else { return queryItems }
+
+    var result = queryItems
+    let existingNames = Set(result.map(\.name))
+    if let directory, !existingNames.contains("location[directory]") {
+      result.append(URLQueryItem(name: "location[directory]", value: directory))
+    }
+    if let workspace, !existingNames.contains("location[workspace]") {
+      result.append(URLQueryItem(name: "location[workspace]", value: workspace))
+    }
+    return result
+  }
+
   private static func cleaned(_ value: String?) -> String? {
     guard let value else { return nil }
     let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -40,6 +56,13 @@ nonisolated struct OpenCodeScope: Equatable, Hashable, Sendable {
   }
 }
 
+/// Talks to an OpenCode server. The session runtime (health, messages,
+/// prompt/interrupt, permissions, questions, agents, commands, file
+/// browsing) uses the v2 `/api/*` surface. Session management (list,
+/// create, rename, archive, delete, fork, revert), projects, session
+/// status/diff/todos, MCP, and provider limits stay on legacy routes
+/// because v2 does not cover them yet (experimental v0.0.1 — see
+/// docs/OpenCode_API_v2_Audit.md).
 actor APIClient {
   private static let logger = Logger(
     subsystem: Bundle.main.bundleIdentifier ?? "OpenCodeClient",
@@ -65,17 +88,32 @@ actor APIClient {
     self.password = password
   }
 
+  /// How an `OpenCodeScope` is encoded onto the request URL.
+  enum ScopeEncoding {
+    /// Legacy endpoints: `?directory=…&workspace=…`
+    case directoryQuery
+    /// v2 `/api/*` endpoints: `?location[directory]=…&location[workspace]=…`
+    case v2Location
+  }
+
   private func makeRequest(
     path: String,
     method: String = "GET",
     queryItems: [URLQueryItem]? = nil,
     scope: OpenCodeScope? = nil,
+    scopeEncoding: ScopeEncoding = .directoryQuery,
     body: Data? = nil
   ) async throws -> (Data, URLResponse) {
     guard var components = URLComponents(string: "\(baseURL)\(path)") else {
       throw APIError.invalidURL
     }
-    let scopedQueryItems = scope?.applying(to: queryItems ?? []) ?? (queryItems ?? [])
+    let scopedQueryItems: [URLQueryItem] = {
+      guard let scope else { return queryItems ?? [] }
+      switch scopeEncoding {
+      case .directoryQuery: return scope.applying(to: queryItems ?? [])
+      case .v2Location: return scope.applyingV2Location(to: queryItems ?? [])
+      }
+    }()
     if !scopedQueryItems.isEmpty {
       components.queryItems = scopedQueryItems
     }
@@ -111,8 +149,16 @@ actor APIClient {
   }
 
   func health() async throws -> HealthResponse {
-    let (data, _) = try await makeRequest(path: "/global/health")
-    return try JSONDecoder().decode(HealthResponse.self, from: data)
+    let (data, _) = try await makeRequest(path: "/api/health")
+    let v2 = try JSONDecoder().decode(HealthResponse.self, from: data)
+    guard v2.version == nil else { return v2 }
+    // /api/health does not report a version yet; fetch it from the legacy
+    // health endpoint for the Settings/Hosts diagnostics display.
+    let version: String? = await {
+      guard let (legacyData, _) = try? await makeRequest(path: "/global/health") else { return nil }
+      return (try? JSONDecoder().decode(HealthResponse.self, from: legacyData))?.version
+    }()
+    return HealthResponse(healthy: v2.healthy, version: version)
   }
 
   func projects(scope: OpenCodeScope? = nil) async throws -> [Project] {
@@ -178,118 +224,20 @@ actor APIClient {
   }
 
   func messages(sessionID: String, limit: Int? = nil, scope: OpenCodeScope? = nil) async throws -> [MessageWithParts] {
-    let queryItems: [URLQueryItem]? = {
-      guard let limit, limit > 0 else { return nil }
-      return [URLQueryItem(name: "limit", value: String(limit))]
-    }()
-    let (data, _) = try await makeRequest(path: "/session/\(sessionID)/message", queryItems: queryItems, scope: scope)
-    guard let text = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
-      !text.isEmpty
-    else {
-      return []
+    var queryItems: [URLQueryItem] = [URLQueryItem(name: "order", value: "desc")]
+    if let limit, limit > 0 {
+      queryItems.append(URLQueryItem(name: "limit", value: String(limit)))
     }
-    let payloadData = text.data(using: .utf8) ?? data
-    return try decodeMessagesPayload(payloadData)
+    let (data, _) = try await makeRequest(path: "/api/session/\(sessionID)/message", queryItems: queryItems)
+    let response = try JSONDecoder().decode(V2API.SessionMessagesResponse.self, from: data)
+    // The v2 projection returns newest-first; the chat renders oldest-first.
+    return response.data
+      .reversed()
+      .compactMap { $0.toMessageWithParts(sessionID: sessionID) }
   }
 
-  private func decodeMessagesPayload(_ data: Data) throws -> [MessageWithParts] {
-    let decoder = JSONDecoder()
-
-    if let direct = try? decoder.decode([MessageWithParts].self, from: data) {
-      return direct
-    }
-
-    guard let obj = try? JSONSerialization.jsonObject(with: data, options: []) else {
-      throw DecodingError.dataCorrupted(
-        DecodingError.Context(
-          codingPath: [],
-          debugDescription: "Invalid JSON for messages payload"
-        )
-      )
-    }
-
-    if let direct = decodeMessagesFallback(from: obj, decoder: decoder), !direct.isEmpty {
-      return direct
-    }
-
-    throw DecodingError.dataCorrupted(
-      DecodingError.Context(
-        codingPath: [],
-        debugDescription: "Unsupported messages payload shape"
-      )
-    )
-  }
-
-  private func decodeMessagesFallback(from obj: Any, decoder: JSONDecoder) -> [MessageWithParts]? {
-    let containers = extractMessageContainers(from: obj)
-    guard !containers.isEmpty else { return nil }
-
-    let messages = containers.compactMap { decodeMessageRecord(from: $0, decoder: decoder) }
-    let dropped = containers.count - messages.count
-    if dropped > 0 {
-      Self.logger.warning(
-        "messages fallback decoder dropped records: total=\(containers.count, privacy: .public) decoded=\(messages.count, privacy: .public) dropped=\(dropped, privacy: .public)"
-      )
-    }
-    return messages.isEmpty ? nil : messages
-  }
-
-  private func extractMessageContainers(from obj: Any) -> [[String: Any]] {
-    if let arr = obj as? [[String: Any]] {
-      return arr
-    }
-
-    guard let dict = obj as? [String: Any] else { return [] }
-
-    if let arr = dict["messages"] as? [[String: Any]] { return arr }
-    if let arr = dict["data"] as? [[String: Any]] { return arr }
-    if let arr = dict["result"] as? [[String: Any]] { return arr }
-
-    if dict["info"] is [String: Any] || dict["message"] is [String: Any] {
-      return [dict]
-    }
-
-    if dict["role"] is String && dict["id"] is String {
-      return [dict]
-    }
-
-    return []
-  }
-
-  private func decodeMessageRecord(from container: [String: Any], decoder: JSONDecoder) -> MessageWithParts? {
-    if let direct = decodeJSON(container, as: MessageWithParts.self, decoder: decoder) {
-      return direct
-    }
-
-    let infoObject = container["info"] ?? container["message"] ?? container
-    let partsObject = container["parts"]
-
-    guard let info = decodeJSON(infoObject, as: Message.self, decoder: decoder) else {
-      return nil
-    }
-
-    let parts = decodeParts(from: partsObject, decoder: decoder)
-    return MessageWithParts(info: info, parts: parts)
-  }
-
-  private func decodeParts(from value: Any?, decoder: JSONDecoder) -> [Part] {
-    guard let value else { return [] }
-
-    if let arr = value as? [[String: Any]] {
-      return arr.compactMap { decodeJSON($0, as: Part.self, decoder: decoder) }
-    }
-
-    return []
-  }
-
-  private func decodeJSON<T: Decodable>(_ value: Any, as type: T.Type, decoder: JSONDecoder) -> T? {
-    guard JSONSerialization.isValidJSONObject(value), let data = try? JSONSerialization.data(withJSONObject: value)
-    else {
-      return nil
-    }
-    return try? decoder.decode(type, from: data)
-  }
-
+  /// v2 keeps the session's model/agent as session state instead of
+  /// per-prompt parameters, so a send is: set model, set agent, prompt.
   func promptAsync(
     sessionID: String,
     text: String,
@@ -298,59 +246,34 @@ actor APIClient {
     model: Message.ModelInfo?,
     scope: OpenCodeScope? = nil
   ) async throws {
-    struct PromptBody: Encodable {
-      let parts: [PartInput]
+    if let model {
+      struct ModelBody: Encodable {
+        let model: V2API.ModelRef
+      }
+      let body = try JSONEncoder().encode(ModelBody(model: .init(id: model.modelID, providerID: model.providerID)))
+      _ = try await makeRequest(path: "/api/session/\(sessionID)/model", method: "POST", body: body)
+    }
+
+    struct AgentBody: Encodable {
       let agent: String
-      let model: ModelInput?
-      struct PartInput: Encodable {
-        let type: String
-        let text: String?
-        let mime: String?
-        let filename: String?
-        let url: String?
-
-        static func text(_ text: String) -> PartInput {
-          PartInput(type: "text", text: text, mime: nil, filename: nil, url: nil)
-        }
-
-        static func file(_ attachment: ComposerImageAttachment) -> PartInput {
-          PartInput(
-            type: "file", text: nil, mime: attachment.mime, filename: attachment.filename, url: attachment.dataURL)
-        }
-      }
-      struct ModelInput: Encodable {
-        let providerID: String
-        let modelID: String
-      }
     }
-    var parts: [PromptBody.PartInput] = []
-    let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-    if !trimmed.isEmpty {
-      parts.append(.text(text))
-    }
-    parts.append(contentsOf: attachments.map { .file($0) })
-    let body = PromptBody(
-      parts: parts,
-      agent: agent,
-      model: model.map { .init(providerID: $0.providerID, modelID: $0.modelID) }
+    let agentBody = try JSONEncoder().encode(AgentBody(agent: agent))
+    _ = try await makeRequest(path: "/api/session/\(sessionID)/agent", method: "POST", body: agentBody)
+
+    let files = attachments.map { V2API.PromptBody.FileInput(uri: $0.dataURL, name: $0.filename) }
+    let body = V2API.PromptBody(
+      prompt: V2API.PromptBody.PromptInput(text: text, files: files.isEmpty ? nil : files)
     )
     let bodyData = try JSONEncoder().encode(body)
-    let (_, response) = try await makeRequest(
-      path: "/session/\(sessionID)/prompt_async",
+    _ = try await makeRequest(
+      path: "/api/session/\(sessionID)/prompt",
       method: "POST",
-      scope: scope,
       body: bodyData
     )
-    if let http = response as? HTTPURLResponse, http.statusCode != 204 {
-      throw APIError.httpError(statusCode: http.statusCode, data: Data())
-    }
   }
 
   func abort(sessionID: String, scope: OpenCodeScope? = nil) async throws {
-    let (_, response) = try await makeRequest(path: "/session/\(sessionID)/abort", method: "POST", scope: scope)
-    if let http = response as? HTTPURLResponse, http.statusCode != 200 {
-      throw APIError.httpError(statusCode: http.statusCode, data: Data())
-    }
+    _ = try await makeRequest(path: "/api/session/\(sessionID)/interrupt", method: "POST")
   }
 
   func sessionStatus(scope: OpenCodeScope? = nil) async throws -> [String: SessionStatus] {
@@ -385,8 +308,10 @@ actor APIClient {
   }
 
   func pendingPermissions(scope: OpenCodeScope? = nil) async throws -> [PermissionRequest] {
-    let (data, _) = try await makeRequest(path: "/permission", scope: scope)
-    return try JSONDecoder().decode([PermissionRequest].self, from: data)
+    let (data, _) = try await makeRequest(
+      path: "/api/permission/request", scope: scope, scopeEncoding: .v2Location)
+    let response = try JSONDecoder().decode(V2API.DataEnvelope<[V2API.PermissionRequest]>.self, from: data)
+    return response.data.map(\.asLegacyRequest)
   }
 
   func respondPermission(
@@ -396,57 +321,57 @@ actor APIClient {
     scope: OpenCodeScope? = nil
   ) async throws {
     struct Body: Encodable {
-      let response: PermissionResponse
+      let reply: PermissionResponse
     }
-    let data = try JSONEncoder().encode(Body(response: response))
-    let (_, httpResponse) = try await makeRequest(
-      path: "/session/\(sessionID)/permissions/\(permissionID)",
+    let data = try JSONEncoder().encode(Body(reply: response))
+    _ = try await makeRequest(
+      path: "/api/session/\(sessionID)/permission/\(permissionID)/reply",
       method: "POST",
-      scope: scope,
       body: data
     )
-    if let http = httpResponse as? HTTPURLResponse, http.statusCode != 200 {
-      throw APIError.httpError(statusCode: http.statusCode, data: Data())
-    }
   }
 
   func pendingQuestions(scope: OpenCodeScope? = nil) async throws -> [QuestionRequest] {
-    let (data, _) = try await makeRequest(path: "/question", scope: scope)
-    return try JSONDecoder().decode([QuestionRequest].self, from: data)
+    let (data, _) = try await makeRequest(
+      path: "/api/question/request", scope: scope, scopeEncoding: .v2Location)
+    return try JSONDecoder().decode(V2API.DataEnvelope<[QuestionRequest]>.self, from: data).data
   }
 
-  func replyQuestion(requestID: String, answers: [[String]], scope: OpenCodeScope? = nil) async throws {
+  func replyQuestion(
+    sessionID: String, requestID: String, answers: [[String]], scope: OpenCodeScope? = nil
+  )
+    async throws
+  {
     struct Body: Encodable {
       let answers: [[String]]
     }
     let data = try JSONEncoder().encode(Body(answers: answers))
-    let (_, response) = try await makeRequest(
-      path: "/question/\(requestID)/reply", method: "POST", scope: scope, body: data)
-    if let http = response as? HTTPURLResponse, http.statusCode >= 400 {
-      throw APIError.httpError(statusCode: http.statusCode, data: Data())
-    }
+    _ = try await makeRequest(
+      path: "/api/session/\(sessionID)/question/\(requestID)/reply", method: "POST", body: data)
   }
 
-  func rejectQuestion(requestID: String, scope: OpenCodeScope? = nil) async throws {
-    let (_, response) = try await makeRequest(path: "/question/\(requestID)/reject", method: "POST", scope: scope)
-    if let http = response as? HTTPURLResponse, http.statusCode >= 400 {
-      throw APIError.httpError(statusCode: http.statusCode, data: Data())
-    }
+  func rejectQuestion(sessionID: String, requestID: String, scope: OpenCodeScope? = nil) async throws {
+    _ = try await makeRequest(
+      path: "/api/session/\(sessionID)/question/\(requestID)/reject", method: "POST")
   }
 
+  /// Stays on the legacy endpoint: the v2 `/api/model` catalog does not
+  /// expose per-model context limits yet, which the context gauge needs.
   func providers(scope: OpenCodeScope? = nil) async throws -> ProvidersResponse {
     let (data, _) = try await makeRequest(path: "/config/providers", scope: scope)
     return try JSONDecoder().decode(ProvidersResponse.self, from: data)
   }
 
   func agents(scope: OpenCodeScope? = nil) async throws -> [AgentInfo] {
-    let (data, _) = try await makeRequest(path: "/agent", scope: scope)
-    return try JSONDecoder().decode([AgentInfo].self, from: data)
+    let (data, _) = try await makeRequest(path: "/api/agent", scope: scope, scopeEncoding: .v2Location)
+    let response = try JSONDecoder().decode(V2API.DataEnvelope<[V2API.Agent]>.self, from: data)
+    return response.data.map(\.asAgentInfo)
   }
 
   func commands(scope: OpenCodeScope? = nil) async throws -> [OpenCodeCommand] {
-    let (data, _) = try await makeRequest(path: "/command", scope: scope)
-    return try JSONDecoder().decode([OpenCodeCommand].self, from: data)
+    let (data, _) = try await makeRequest(path: "/api/command", scope: scope, scopeEncoding: .v2Location)
+    let response = try JSONDecoder().decode(V2API.DataEnvelope<[V2API.Command]>.self, from: data)
+    return response.data.map(\.asOpenCodeCommand)
   }
 
   func mcpStatus(scope: OpenCodeScope? = nil) async throws -> [String: MCPStatus] {
@@ -496,26 +421,42 @@ actor APIClient {
 
   func fileList(path: String = "", scope: OpenCodeScope? = nil) async throws -> [FileNode] {
     let queryItems = [URLQueryItem(name: "path", value: path)]
-    let (data, _) = try await makeRequest(path: "/file", queryItems: queryItems, scope: scope)
-    return try JSONDecoder().decode([FileNode].self, from: data)
+    let (data, _) = try await makeRequest(
+      path: "/api/fs/list", queryItems: queryItems, scope: scope, scopeEncoding: .v2Location)
+    let response = try JSONDecoder().decode(V2API.DataEnvelope<[V2API.FsEntry]>.self, from: data)
+    return response.data.map(\.asFileNode)
   }
 
   func fileContent(path: String, scope: OpenCodeScope? = nil) async throws -> FileContent {
-    let queryItems = [URLQueryItem(name: "path", value: path)]
-    let (data, _) = try await makeRequest(path: "/file/content", queryItems: queryItems, scope: scope)
-    return try JSONDecoder().decode(FileContent.self, from: data)
+    // /api/fs/read/* takes the path in the URL and returns the raw bytes;
+    // classify text-vs-binary by UTF-8 validity. Binary content (images)
+    // is base64-encoded, matching what the file viewer expects.
+    let escapedPath =
+      path
+      .split(separator: "/", omittingEmptySubsequences: true)
+      .map { $0.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? String($0) }
+      .joined(separator: "/")
+    let (data, _) = try await makeRequest(
+      path: "/api/fs/read/\(escapedPath)", scope: scope, scopeEncoding: .v2Location)
+    if let text = String(data: data, encoding: .utf8) {
+      return FileContent(type: "text", content: text)
+    }
+    return FileContent(type: "binary", content: data.base64EncodedString())
   }
 
   func findFile(query: String, limit: Int = 50, scope: OpenCodeScope? = nil) async throws -> [String] {
     let (data, _) = try await makeRequest(
-      path: "/find/file",
+      path: "/api/fs/find",
       queryItems: [
         URLQueryItem(name: "query", value: query),
+        URLQueryItem(name: "type", value: "file"),
         URLQueryItem(name: "limit", value: String(limit)),
       ],
-      scope: scope
+      scope: scope,
+      scopeEncoding: .v2Location
     )
-    return try JSONDecoder().decode([String].self, from: data)
+    let response = try JSONDecoder().decode(V2API.DataEnvelope<[V2API.FsEntry]>.self, from: data)
+    return response.data.map(\.path)
   }
 
   func fileStatus(scope: OpenCodeScope? = nil) async throws -> [FileStatusEntry] {
@@ -590,6 +531,20 @@ nonisolated struct OpenCodeCommand: Codable, Identifiable, Hashable {
 
   private enum CodingKeys: String, CodingKey {
     case name, description, agent, model, source, template, subtask, hints
+  }
+
+  init(
+    name: String, description: String?, agent: String?, model: String?, source: String?,
+    template: String, subtask: Bool?, hints: [String]
+  ) {
+    self.name = name
+    self.description = description
+    self.agent = agent
+    self.model = model
+    self.source = source
+    self.template = template
+    self.subtask = subtask
+    self.hints = hints
   }
 
   init(from decoder: Decoder) throws {
@@ -927,8 +882,8 @@ protocol APIClientProtocol: Actor {
   func respondPermission(
     sessionID: String, permissionID: String, response: APIClient.PermissionResponse, scope: OpenCodeScope?) async throws
   func pendingQuestions(scope: OpenCodeScope?) async throws -> [QuestionRequest]
-  func replyQuestion(requestID: String, answers: [[String]], scope: OpenCodeScope?) async throws
-  func rejectQuestion(requestID: String, scope: OpenCodeScope?) async throws
+  func replyQuestion(sessionID: String, requestID: String, answers: [[String]], scope: OpenCodeScope?) async throws
+  func rejectQuestion(sessionID: String, requestID: String, scope: OpenCodeScope?) async throws
   func providers(scope: OpenCodeScope?) async throws -> ProvidersResponse
   func agents(scope: OpenCodeScope?) async throws -> [AgentInfo]
   func commands(scope: OpenCodeScope?) async throws -> [OpenCodeCommand]

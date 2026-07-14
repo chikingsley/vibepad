@@ -5,14 +5,60 @@
 
 import Foundation
 
+/// One v2 event from `GET /api/event`. Wire shape:
+/// `{id, type, durable{aggregateID, seq}?, location{directory}?, data{…}}`.
+/// Deltas (`session.next.*.delta`) are ephemeral and carry no `durable`.
 nonisolated struct SSEEvent: Codable {
-  let directory: String?
-  let payload: SSEPayload
-}
-
-nonisolated struct SSEPayload: Codable {
+  let id: String?
   let type: String
-  let properties: [String: AnyCodable]?
+  /// From `location.directory`; used to filter events to the active project.
+  let directory: String?
+  /// Durable event sequence within the session aggregate, when present.
+  let seq: Int?
+  /// The event's `data` payload.
+  let properties: [String: AnyCodable]
+
+  init(id: String? = nil, type: String, directory: String? = nil, seq: Int? = nil, properties: [String: AnyCodable]) {
+    self.id = id
+    self.type = type
+    self.directory = directory
+    self.seq = seq
+    self.properties = properties
+  }
+
+  private enum CodingKeys: String, CodingKey {
+    case id, type, location, durable, data
+  }
+
+  private struct Location: Codable {
+    let directory: String?
+  }
+
+  private struct Durable: Codable {
+    let seq: Int?
+  }
+
+  init(from decoder: Decoder) throws {
+    let c = try decoder.container(keyedBy: CodingKeys.self)
+    id = try? c.decode(String.self, forKey: .id)
+    type = try c.decode(String.self, forKey: .type)
+    directory = (try? c.decode(Location.self, forKey: .location))?.directory
+    seq = (try? c.decode(Durable.self, forKey: .durable))?.seq
+    properties = (try? c.decode([String: AnyCodable].self, forKey: .data)) ?? [:]
+  }
+
+  func encode(to encoder: Encoder) throws {
+    var c = encoder.container(keyedBy: CodingKeys.self)
+    try c.encodeIfPresent(id, forKey: .id)
+    try c.encode(type, forKey: .type)
+    if let directory {
+      try c.encode(Location(directory: directory), forKey: .location)
+    }
+    if let seq {
+      try c.encode(Durable(seq: seq), forKey: .durable)
+    }
+    try c.encode(properties, forKey: .data)
+  }
 }
 
 nonisolated struct AnyCodable: Codable {
@@ -66,7 +112,7 @@ nonisolated final class SSEClient: SSEClientProtocol, Sendable {
     password: String? = nil
   ) -> AsyncThrowingStream<SSEEvent, Error> {
     let urlString = baseURL.hasPrefix("http") ? baseURL : "http://\(baseURL)"
-    guard let url = URL(string: "\(urlString)/global/event") else {
+    guard let url = URL(string: "\(urlString)/api/event") else {
       return AsyncThrowingStream { $0.finish(throwing: APIError.invalidURL) }
     }
     var request = URLRequest(url: url)

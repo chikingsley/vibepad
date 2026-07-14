@@ -30,7 +30,7 @@ nonisolated struct QuestionRequest: Codable, Identifiable, Sendable {
   let tool: ToolRef?
 
   struct ToolRef: Codable {
-    let messageID: String
-    let callID: String
+    let messageID: String?
+    let callID: String?
   }
 }

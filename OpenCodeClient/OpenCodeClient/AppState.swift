@@ -727,13 +727,6 @@ final class AppState {
     return sessionTodos[id] ?? []
   }
 
-  /// Whether message.updated should be handled: when a sessionID is present it must match the current session, otherwise keep the original behavior
-  nonisolated static func shouldProcessMessageEvent(eventSessionID: String?, currentSessionID: String?) -> Bool {
-    guard currentSessionID != nil else { return false }
-    if let sid = eventSessionID { return sid == currentSessionID }
-    return true  // Keep the original behavior when there is no sessionID (backward compatible)
-  }
-
   /// Async request result should only apply when requested session is still current.
   nonisolated static func shouldApplySessionScopedResult(requestedSessionID: String, currentSessionID: String?) -> Bool
   {

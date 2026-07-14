@@ -111,6 +111,20 @@ xcodebuild -workspace VibePad.xcworkspace \
 
 `Tier4DriverUITests` is environment-driven live-server testing. Its send flow requires an explicit `OPENCODE_SERVER_URL` or `TIER4_SERVER_URL` plus `TIER4_PROMPT`. Never point it at an OpenCode process someone is actively using; use a separate temporary server and port.
 
+## Server API
+
+VibePad targets the OpenCode v2 API (`/api/*`, server ≥ 1.17.15) for the session
+runtime — messages, prompt, interrupt, events, permissions, questions, agents,
+commands, and file browsing — and falls back to legacy routes only where v2 has
+no equivalent yet. `docs/OpenCode_API_v2_Audit.md` records the full mapping.
+
+## TestFlight
+
+`./scripts/testflight.sh` archives the app and uploads it to App Store Connect
+using an App Store Connect API key (no Apple ID session). The script header
+documents the one-time setup: create the app record in the App Store Connect
+web UI, create an API key, and export the three `VIBEPAD_ASC_*` variables.
+
 ## Upstream
 
 The app began as a fork of [`grapeot/opencode_ios_client`](https://github.com/grapeot/opencode_ios_client). Preserve that upstream as a read-only Git remote after the VibePad repository is created.
