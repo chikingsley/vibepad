@@ -31,14 +31,6 @@ private enum MessageGroupItem: Identifiable {
   }
 }
 
-private struct BottomMarkerMinYPreferenceKey: PreferenceKey {
-  static var defaultValue: CGFloat = .greatestFiniteMagnitude
-
-  static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-    value = nextValue()
-  }
-}
-
 struct ChatTabView: View {
   static let logger = Logger(
     subsystem: Bundle.main.bundleIdentifier ?? "OpenCodeClient",
@@ -80,9 +72,7 @@ struct ChatTabView: View {
   @State private var imageAttachments: [ComposerImageAttachment] = []
   @State private var attachmentError: String?
   @State private var isLoadingAttachment = false
-  @State private var pendingScrollTask: Task<Void, Never>?
-  @State private var pendingBottomVisibilityTask: Task<Void, Never>?
-  @State private var isNearBottom = true
+  @State private var messageScroller = SCMessageScrollerState()
   @Environment(\.horizontalSizeClass) private var sizeClass
   @Environment(\.colorScheme) private var colorScheme
   @Environment(\.scenePhase) private var scenePhase
@@ -150,6 +140,14 @@ struct ChatTabView: View {
       case .group(let g): return "g-\(g.id)"
       case .activity(let a): return "a-\(a.id)"
       }
+    }
+
+    /// User turns are the scroller's turn boundaries: a fresh user
+    /// message settles near the viewport top with a peek of the
+    /// previous exchange, matching upstream MessageScroller behavior.
+    var isUserTurn: Bool {
+      guard case .group(let group) = self, case .user = group else { return false }
+      return true
     }
   }
 
@@ -541,9 +539,9 @@ struct ChatTabView: View {
           onSettingsTap: onSettingsTap
         )
 
-        ScrollViewReader { proxy in
-          GeometryReader { scrollGeometry in
-            ScrollView {
+        SCMessageScroller(state: messageScroller) {
+          SCMessageScrollerViewport {
+            SCMessageScrollerContent {
               VStack(alignment: .leading, spacing: DesignSpacing.messageVertical) {
                 if showLoadMoreHint {
                   HStack(spacing: 8) {
@@ -567,7 +565,7 @@ struct ChatTabView: View {
                   emptySessionStateView
                 } else {
                   ForEach(chatItems) { item in
-                    Group {
+                    SCMessageScrollerItem(messageId: item.id, scrollAnchor: item.isUserTurn) {
                       switch item {
                       case .group(let group):
                         switch group {
@@ -665,50 +663,25 @@ struct ChatTabView: View {
                   }
                 }
 
-                Color.clear
-                  .frame(height: 1)
-                  .id("bottom")
-                  .background(
-                    GeometryReader { bottomGeometry in
-                      Color.clear.preference(
-                        key: BottomMarkerMinYPreferenceKey.self,
-                        value: bottomGeometry.frame(in: .named("chatScrollView")).minY
-                      )
-                    }
-                  )
               }
               .padding()
             }
-            .coordinateSpace(name: "chatScrollView")
-            .refreshable {
-              await state.loadOlderMessagesForCurrentSession()
-            }
-            .opencodeScrollDismissesKeyboard()
-            .onPreferenceChange(BottomMarkerMinYPreferenceKey.self) { bottomMarkerMinY in
-              scheduleBottomVisibilityUpdate(
-                bottomMarkerMinY: bottomMarkerMinY,
-                viewportHeight: scrollGeometry.size.height
-              )
-            }
-            .onChange(of: scrollAnchor) { _, _ in
-              guard isNearBottom else { return }
-              scheduleScrollToBottom(using: proxy)
-            }
-            .onDisappear {
-              pendingScrollTask?.cancel()
-              pendingScrollTask = nil
-              pendingBottomVisibilityTask?.cancel()
-              pendingBottomVisibilityTask = nil
-            }
-            .overlay(alignment: .leading) {
-              if sizeClass != .regular {
-                Color.clear
-                  .frame(width: SessionListEdgeSwipeBehavior.edgeThreshold)
-                  .contentShape(Rectangle())
-                  .gesture(sessionListEdgeSwipeGesture)
-                  .accessibilityHidden(true)
-              }
-            }
+          }
+          .refreshable {
+            await state.loadOlderMessagesForCurrentSession()
+          }
+
+          SCMessageScrollerButton(direction: .end) {
+            Image(systemName: "arrow.down")
+          }
+        }
+        .overlay(alignment: .leading) {
+          if sizeClass != .regular {
+            Color.clear
+              .frame(width: SessionListEdgeSwipeBehavior.edgeThreshold)
+              .contentShape(Rectangle())
+              .gesture(sessionListEdgeSwipeGesture)
+              .accessibilityHidden(true)
           }
         }
 
@@ -865,9 +838,7 @@ struct ChatTabView: View {
           await Task.yield()
           state.setDraftText(draftText, for: oldID)
           syncDraftFromState(sessionID: newID)
-          isNearBottom = true
-          pendingBottomVisibilityTask?.cancel()
-          pendingBottomVisibilityTask = nil
+          messageScroller.scrollToEnd(animated: false)
         }
       }
       .onChange(of: inputText) { _, newValue in
@@ -892,36 +863,6 @@ struct ChatTabView: View {
     isSyncingDraft = true
     inputText = state.draftText(for: sessionID)
     isSyncingDraft = false
-  }
-
-  private func scheduleScrollToBottom(using proxy: ScrollViewProxy) {
-    pendingScrollTask?.cancel()
-    let shouldAnimate = !state.isBusy
-
-    pendingScrollTask = Task { @MainActor in
-      try? await Task.sleep(for: .milliseconds(50))
-      guard !Task.isCancelled else { return }
-
-      if shouldAnimate {
-        withAnimation(.easeOut(duration: 0.2)) {
-          proxy.scrollTo("bottom", anchor: .bottom)
-        }
-      } else {
-        proxy.scrollTo("bottom", anchor: .bottom)
-      }
-    }
-  }
-
-  private func scheduleBottomVisibilityUpdate(bottomMarkerMinY: CGFloat, viewportHeight: CGFloat) {
-    pendingBottomVisibilityTask?.cancel()
-    pendingBottomVisibilityTask = Task { @MainActor in
-      try? await Task.sleep(for: .milliseconds(75))
-      guard !Task.isCancelled else { return }
-      isNearBottom = ChatScrollBehavior.shouldAutoScroll(
-        bottomMarkerMinY: bottomMarkerMinY,
-        viewportHeight: viewportHeight
-      )
-    }
   }
 
   private func sendCurrentInput() {
@@ -986,32 +927,6 @@ struct ChatTabView: View {
         attachmentError = error.localizedDescription
       }
     }
-  }
-
-  /// Used to trigger auto-scroll when content changes
-  private var scrollAnchor: String {
-    let perm = state.pendingPermissions.filter { $0.sessionID == state.currentSessionID }.count
-    let questionCount = state.pendingQuestions.filter { $0.sessionID == state.currentSessionID }.count
-    let messageCount = state.messages.count
-    let lastMessage = state.messages.last
-    let lastMessageSignature = {
-      guard let lastMessage else { return "none" }
-      return "\(lastMessage.info.id)-\(lastMessage.parts.count)-\(lastMessage.info.time.completed ?? -1)"
-    }()
-    let streamKeyCount = state.streamingPartTexts.count
-    let streamCharCount = state.streamingPartTexts.values.reduce(into: 0) { partial, text in
-      partial += text.count
-    }
-    let streamingReasoningID = state.streamingReasoningPart?.id ?? ""
-    let sid = state.currentSessionID ?? ""
-    let status = state.currentSessionStatus?.type ?? ""
-    let activity =
-      runningTurnActivity.map {
-        let state = ($0.state == .running) ? "running" : "completed"
-        return "\($0.id)-\($0.text)-\(state)"
-      } ?? ""
-    return
-      "\(perm)-\(questionCount)-\(messageCount)-\(lastMessageSignature)-\(streamKeyCount)-\(streamCharCount)-\(streamingReasoningID)-\(sid)-\(status)-\(activity)"
   }
 
   @ViewBuilder
@@ -1182,13 +1097,6 @@ private enum ComposerImageTranscoder {
     return renderer.image { _ in
       image.draw(in: CGRect(origin: .zero, size: newSize))
     }
-  }
-}
-
-private extension View {
-  @ViewBuilder
-  func opencodeScrollDismissesKeyboard() -> some View {
-    self.scrollDismissesKeyboard(.immediately)
   }
 }
 

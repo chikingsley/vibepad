@@ -1377,39 +1377,6 @@ struct MessageRenderingHeuristicTests {
   }
 }
 
-struct ChatScrollBehaviorTests {
-
-  @Test func shouldAutoScrollWhenBottomMarkerIsVisible() {
-    #expect(
-      ChatScrollBehavior.shouldAutoScroll(
-        bottomMarkerMinY: 640,
-        viewportHeight: 600,
-        threshold: 80
-      ) == true
-    )
-  }
-
-  @Test func shouldAutoScrollWhenBottomMarkerIsNearViewportBottom() {
-    #expect(
-      ChatScrollBehavior.shouldAutoScroll(
-        bottomMarkerMinY: 675,
-        viewportHeight: 600,
-        threshold: 80
-      ) == true
-    )
-  }
-
-  @Test func shouldNotAutoScrollWhenUserHasScrolledAwayFromBottom() {
-    #expect(
-      ChatScrollBehavior.shouldAutoScroll(
-        bottomMarkerMinY: 760,
-        viewportHeight: 600,
-        threshold: 80
-      ) == false
-    )
-  }
-}
-
 struct SessionListEdgeSwipeBehaviorTests {
 
   @Test func opensForLeftEdgeSwipeWithStrongHorizontalTravel() {

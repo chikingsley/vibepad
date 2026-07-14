@@ -1,0 +1,108 @@
+{
+  "items" : {
+    "attachment" : {
+      "files" : [
+        {
+          "installedHash" : "0fd93d38b075b6ff938e3ed657badd267c4d4f4b1cf8ff767b00bb31306bcc1a",
+          "source" : "Sources/Swiftcn/Components/Attachment.swift",
+          "sourceHash" : "0fd93d38b075b6ff938e3ed657badd267c4d4f4b1cf8ff767b00bb31306bcc1a",
+          "target" : "Attachment.swift"
+        }
+      ]
+    },
+    "bubble" : {
+      "files" : [
+        {
+          "installedHash" : "939f3f1bb8ea2a78af399e5b5a7ac2450991dceba169270e5a66cda30142f4cd",
+          "source" : "Sources/Swiftcn/Components/Bubble.swift",
+          "sourceHash" : "939f3f1bb8ea2a78af399e5b5a7ac2450991dceba169270e5a66cda30142f4cd",
+          "target" : "Bubble.swift"
+        }
+      ]
+    },
+    "button" : {
+      "files" : [
+        {
+          "installedHash" : "216c81d585cdeb898ec18de9294e650da33d709edc628bd0f94414e4b354cd9b",
+          "source" : "Sources/Swiftcn/Components/Button.swift",
+          "sourceHash" : "216c81d585cdeb898ec18de9294e650da33d709edc628bd0f94414e4b354cd9b",
+          "target" : "Button.swift"
+        }
+      ]
+    },
+    "marker" : {
+      "files" : [
+        {
+          "installedHash" : "ec709bfa161c1de81a43d2c7d9bfd2bf4454b4ab0bc911c8b3ea8f411ae9fe0b",
+          "source" : "Sources/Swiftcn/Components/Marker.swift",
+          "sourceHash" : "ec709bfa161c1de81a43d2c7d9bfd2bf4454b4ab0bc911c8b3ea8f411ae9fe0b",
+          "target" : "Marker.swift"
+        }
+      ]
+    },
+    "message" : {
+      "files" : [
+        {
+          "installedHash" : "68e61d2d109cd684d209ec20b7468fe73b64e465689ade66012e9283ae9823cb",
+          "source" : "Sources/Swiftcn/Components/Message.swift",
+          "sourceHash" : "68e61d2d109cd684d209ec20b7468fe73b64e465689ade66012e9283ae9823cb",
+          "target" : "Message.swift"
+        }
+      ]
+    },
+    "message-scroller" : {
+      "files" : [
+        {
+          "installedHash" : "3eb032feb956c6cd377b700d601fe18608ae9d9f658cff4041009b8c870db1f7",
+          "source" : "Sources/Swiftcn/Components/MessageScroller.swift",
+          "sourceHash" : "3eb032feb956c6cd377b700d601fe18608ae9d9f658cff4041009b8c870db1f7",
+          "target" : "MessageScroller.swift"
+        }
+      ]
+    },
+    "scroll-fade" : {
+      "files" : [
+        {
+          "installedHash" : "0de6f8e69a6fd84b91dc484b4ef761912308df432746fa69be5edb3c70bcf43e",
+          "source" : "Sources/Swiftcn/Effects/ScrollFade.swift",
+          "sourceHash" : "0de6f8e69a6fd84b91dc484b4ef761912308df432746fa69be5edb3c70bcf43e",
+          "target" : "ScrollFade.swift"
+        }
+      ]
+    },
+    "shimmer" : {
+      "files" : [
+        {
+          "installedHash" : "13e8f57bcfe400fc8beda5e473cc419c147e89dca203ad7fdf8147bf94252a24",
+          "source" : "Sources/Swiftcn/Effects/Shimmer.swift",
+          "sourceHash" : "13e8f57bcfe400fc8beda5e473cc419c147e89dca203ad7fdf8147bf94252a24",
+          "target" : "Shimmer.swift"
+        }
+      ]
+    },
+    "theme" : {
+      "files" : [
+        {
+          "installedHash" : "406fecc547098bbf9d7737f848c638042dfe9176130e0a9ede077eb316fcdcec",
+          "source" : "Sources/Swiftcn/Theme/Color+Adaptive.swift",
+          "sourceHash" : "406fecc547098bbf9d7737f848c638042dfe9176130e0a9ede077eb316fcdcec",
+          "target" : "Color+Adaptive.swift"
+        },
+        {
+          "installedHash" : "baf30b3fd67f58b72ecfc26d74f599a97ed6075f62068ee65af904aecd1ad92d",
+          "source" : "Sources/Swiftcn/Theme/Palette.swift",
+          "sourceHash" : "baf30b3fd67f58b72ecfc26d74f599a97ed6075f62068ee65af904aecd1ad92d",
+          "target" : "Palette.swift"
+        },
+        {
+          "installedHash" : "639823e17c18947305fbf25eece583a0b6740985970dc352e0b309d7ce1f2070",
+          "source" : "Sources/Swiftcn/Theme/Theme.swift",
+          "sourceHash" : "639823e17c18947305fbf25eece583a0b6740985970dc352e0b309d7ce1f2070",
+          "target" : "Theme.swift"
+        }
+      ]
+    }
+  },
+  "registry" : "../swiftcn-ui/registry.json",
+  "schemaVersion" : 1
+}

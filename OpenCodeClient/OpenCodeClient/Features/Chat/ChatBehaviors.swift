@@ -1,21 +1,5 @@
 import SwiftUI
 
-/// Should the chat view auto-scroll to the bottom on new content?
-/// Tracks how close the user already is to the bottom — once they've
-/// scrolled up far enough, we stop chasing new messages so reading
-/// older messages isn't interrupted.
-nonisolated enum ChatScrollBehavior {
-  static let followThreshold: CGFloat = 80
-
-  static func shouldAutoScroll(
-    bottomMarkerMinY: CGFloat,
-    viewportHeight: CGFloat,
-    threshold: CGFloat = followThreshold
-  ) -> Bool {
-    bottomMarkerMinY <= viewportHeight + threshold
-  }
-}
-
 /// Edge-swipe gesture for opening the session list. We only accept
 /// horizontal swipes starting near the left edge — keeps the chat
 /// pan / scroll gestures responsive in the rest of the view.
