@@ -3,19 +3,39 @@
     "attachment" : {
       "files" : [
         {
-          "installedHash" : "0fd93d38b075b6ff938e3ed657badd267c4d4f4b1cf8ff767b00bb31306bcc1a",
+          "installedHash" : "6fcca49b57f029c3dcdf0993635c29601cf6f7835d865eb9572c41f9081014db",
           "source" : "Sources/Swiftcn/Components/Attachment.swift",
-          "sourceHash" : "0fd93d38b075b6ff938e3ed657badd267c4d4f4b1cf8ff767b00bb31306bcc1a",
+          "sourceHash" : "6fcca49b57f029c3dcdf0993635c29601cf6f7835d865eb9572c41f9081014db",
           "target" : "Attachment.swift"
+        }
+      ]
+    },
+    "audio-level-provider" : {
+      "files" : [
+        {
+          "installedHash" : "694761443b8e9364895d31fe145d0da2e64e665cf432defbc6e5eadf0608098f",
+          "source" : "Sources/Swiftcn/Audio/AudioLevelProvider.swift",
+          "sourceHash" : "694761443b8e9364895d31fe145d0da2e64e665cf432defbc6e5eadf0608098f",
+          "target" : "AudioLevelProvider.swift"
+        }
+      ]
+    },
+    "bar-visualizer" : {
+      "files" : [
+        {
+          "installedHash" : "6a378a500be8c65b10258e0b0ac0162b4abb1df8a6a3f7c4555e9fb0726eb1b8",
+          "source" : "Sources/Swiftcn/Audio/BarVisualizer.swift",
+          "sourceHash" : "6a378a500be8c65b10258e0b0ac0162b4abb1df8a6a3f7c4555e9fb0726eb1b8",
+          "target" : "BarVisualizer.swift"
         }
       ]
     },
     "bubble" : {
       "files" : [
         {
-          "installedHash" : "939f3f1bb8ea2a78af399e5b5a7ac2450991dceba169270e5a66cda30142f4cd",
+          "installedHash" : "df6e21c9679296dc0eef1b9ab22f2b0d26833e00aa2667bd8f13a011b168f300",
           "source" : "Sources/Swiftcn/Components/Bubble.swift",
-          "sourceHash" : "939f3f1bb8ea2a78af399e5b5a7ac2450991dceba169270e5a66cda30142f4cd",
+          "sourceHash" : "df6e21c9679296dc0eef1b9ab22f2b0d26833e00aa2667bd8f13a011b168f300",
           "target" : "Bubble.swift"
         }
       ]
@@ -30,12 +50,22 @@
         }
       ]
     },
+    "live-waveform" : {
+      "files" : [
+        {
+          "installedHash" : "63cd2c309b9990549896d8697b13aebb569d396a4fc92fb8d24d563bfa217621",
+          "source" : "Sources/Swiftcn/Audio/LiveWaveform.swift",
+          "sourceHash" : "63cd2c309b9990549896d8697b13aebb569d396a4fc92fb8d24d563bfa217621",
+          "target" : "LiveWaveform.swift"
+        }
+      ]
+    },
     "marker" : {
       "files" : [
         {
-          "installedHash" : "ec709bfa161c1de81a43d2c7d9bfd2bf4454b4ab0bc911c8b3ea8f411ae9fe0b",
+          "installedHash" : "2d254641b07bd38cc331fb77c4a765185ed1306a2baa233460b0513b37cec9a8",
           "source" : "Sources/Swiftcn/Components/Marker.swift",
-          "sourceHash" : "ec709bfa161c1de81a43d2c7d9bfd2bf4454b4ab0bc911c8b3ea8f411ae9fe0b",
+          "sourceHash" : "2d254641b07bd38cc331fb77c4a765185ed1306a2baa233460b0513b37cec9a8",
           "target" : "Marker.swift"
         }
       ]
@@ -43,9 +73,9 @@
     "message" : {
       "files" : [
         {
-          "installedHash" : "68e61d2d109cd684d209ec20b7468fe73b64e465689ade66012e9283ae9823cb",
+          "installedHash" : "9a2e68b0a837db11f5cf187532c89a3795c43baf39ce3a812dcd43b07b21a162",
           "source" : "Sources/Swiftcn/Components/Message.swift",
-          "sourceHash" : "68e61d2d109cd684d209ec20b7468fe73b64e465689ade66012e9283ae9823cb",
+          "sourceHash" : "9a2e68b0a837db11f5cf187532c89a3795c43baf39ce3a812dcd43b07b21a162",
           "target" : "Message.swift"
         }
       ]
@@ -53,9 +83,9 @@
     "message-scroller" : {
       "files" : [
         {
-          "installedHash" : "3eb032feb956c6cd377b700d601fe18608ae9d9f658cff4041009b8c870db1f7",
+          "installedHash" : "011599728d2fe511a27c65430e5317b0fa6fb7ef20c1d03818826690259479c0",
           "source" : "Sources/Swiftcn/Components/MessageScroller.swift",
-          "sourceHash" : "3eb032feb956c6cd377b700d601fe18608ae9d9f658cff4041009b8c870db1f7",
+          "sourceHash" : "011599728d2fe511a27c65430e5317b0fa6fb7ef20c1d03818826690259479c0",
           "target" : "MessageScroller.swift"
         }
       ]
@@ -77,6 +107,16 @@
           "source" : "Sources/Swiftcn/Effects/Shimmer.swift",
           "sourceHash" : "13e8f57bcfe400fc8beda5e473cc419c147e89dca203ad7fdf8147bf94252a24",
           "target" : "Shimmer.swift"
+        }
+      ]
+    },
+    "speech-input" : {
+      "files" : [
+        {
+          "installedHash" : "d230e5740e36a007d73365e92450c134e78e22730e0a3acab8ac43a151080a29",
+          "source" : "Sources/Swiftcn/Audio/SpeechInput.swift",
+          "sourceHash" : "d230e5740e36a007d73365e92450c134e78e22730e0a3acab8ac43a151080a29",
+          "target" : "SpeechInput.swift"
         }
       ]
     },

@@ -1193,19 +1193,23 @@ private struct TurnActivityRowView: View {
     }
   }
 
+  // Upstream Marker + shimmer is the canonical "tool activity / live
+  // status" treatment; the shimmer runs only while the turn is running.
   private func row(now: Date) -> some View {
     let elapsed = activity.elapsedString(now: now)
-    let text = activity.text
 
     return HStack(spacing: DesignSpacing.sm) {
-      Image(systemName: activity.state == .running ? "clock" : "checkmark.circle")
-        .font(DesignTypography.micro)
-        .foregroundStyle(DesignColors.Neutral.textSecondary)
-      Text(text)
-        .font(DesignTypography.micro)
-        .lineLimit(1)
-        .truncationMode(.tail)
-        .foregroundStyle(DesignColors.Neutral.textSecondary)
+      SCMarker {
+        SCMarkerIcon {
+          Image(systemName: activity.state == .running ? "clock" : "checkmark.circle")
+        }
+        SCMarkerContent {
+          Text(activity.text)
+            .lineLimit(1)
+            .truncationMode(.tail)
+            .scShimmer(active: activity.state == .running)
+        }
+      }
       Spacer(minLength: 12)
       Text(elapsed)
         .font(DesignTypography.micro)

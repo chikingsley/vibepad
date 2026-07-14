@@ -187,101 +187,91 @@ struct MessageRowView: View {
     }
   }
 
+  /// Sent turn: trailing-aligned tinted bubble, upstream Message/Bubble
+  /// anatomy, with the fork/edit menu in the message footer.
   private var userMessageView: some View {
-    VStack(alignment: .leading, spacing: 6) {
-      HStack(spacing: 0) {
-        Rectangle()
-          .fill(DesignColors.Brand.primary)
-          .frame(width: 4)
-
-        VStack(alignment: .leading, spacing: 0) {
-          ForEach(message.parts.filter { $0.isText }, id: \.id) { part in
-            markdownText(part.text ?? "", isUser: true)
-              .padding(.horizontal, 14)
-              .padding(.vertical, 10)
-          }
-          let attachments = message.parts.filter { $0.isFile }
-          if !attachments.isEmpty {
-            MessageAttachmentsGrid(parts: attachments)
-              .padding(.horizontal, 14)
-              .padding(.bottom, 10)
-          }
-        }
-      }
-      .frame(maxWidth: .infinity, alignment: .leading)
-      .background(DesignColors.Brand.primary.opacity(DesignColors.userMessageFill(for: colorScheme)))
-      .clipShape(RoundedRectangle(cornerRadius: DesignCorners.large))
-
-      HStack {
-        // User messages don't carry a model line — the model belongs to
-        // the assistant's reply, not to what the human said.
-        Spacer()
-        if onForkFromMessage != nil {
-          Menu {
-            if onEditFromMessage != nil {
-              Button {
-                onEditFromMessage?(message.info.id)
-              } label: {
-                Label(L10n.t(.chatEditFromHere), systemImage: "pencil")
+    SCMessage(align: .end) {
+      SCMessageContent {
+        SCBubble(variant: .tinted, align: .end) {
+          SCBubbleContent {
+            VStack(alignment: .leading, spacing: 6) {
+              ForEach(message.parts.filter { $0.isText }, id: \.id) { part in
+                markdownText(part.text ?? "", isUser: true)
               }
-              .disabled(state.isBusy)
+              let attachments = message.parts.filter { $0.isFile }
+              if !attachments.isEmpty {
+                MessageAttachmentsGrid(parts: attachments)
+              }
             }
+          }
+        }
 
-            Button {
-              onForkFromMessage?(message.info.id)
+        if onForkFromMessage != nil {
+          SCMessageFooter {
+            Menu {
+              if onEditFromMessage != nil {
+                Button {
+                  onEditFromMessage?(message.info.id)
+                } label: {
+                  Label(L10n.t(.chatEditFromHere), systemImage: "pencil")
+                }
+                .disabled(state.isBusy)
+              }
+
+              Button {
+                onForkFromMessage?(message.info.id)
+              } label: {
+                Label(L10n.t(.chatForkFromHere), systemImage: "arrow.triangle.branch")
+              }
             } label: {
-              Label(L10n.t(.chatForkFromHere), systemImage: "arrow.triangle.branch")
+              Image(systemName: "ellipsis")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .padding(.horizontal, 4)
+                .padding(.vertical, 2)
+                .contentShape(Rectangle())
             }
-          } label: {
-            Image(systemName: "ellipsis")
-              .font(.caption2)
-              .foregroundStyle(.tertiary)
-              .padding(.horizontal, 4)
-              .padding(.vertical, 2)
-              .contentShape(Rectangle())
           }
         }
       }
-      .padding(.leading, 4)
     }
   }
 
+  /// Received turn: leading ghost surface (full width, no chrome) so tool
+  /// card grids keep their density; model line rides in the footer and
+  /// errors render as a destructive bubble.
   private var assistantMessageView: some View {
-    VStack(alignment: .leading, spacing: 6) {
-      // No "OpenCode" speaker title — the user's blue left-bar vs the
-      // assistant's container-less reply already make it clear who's
-      // speaking, so an extra blue label is redundant.
-      ForEach(assistantBlocks) { block in
-        switch block {
-        case .text(let part):
-          markdownText(part.text ?? "", isUser: false)
-            .frame(maxWidth: .infinity, alignment: .leading)
-        case .cards(let parts):
-          cardsBlock(parts)
-        case .attachment(let part):
-          MessageAttachmentView(part: part)
+    SCMessage(align: .start) {
+      SCMessageContent {
+        ForEach(assistantBlocks) { block in
+          switch block {
+          case .text(let part):
+            markdownText(part.text ?? "", isUser: false)
+              .frame(maxWidth: .infinity, alignment: .leading)
+          case .cards(let parts):
+            cardsBlock(parts)
+          case .attachment(let part):
+            MessageAttachmentView(part: part)
+          }
         }
-      }
 
-      // Model footer: same caption2/tertiary "providerID/modelID" treatment as
-      // the user message, placed at the end of the assistant turn.
-      if let model = message.info.resolvedModel {
-        Text("\(model.providerID)/\(model.modelID)")
-          .font(.caption2)
-          .foregroundStyle(.tertiary)
-          .padding(.leading, 4)
-      }
+        if let err = message.info.errorMessageForDisplay {
+          SCBubble(variant: .destructive) {
+            SCBubbleContent {
+              Text(err)
+                .font(.caption)
+                .textSelection(.enabled)
+            }
+          }
+        }
 
-      if let err = message.info.errorMessageForDisplay {
-        Text(err)
-          .font(.caption)
-          .foregroundStyle(DesignColors.Semantic.error)
-          .padding(.horizontal, 12)
-          .padding(.vertical, 10)
-          .frame(maxWidth: .infinity, alignment: .leading)
-          .background(DesignColors.Semantic.error.opacity(DesignColors.surfaceFill(for: colorScheme)))
-          .clipShape(RoundedRectangle(cornerRadius: DesignCorners.medium))
-          .textSelection(.enabled)
+        if let model = message.info.resolvedModel {
+          SCMessageFooter {
+            Text("\(model.providerID)/\(model.modelID)")
+              .font(.caption2)
+              .foregroundStyle(.tertiary)
+          }
+        }
       }
     }
   }

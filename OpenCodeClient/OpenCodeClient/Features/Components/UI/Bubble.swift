@@ -18,7 +18,7 @@ import SwiftUI
 // MARK: - Variants
 
 /// The visual treatment of a bubble surface — shadcn's `variant` prop.
-public nonisolated enum SCBubbleVariant: Hashable, Sendable {
+nonisolated public enum SCBubbleVariant: Hashable, Sendable {
   /// Primary surface with primary-foreground text — the sender default.
   case `default`
   /// Secondary surface.
@@ -37,13 +37,13 @@ public nonisolated enum SCBubbleVariant: Hashable, Sendable {
 
 /// Which side of the container a bubble (or its reactions) aligns to —
 /// shadcn's `align` prop.
-public nonisolated enum SCBubbleAlignment: Hashable, Sendable {
+nonisolated public enum SCBubbleAlignment: Hashable, Sendable {
   case start
   case end
 }
 
 /// Which edge reactions overlap — shadcn's `side` prop on `BubbleReactions`.
-public nonisolated enum SCBubbleReactionsSide: Hashable, Sendable {
+nonisolated public enum SCBubbleReactionsSide: Hashable, Sendable {
   case top
   case bottom
 }

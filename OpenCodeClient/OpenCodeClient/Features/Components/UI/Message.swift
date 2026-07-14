@@ -23,7 +23,7 @@ import SwiftUI
 
 /// Which side of the conversation a message row sits on — shadcn's `align`
 /// prop. `.start` reads as "received", `.end` as "sent".
-public nonisolated enum SCMessageAlignment: Hashable, Sendable {
+nonisolated public enum SCMessageAlignment: Hashable, Sendable {
   case start
   case end
 }

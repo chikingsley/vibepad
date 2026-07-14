@@ -19,7 +19,7 @@ import SwiftUI
 // MARK: - Variants
 
 /// The layout style of a marker — shadcn's `variant` prop.
-public nonisolated enum SCMarkerVariant: Hashable, Sendable {
+nonisolated public enum SCMarkerVariant: Hashable, Sendable {
   /// An inline marker for status and notes.
   case `default`
   /// An inline marker with a bottom border for row separation.

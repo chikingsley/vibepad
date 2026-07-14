@@ -36,7 +36,7 @@ import SwiftUI
 
 /// Where a saved thread opens — shadcn's `defaultScrollPosition` prop on
 /// `MessageScrollerProvider`.
-public nonisolated enum SCMessageScrollerPosition: Hashable, Sendable {
+nonisolated public enum SCMessageScrollerPosition: Hashable, Sendable {
   /// The oldest message.
   case start
   /// The newest message (the default).
@@ -47,7 +47,7 @@ public nonisolated enum SCMessageScrollerPosition: Hashable, Sendable {
 
 /// Which end a scroll control targets — shadcn's `direction` prop on
 /// `MessageScrollerButton`.
-public nonisolated enum SCMessageScrollerButtonDirection: Hashable, Sendable {
+nonisolated public enum SCMessageScrollerButtonDirection: Hashable, Sendable {
   case start
   case end
 }

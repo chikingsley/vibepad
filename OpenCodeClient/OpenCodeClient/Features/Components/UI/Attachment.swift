@@ -6,19 +6,19 @@ import SwiftUI
 
 // MARK: - Configuration
 
-public nonisolated enum SCAttachmentState: CaseIterable, Equatable, Sendable {
+nonisolated public enum SCAttachmentState: CaseIterable, Equatable, Sendable {
   case idle, uploading, processing, error, done
 }
 
-public nonisolated enum SCAttachmentSize: CaseIterable, Equatable, Sendable {
+nonisolated public enum SCAttachmentSize: CaseIterable, Equatable, Sendable {
   case `default`, small, extraSmall
 }
 
-public nonisolated enum SCAttachmentOrientation: CaseIterable, Equatable, Sendable {
+nonisolated public enum SCAttachmentOrientation: CaseIterable, Equatable, Sendable {
   case horizontal, vertical
 }
 
-public nonisolated enum SCAttachmentMediaVariant: CaseIterable, Equatable, Sendable {
+nonisolated public enum SCAttachmentMediaVariant: CaseIterable, Equatable, Sendable {
   case icon, image
 }
 
