@@ -113,7 +113,7 @@ struct MessageRowView: View {
     @State private var resolvedText: String?
 
     var body: some View {
-      Markdown(resolvedText ?? text)
+      SCResponse(resolvedText ?? text)
         .markdownImageProvider(
           WorkspaceMarkdownImageProvider(
             loadFileContent: { pathBytes in try await state.loadFileContent(pathBytes: pathBytes) },

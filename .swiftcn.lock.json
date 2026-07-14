@@ -90,6 +90,16 @@
         }
       ]
     },
+    "response" : {
+      "files" : [
+        {
+          "installedHash" : "b0c2521c88dee179c73d9cc4d1fcc6455725af84db958bf7920c71eacee435a8",
+          "source" : "Sources/Swiftcn/Components/Response.swift",
+          "sourceHash" : "b0c2521c88dee179c73d9cc4d1fcc6455725af84db958bf7920c71eacee435a8",
+          "target" : "Response.swift"
+        }
+      ]
+    },
     "scroll-fade" : {
       "files" : [
         {
