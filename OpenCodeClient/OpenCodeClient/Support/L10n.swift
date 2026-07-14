@@ -240,6 +240,8 @@ nonisolated enum L10n {
     case chatAbortAgent
     case chatAgentRunning
     case chatMicrophoneDenied
+    case chatSpeechRecognitionDenied
+    case chatSpeechRecognizerUnavailable
     case chatSessionStatusBusy
     case chatSessionStatusRetrying
     case chatSessionStatusIdle
@@ -640,6 +642,9 @@ nonisolated enum L10n {
     Key.chatAbortAgent.rawValue: "Interrupt agent",
     Key.chatAgentRunning.rawValue: "Agent running",
     Key.chatMicrophoneDenied.rawValue: "Microphone permission denied",
+    Key.chatSpeechRecognitionDenied.rawValue:
+      "Speech recognition permission denied. Enable it in Settings > Privacy & Security > Speech Recognition.",
+    Key.chatSpeechRecognizerUnavailable.rawValue: "Speech recognition is not available on this device right now.",
     Key.chatSessionStatusBusy.rawValue: "Running",
     Key.chatSessionStatusRetrying.rawValue: "Retrying",
     Key.chatSessionStatusIdle.rawValue: "Idle",

@@ -8,7 +8,6 @@
 import Foundation
 import SwiftUI
 import Testing
-import VoiceFlowKit
 
 @testable import OpenCodeClient
 
@@ -1238,57 +1237,24 @@ struct LayoutConstantsTests {
   }
 }
 
-// MARK: - Speech Recognition Defaults
-
-struct SpeechRecognitionDefaultsTests {
-
-  @Test @MainActor func speechRecognitionDefaultPromptAndTerminology() {
-    // Clear stored values so AppState falls back to defaults
-    UserDefaults.standard.removeObject(forKey: "aiBuilderCustomPrompt")
-    UserDefaults.standard.removeObject(forKey: "aiBuilderTerminology")
-    let state = AppState()
-    #expect(state.aiBuilderCustomPrompt.contains("snake_case"))
-    #expect(state.aiBuilderCustomPrompt.contains("lowercase"))
-    #expect(state.aiBuilderTerminology == "adhoc_jobs, life_consulting, survey_sessions, thought_review")
-  }
-
-  @Test @MainActor func speechRecognitionPersistence() {
-    let state = AppState()
-    state.aiBuilderCustomPrompt = "test prompt"
-    state.aiBuilderTerminology = "foo, bar"
-    #expect(state.aiBuilderCustomPrompt == "test prompt")
-    #expect(state.aiBuilderTerminology == "foo, bar")
-    // Restore defaults for other tests
-    UserDefaults.standard.removeObject(forKey: "aiBuilderCustomPrompt")
-    UserDefaults.standard.removeObject(forKey: "aiBuilderTerminology")
-  }
-}
+// MARK: - Composer speech input
 
 struct ChatComposerSpeechTests {
 
-  @Test func mergedSpeechInputOmitsLeadingSpaceForEmptyPrefix() {
-    #expect(ChatTabView.mergedSpeechInput(prefix: "", transcript: " hello world ") == "hello world")
+  @Test func mergedSpeechInputUsesTranscriptAloneForEmptyPrefix() {
+    #expect(ChatTabView.mergedSpeechInput(prefix: "", transcript: "hello world") == "hello world")
   }
 
-  @Test func mergedSpeechInputKeepsSeparatorForExistingInput() {
+  @Test func mergedSpeechInputInsertsSeparatorAfterExistingDraft() {
     #expect(ChatTabView.mergedSpeechInput(prefix: "Existing draft", transcript: "partial") == "Existing draft partial")
   }
 
-  @Test func speechFailureInputPreservesLastPartialTranscript() {
-    #expect(ChatTabView.speechFailureInput(prefix: "", lastPartialTranscript: "partial result") == "partial result")
-    #expect(
-      ChatTabView.speechFailureInput(prefix: "Existing draft", lastPartialTranscript: "partial result")
-        == "Existing draft partial result")
+  @Test func mergedSpeechInputSkipsSeparatorAfterTrailingSpace() {
+    #expect(ChatTabView.mergedSpeechInput(prefix: "Existing draft ", transcript: "partial") == "Existing draft partial")
   }
 
-  @Test func speechFailureInputFallsBackToPrefixWithoutPartialTranscript() {
-    #expect(ChatTabView.speechFailureInput(prefix: "Existing draft", lastPartialTranscript: "   ") == "Existing draft")
-  }
-
-  @Test func speechTranscriptAutoScrollsOnlyDuringGeneratedUpdates() {
-    #expect(ChatTabView.shouldAutoScrollSpeechTranscript(isTranscribing: true, isRetryingSpeech: false) == true)
-    #expect(ChatTabView.shouldAutoScrollSpeechTranscript(isTranscribing: false, isRetryingSpeech: true) == true)
-    #expect(ChatTabView.shouldAutoScrollSpeechTranscript(isTranscribing: false, isRetryingSpeech: false) == false)
+  @Test func mergedSpeechInputKeepsPrefixForEmptyTranscript() {
+    #expect(ChatTabView.mergedSpeechInput(prefix: "Existing draft", transcript: "") == "Existing draft")
   }
 
   @Test func chatComposerReturnUsesSystemDuringMarkedTextComposition() {
@@ -3705,23 +3671,29 @@ struct DesignTokensTests {
   }
 }
 
-// MARK: - VoiceFlowKit integration tests
+// MARK: - Apple speech session
 
-struct VoiceFlowKitIntegrationTests {
+struct SpeechAudioLevelMeterTests {
 
-  @Test @MainActor func transcribeAudioThrowsMissingTokenWhenTokenEmpty() async {
-    let state = AppState()
-    state.aiBuilderToken = "   "
-    await #expect(throws: VoiceFlowError.missingToken) {
-      _ = try await state.transcribeAudio(audioFileURL: URL(fileURLWithPath: "/tmp/does-not-exist.wav"))
-    }
+  @Test func normalizedLevelClampsSilenceAndFullScale() {
+    #expect(SpeechAudioLevelMeter.normalizedLevel(rms: 0) == 0)
+    #expect(SpeechAudioLevelMeter.normalizedLevel(rms: 1) == 1)
+    #expect(SpeechAudioLevelMeter.normalizedLevel(rms: 2) == 1)
   }
 
-  @Test @MainActor func startRealtimeSpeechSessionThrowsMissingTokenWhenTokenEmpty() async {
-    let state = AppState()
-    state.aiBuilderToken = ""
-    await #expect(throws: VoiceFlowError.missingToken) {
-      _ = try await state.startRealtimeSpeechSession()
-    }
+  @Test func normalizedLevelGrowsWithLoudness() {
+    let quiet = SpeechAudioLevelMeter.normalizedLevel(rms: 0.01)
+    let medium = SpeechAudioLevelMeter.normalizedLevel(rms: 0.1)
+    let loud = SpeechAudioLevelMeter.normalizedLevel(rms: 0.5)
+    #expect(quiet > 0)
+    #expect(quiet < medium)
+    #expect(medium < loud)
+    #expect(loud < 1)
+  }
+
+  @Test func recentLevelsAreEmptyWithoutAudioAndClampedToRequestCount() {
+    let meter = SpeechAudioLevelMeter()
+    #expect(meter.recentLevels(count: 8).isEmpty)
+    #expect(meter.recentLevels(count: 0).isEmpty)
   }
 }

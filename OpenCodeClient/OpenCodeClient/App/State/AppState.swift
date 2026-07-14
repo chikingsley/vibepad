@@ -3,10 +3,8 @@
 //  OpenCodeClient
 //
 
-import CryptoKit
 import Foundation
 import Observation
-import VoiceFlowKit
 import os
 
 nonisolated struct SessionNode: Identifiable, Sendable {
@@ -163,12 +161,6 @@ final class AppState {
   static let serverURLKey = "serverURL"
   static let usernameKey = "username"
   static let passwordKeychainKey = "password"
-  static let aiBuilderBaseURLKey = "aiBuilderBaseURL"
-  static let aiBuilderTokenKeychainKey = "aiBuilderToken"
-  static let aiBuilderCustomPromptKey = "aiBuilderCustomPrompt"
-  static let aiBuilderTerminologyKey = "aiBuilderTerminology"
-  static let aiBuilderLastOKSignatureKey = "aiBuilderLastOKSignature"
-  static let aiBuilderLastOKTestedAtKey = "aiBuilderLastOKTestedAt"
   static let draftInputsBySessionKey = "draftInputsBySession"
   static let selectedModelBySessionKey = "selectedModelBySession"
   static let selectedProjectWorktreeKey = "selectedProjectWorktree"
@@ -200,26 +192,9 @@ final class AppState {
     loadHostProfilesFromStorageOrLegacy()
     applyCurrentHostProfileToRuntime(persistLegacy: false)
 
-    _aiBuilderBaseURL =
-      UserDefaults.standard.string(forKey: Self.aiBuilderBaseURLKey) ?? "https://space.ai-builders.com/backend"
-    _aiBuilderToken = KeychainHelper.load(forKey: Self.aiBuilderTokenKeychainKey) ?? ""
-    _aiBuilderCustomPrompt =
-      UserDefaults.standard.string(forKey: Self.aiBuilderCustomPromptKey) ?? Self.defaultAIBuilderCustomPrompt
-    _aiBuilderTerminology =
-      UserDefaults.standard.string(forKey: Self.aiBuilderTerminologyKey) ?? Self.defaultAIBuilderTerminology
     _selectedProjectWorktree = UserDefaults.standard.string(forKey: Self.selectedProjectWorktreeKey)
     _customProjectPath = UserDefaults.standard.string(forKey: Self.customProjectPathKey) ?? ""
     _languagePreference = L10n.languagePreference
-
-    // Restore last known-good AI Builder connection state if token/baseURL unchanged.
-    let storedSig = UserDefaults.standard.string(forKey: Self.aiBuilderLastOKSignatureKey)
-    let currentSig = Self.aiBuilderSignature(baseURL: _aiBuilderBaseURL, token: _aiBuilderToken)
-    if let storedSig, storedSig == currentSig, !currentSig.isEmpty {
-      aiBuilderConnectionOK = true
-      if let ts = UserDefaults.standard.object(forKey: Self.aiBuilderLastOKTestedAtKey) as? Double {
-        aiBuilderLastTestedAt = Date(timeIntervalSince1970: ts)
-      }
-    }
 
     if let data = UserDefaults.standard.data(forKey: Self.draftInputsBySessionKey),
       let decoded = try? JSONDecoder().decode([String: String].self, from: data)
@@ -252,76 +227,6 @@ final class AppState {
     hostProfiles.first { $0.id == currentHostProfileID }
   }
 
-  static func aiBuilderSignature(baseURL: String, token: String) -> String {
-    let base = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
-    let tok = token.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !base.isEmpty, !tok.isEmpty else { return "" }
-    let input = "\(base)|\(tok)"
-    let digest = SHA256.hash(data: Data(input.utf8))
-    return digest.map { String(format: "%02x", $0) }.joined()
-  }
-
-  var _aiBuilderBaseURL: String = "https://space.ai-builders.com/backend"
-  var aiBuilderBaseURL: String {
-    get { _aiBuilderBaseURL }
-    set {
-      _aiBuilderBaseURL = newValue
-      UserDefaults.standard.set(newValue, forKey: Self.aiBuilderBaseURLKey)
-      aiBuilderConnectionOK = false
-      aiBuilderConnectionError = nil
-      aiBuilderLastTestedAt = nil
-      UserDefaults.standard.removeObject(forKey: Self.aiBuilderLastOKSignatureKey)
-      UserDefaults.standard.removeObject(forKey: Self.aiBuilderLastOKTestedAtKey)
-    }
-  }
-
-  var _aiBuilderToken: String = ""
-  var aiBuilderToken: String {
-    get { _aiBuilderToken }
-    set {
-      _aiBuilderToken = newValue
-      if newValue.isEmpty {
-        KeychainHelper.delete(Self.aiBuilderTokenKeychainKey)
-      } else {
-        KeychainHelper.save(newValue, forKey: Self.aiBuilderTokenKeychainKey)
-      }
-      aiBuilderConnectionOK = false
-      aiBuilderConnectionError = nil
-      aiBuilderLastTestedAt = nil
-      UserDefaults.standard.removeObject(forKey: Self.aiBuilderLastOKSignatureKey)
-      UserDefaults.standard.removeObject(forKey: Self.aiBuilderLastOKTestedAtKey)
-    }
-  }
-
-  /// Default custom prompt for speech recognition. Instructs engine on filename style.
-  static let defaultAIBuilderCustomPrompt =
-    "All file and directory names should use snake_case (lowercase with underscores)."
-
-  /// Default terminology (comma-separated) from workspace routing.
-  static let defaultAIBuilderTerminology = "adhoc_jobs, life_consulting, survey_sessions, thought_review"
-
-  var _aiBuilderCustomPrompt: String = ""
-  var aiBuilderCustomPrompt: String {
-    get { _aiBuilderCustomPrompt }
-    set {
-      _aiBuilderCustomPrompt = newValue
-      UserDefaults.standard.set(newValue, forKey: Self.aiBuilderCustomPromptKey)
-    }
-  }
-
-  var _aiBuilderTerminology: String = ""
-  var aiBuilderTerminology: String {
-    get { _aiBuilderTerminology }
-    set {
-      _aiBuilderTerminology = newValue
-      UserDefaults.standard.set(newValue, forKey: Self.aiBuilderTerminologyKey)
-    }
-  }
-
-  var aiBuilderConnectionError: String?
-  var aiBuilderConnectionOK: Bool = false
-  var aiBuilderLastTestedAt: Date?
-  var isTestingAIBuilderConnection: Bool = false
   var isConnected: Bool = false
   var serverVersion: String?
   var connectionError: String?

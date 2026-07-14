@@ -9,7 +9,6 @@
 /* Begin PBXBuildFile section */
 		3B4F459A2F3FB16A00A4CD74 /* Citadel in Frameworks */ = {isa = PBXBuildFile; platformFilter = ios; productRef = 3B4F45992F3FB16A00A4CD74 /* Citadel */; };
 		AA000001AAAAAAAA00000001 /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = AA000002AAAAAAAA00000002 /* MarkdownUI */; };
-		BB000001BBBBBBBB00000001 /* VoiceFlowKit in Frameworks */ = {isa = PBXBuildFile; productRef = BB000002BBBBBBBB00000002 /* VoiceFlowKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -60,7 +59,6 @@
 			files = (
 				AA000001AAAAAAAA00000001 /* MarkdownUI in Frameworks */,
 				3B4F459A2F3FB16A00A4CD74 /* Citadel in Frameworks */,
-				BB000001BBBBBBBB00000001 /* VoiceFlowKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -122,7 +120,6 @@
 			name = OpenCodeClient;
 			packageProductDependencies = (
 				AA000002AAAAAAAA00000002 /* MarkdownUI */,
-				BB000002BBBBBBBB00000002 /* VoiceFlowKit */,
 			);
 			productName = OpenCodeClient;
 			productReference = 3B4F44022F3E642500A4CD74 /* OpenCodeClient.app */;
@@ -209,7 +206,6 @@
 			packageReferences = (
 				AA000003AAAAAAAA00000003 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */,
 				3B4F45982F3FB16A00A4CD74 /* XCRemoteSwiftPackageReference "Citadel" */,
-				BB000003BBBBBBBB00000003 /* XCRemoteSwiftPackageReference "voiceflow" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 3B4F44032F3E642500A4CD74 /* Products */;
@@ -421,6 +417,7 @@
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "VibePad needs local network access to connect to your OpenCode server on the same network.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "VibePad uses the microphone to record voice input, which is transcribed to text and added to the message input field.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "VibePad uses speech recognition to transcribe your voice into the message field.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -461,6 +458,7 @@
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "VibePad needs local network access to connect to your OpenCode server on the same network.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "VibePad uses the microphone to record voice input, which is transcribed to text and added to the message input field.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "VibePad uses speech recognition to transcribe your voice into the message field.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -622,18 +620,10 @@
 		};
 		AA000003AAAAAAAA00000003 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/grapeot/swift-markdown-ui";
+			repositoryURL = "https://github.com/gonzalezreal/swift-markdown-ui";
 			requirement = {
-				kind = exactVersion;
-				version = "2.4.1-visionos.1";
-			};
-		};
-		BB000003BBBBBBBB00000003 /* XCRemoteSwiftPackageReference "voiceflow" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/grapeot/voiceflow.git";
-			requirement = {
-				kind = revision;
-				revision = dbbe297ea52e3a3438d227a54001b23c138c47b7;
+				kind = upToNextMinorVersion;
+				minimumVersion = 2.4.1;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
@@ -648,11 +638,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = AA000003AAAAAAAA00000003 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */;
 			productName = MarkdownUI;
-		};
-		BB000002BBBBBBBB00000002 /* VoiceFlowKit */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = BB000003BBBBBBBB00000003 /* XCRemoteSwiftPackageReference "voiceflow" */;
-			productName = VoiceFlowKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

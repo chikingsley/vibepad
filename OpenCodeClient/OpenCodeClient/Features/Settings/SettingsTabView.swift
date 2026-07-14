@@ -104,49 +104,6 @@ struct SettingsTabView: View {
           }
         }
 
-        Section(L10n.t(.settingsSpeechRecognition)) {
-          TextField(L10n.t(.settingsAiBuilderBaseURL), text: $state.aiBuilderBaseURL)
-            .textContentType(.URL)
-            .autocapitalization(.none)
-
-          SecureField(L10n.t(.settingsAiBuilderToken), text: $state.aiBuilderToken)
-            .textContentType(.password)
-
-          TextField(L10n.t(.settingsCustomPrompt), text: $state.aiBuilderCustomPrompt, axis: .vertical)
-            .lineLimit(3...6)
-
-          TextField(L10n.t(.settingsTerminology), text: $state.aiBuilderTerminology)
-            .textContentType(.none)
-            .autocapitalization(.none)
-
-          HStack {
-            Button {
-              Task { await state.testAIBuilderConnection() }
-            } label: {
-              if state.isTestingAIBuilderConnection {
-                HStack(spacing: 8) {
-                  ProgressView()
-                    .scaleEffect(0.9)
-                  Text(L10n.t(.settingsTesting))
-                }
-              } else {
-                Text(L10n.t(.settingsTestConnection))
-              }
-            }
-            .disabled(
-              state.aiBuilderToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                || state.isTestingAIBuilderConnection
-            )
-            Spacer()
-            if state.aiBuilderConnectionOK {
-              Label(L10n.t(.commonOk), systemImage: "checkmark.circle.fill")
-                .foregroundStyle(DesignColors.Semantic.success)
-            } else if let err = state.aiBuilderConnectionError {
-              Text(err)
-                .foregroundStyle(.red)
-            }
-          }
-        }
         Section(L10n.t(.settingsAbout)) {
           if let version = state.serverVersion {
             LabeledContent(L10n.t(.settingsServerVersion), value: version)

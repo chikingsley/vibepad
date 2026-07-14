@@ -28,11 +28,6 @@ struct ContentView: View {
     ProcessInfo.processInfo.arguments.contains("UITEST_TOOL_CARDS_FIXTURE")
   }
 
-  private static var hasUITestF3ComposerFixture: Bool {
-    ProcessInfo.processInfo.arguments.contains("UITEST_F3_TRANSCRIBING_FIXTURE")
-      || ProcessInfo.processInfo.arguments.contains("UITEST_F3_RETRY_FIXTURE")
-  }
-
   private static var hasUITestWebPreviewFixture: Bool {
     ProcessInfo.processInfo.arguments.contains("UITEST_WEB_PREVIEW_FIXTURE")
   }
@@ -64,11 +59,6 @@ struct ContentView: View {
 
     if hasUITestHostProfilesFixture {
       applyHostProfilesFixture(to: state)
-      return state
-    }
-
-    if hasUITestF3ComposerFixture {
-      applyF3ComposerFixture(to: state)
       return state
     }
 
@@ -364,30 +354,6 @@ struct ContentView: View {
     ]
   }
 
-  /// Injects a deterministic busy session for F3 composer screenshots.
-  /// The voice-side states are controlled by ChatTabView launch arguments.
-  private static func applyF3ComposerFixture(to state: AppState) {
-    let sessionID = "f3-composer-session"
-    state.isConnected = true
-    state.sessions = [
-      Session(
-        id: sessionID,
-        slug: sessionID,
-        projectID: "p1",
-        directory: "/tmp/opencode-ios-f3-fixture",
-        parentID: nil,
-        title: "F3 Voice Steer",
-        version: "1",
-        time: .init(created: 1_000, updated: 2_000, archived: nil),
-        share: nil,
-        summary: nil
-      )
-    ]
-    state.currentSessionID = sessionID
-    state.sessionStatuses[sessionID] = SessionStatus(
-      type: "busy", attempt: nil, message: "Running implementation", next: nil)
-  }
-
   /// Decode a Part from a JSON-object dictionary, mirroring how the server feeds
   /// parts through Codable (so metadata/state/path classification flows identically).
   private static func decodePart(_ obj: [String: Any]) -> Part {
@@ -401,7 +367,7 @@ struct ContentView: View {
   }
 
   private func restoreConnectionFlow() async {
-    if Self.hasUITestSessionTreeFixture || Self.hasUITestToolCardsFixture || Self.hasUITestF3ComposerFixture
+    if Self.hasUITestSessionTreeFixture || Self.hasUITestToolCardsFixture
       || Self.hasUITestWebPreviewFixture || Self.hasUITestWebPreviewModeFixture
     {
       return

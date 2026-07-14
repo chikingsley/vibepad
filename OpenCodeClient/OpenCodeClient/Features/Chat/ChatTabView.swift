@@ -5,8 +5,6 @@
 
 import PhotosUI
 import SwiftUI
-import VoiceFlowKit
-import os
 
 #if canImport(UIKit)
   import UIKit
@@ -32,13 +30,13 @@ private enum MessageGroupItem: Identifiable {
 }
 
 struct ChatTabView: View {
-  static let logger = Logger(
-    subsystem: Bundle.main.bundleIdentifier ?? "OpenCodeClient",
-    category: "SpeechProfile"
-  )
-
-  nonisolated static func shouldAutoScrollSpeechTranscript(isTranscribing: Bool, isRetryingSpeech: Bool) -> Bool {
-    isTranscribing || isRetryingSpeech
+  /// Merges the pre-recording draft with the live speech transcript:
+  /// no separator after an empty or space-terminated prefix, one space
+  /// otherwise.
+  nonisolated static func mergedSpeechInput(prefix: String, transcript: String) -> String {
+    guard !transcript.isEmpty else { return prefix }
+    let separator = prefix.isEmpty || prefix.hasSuffix(" ") ? "" : " "
+    return prefix + separator + transcript
   }
 
   @Bindable var state: AppState
@@ -53,21 +51,9 @@ struct ChatTabView: View {
   @State private var showSessionList = false
   @State private var showRenameAlert = false
   @State private var renameText = ""
-  @State var microphone = VoiceFlowMicrophone()
-  @State var speechSession: VoiceFlowSession?
-  @State var speechHeartbeatTask: Task<Void, Never>?
-  @State var speechEventTask: Task<Void, Never>?
-  @State var recordingInputPrefix = ""
-  @State var preservedSpeechInputPrefix = ""
-  @State var preservedSpeechAudio: VoiceFlowPreservedAudio?
-  @State var isRecording = false
-  @State var isStartingRecording = false
-  @State var isTranscribing = false
-  @State var isRetryingSpeech = false
-  @State var speechError: String?
-  @State var speechRecoveryActive = false
-  @State var speechAudioLevel: Float = 0
-  @State var speechAudioLevelTask: Task<Void, Never>?
+  @State private var speech = AppleSpeechSession()
+  @State private var recordingPrefix = ""
+  @State private var speechError: String?
   @State private var selectedPhotoItems: [PhotosPickerItem] = []
   @State private var imageAttachments: [ComposerImageAttachment] = []
   @State private var attachmentError: String?
@@ -79,33 +65,10 @@ struct ChatTabView: View {
 
   private var useGridCards: Bool { sizeClass == .regular }
 
-  private static var hasUITestF3TranscribingFixture: Bool {
-    ProcessInfo.processInfo.arguments.contains("UITEST_F3_TRANSCRIBING_FIXTURE")
-  }
-
-  private static var hasUITestF3RetryFixture: Bool {
-    ProcessInfo.processInfo.arguments.contains("UITEST_F3_RETRY_FIXTURE")
-  }
-
-  private var isShowingTranscribingUI: Bool {
-    isTranscribing || Self.hasUITestF3TranscribingFixture
-  }
-
-  private var hasPreservedSpeechAudioForUI: Bool {
-    preservedSpeechAudio != nil || Self.hasUITestF3RetryFixture
-  }
-
-  private var composerPlaceholderText: String {
-    if isRecording { return L10n.t(.chatSpeechTranscriptWillAppear) }
-    if isShowingTranscribingUI { return L10n.t(.chatSpeechTranscribingHint) }
-    if hasPreservedSpeechAudioForUI { return L10n.t(.chatSpeechPreservedAudio) }
-    return L10n.t(.chatInputPlaceholder)
-  }
-
   private var canSendNow: Bool {
     (ChatComposerSendGate.canSend(text: inputText, isSending: isSending, hasMarkedText: hasMarkedText)
       || (!imageAttachments.isEmpty && !isSending && !hasMarkedText))
-      && !isRecording && !isShowingTranscribingUI && !isRetryingSpeech
+      && !speech.isConnected
   }
 
   fileprivate struct TurnActivity: Identifiable {
@@ -331,47 +294,9 @@ struct ChatTabView: View {
     return result
   }
 
-  private var voiceRailMode: VoiceRailWaveformView.Mode {
-    if isRecording { return .active }
-    if isShowingTranscribingUI || isRetryingSpeech { return .generating }
-    return .idle
-  }
-
-  private var voiceRailColor: Color {
-    if isRecording { return DesignColors.Brand.primary }
-    if isShowingTranscribingUI || isRetryingSpeech { return DesignColors.Brand.primary }
-    return DesignColors.Neutral.textTertiary
-  }
-
-  private var voiceRailTitle: String {
-    if isRecording { return L10n.t(.chatSpeechListening) }
-    if isShowingTranscribingUI { return L10n.t(.chatSpeechTranscribing) }
-    if isRetryingSpeech { return L10n.t(.chatSpeechRetrySegment) }
-    if hasPreservedSpeechAudioForUI { return L10n.t(.chatSpeechPreservedAudio) }
-    return L10n.t(.chatSpeechTapToSpeak)
-  }
-
-  private var voiceStatusText: String? {
-    if speechRecoveryActive { return L10n.t(.chatSpeechRecovering) }
-    if isRecording { return L10n.t(.chatSpeechListening) }
-    if isShowingTranscribingUI { return L10n.t(.chatSpeechTranscribing) }
-    if isRetryingSpeech { return L10n.t(.chatSpeechRetrySegment) }
-    if hasPreservedSpeechAudioForUI { return L10n.t(.chatSpeechPreservedAudio) }
-    return nil
-  }
-
   private var composerStatusText: String? {
-    let agentStatus = state.isBusy ? (runningTurnActivity?.text ?? L10n.t(.chatAgentRunning)) : nil
-    let parts = [agentStatus, voiceStatusText].compactMap { $0 }
-    guard !parts.isEmpty else { return nil }
-    return parts.joined(separator: " · ")
-  }
-
-  private var voiceRailTransportIcon: String {
-    if isRecording { return "stop.circle.fill" }
-    if isShowingTranscribingUI || isRetryingSpeech { return "circle.dotted" }
-    if hasPreservedSpeechAudioForUI { return "arrow.clockwise" }
-    return "mic.fill"
+    guard state.isBusy else { return nil }
+    return runningTurnActivity?.text ?? L10n.t(.chatAgentRunning)
   }
 
   private var quietComposerStatus: some View {
@@ -435,88 +360,6 @@ struct ChatTabView: View {
 
   private var shouldShowComposerStatus: Bool {
     composerStatusText != nil
-  }
-
-  private var voiceRailTrailingAction: some View {
-    Group {
-      if isShowingTranscribingUI {
-        Button {
-          guard !Self.hasUITestF3TranscribingFixture else { return }
-          Task { await abortSpeechRecognition() }
-        } label: {
-          Text(L10n.t(.chatSpeechStopWaiting))
-            .font(DesignTypography.meta.weight(.semibold))
-            .foregroundStyle(DesignColors.Neutral.textSecondary)
-            .padding(.horizontal, DesignSpacing.md)
-            .padding(.vertical, 7)
-            .background {
-              Capsule().fill(DesignColors.Neutral.textSecondary.opacity(0.10))
-            }
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("speech-stop-waiting")
-      } else if hasPreservedSpeechAudioForUI {
-        Button {
-          guard !Self.hasUITestF3RetryFixture else { return }
-          clearPreservedSpeechAudio()
-        } label: {
-          Text(L10n.t(.chatSpeechDiscardAudio))
-            .font(DesignTypography.meta.weight(.semibold))
-            .foregroundStyle(DesignColors.Neutral.textSecondary)
-            .padding(.horizontal, DesignSpacing.md)
-            .padding(.vertical, 7)
-            .background {
-              Capsule().fill(DesignColors.Neutral.textSecondary.opacity(0.10))
-            }
-        }
-        .disabled(isRetryingSpeech || isStartingRecording || isSending)
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("speech-discard-audio")
-      }
-    }
-  }
-
-  private var voiceRail: some View {
-    HStack(spacing: DesignSpacing.sm) {
-      Button {
-        if hasPreservedSpeechAudioForUI {
-          guard !Self.hasUITestF3RetryFixture else { return }
-          Task { await retryPreservedSpeechAudio() }
-        } else {
-          Task { await toggleRecording() }
-        }
-      } label: {
-        ZStack {
-          if isStartingRecording || isRetryingSpeech {
-            ProgressView()
-              .controlSize(.small)
-          } else {
-            Image(systemName: voiceRailTransportIcon)
-              .font(DesignControls.composerActionIconFont.weight(.semibold))
-              .foregroundStyle(isRecording ? Color.red : DesignColors.Brand.primary)
-          }
-        }
-        .frame(width: DesignControls.composerActionButtonSize, height: DesignControls.composerActionButtonSize)
-        .background {
-          Circle().fill((isRecording ? Color.red : DesignColors.Brand.primary).opacity(0.14))
-        }
-        .contentShape(.hoverEffect, Circle())
-        .hoverEffect(.lift)
-      }
-      .disabled(isSending || isShowingTranscribingUI || isStartingRecording || isRetryingSpeech)
-      .buttonStyle(.plain)
-      .accessibilityIdentifier(hasPreservedSpeechAudioForUI ? "speech-retry-segment" : "speech-transport")
-      .accessibilityLabel(hasPreservedSpeechAudioForUI ? L10n.t(.chatSpeechRetrySegment) : voiceRailTitle)
-
-      VoiceRailWaveformView(mode: voiceRailMode, color: voiceRailColor, level: speechAudioLevel)
-        .frame(height: 22)
-        .accessibilityIdentifier("speech-waveform")
-
-      voiceRailTrailingAction
-    }
-    .padding(.horizontal, DesignSpacing.xs)
-    .padding(.top, DesignSpacing.sm)
-    .padding(.bottom, DesignSpacing.md)
   }
 
   var body: some View {
@@ -692,8 +535,6 @@ struct ChatTabView: View {
             quietComposerStatus
           }
 
-          voiceRail
-
           if !imageAttachments.isEmpty || isLoadingAttachment || attachmentError != nil {
             attachmentStrip
           }
@@ -729,10 +570,7 @@ struct ChatTabView: View {
                 text: $inputText,
                 hasMarkedText: $hasMarkedText,
                 placeholder: L10n.t(.chatInputPlaceholder),
-                autoScrollToBottomOnTextChange: Self.shouldAutoScrollSpeechTranscript(
-                  isTranscribing: isTranscribing,
-                  isRetryingSpeech: isRetryingSpeech
-                ),
+                autoScrollToBottomOnTextChange: speech.isConnected,
                 onSubmit: sendCurrentInput
               )
               .frame(
@@ -742,12 +580,37 @@ struct ChatTabView: View {
               .accessibilityIdentifier("chat-input")
 
               if inputText.isEmpty {
-                Text(composerPlaceholderText)
+                Text(L10n.t(.chatInputPlaceholder))
                   .foregroundStyle(DesignColors.Neutral.textTertiary)
                   .allowsHitTesting(false)
                   .accessibilityHidden(true)
               }
             }
+
+            SCSpeechInput(
+              session: speech,
+              onChange: { data in
+                inputText = Self.mergedSpeechInput(prefix: recordingPrefix, transcript: data.transcript)
+              },
+              onStart: { _ in
+                recordingPrefix = inputText
+              },
+              onStop: { _ in
+                speech.clearTranscripts()
+              },
+              onCancel: { _ in
+                inputText = recordingPrefix
+              },
+              onError: { error in
+                speechError = error.localizedDescription
+              },
+              content: {
+                SCSpeechInputCancelButton()
+                SCSpeechInputPreview(placeholder: L10n.t(.chatSpeechListening))
+                SCSpeechInputRecordButton()
+              }
+            )
+            .padding(.bottom, 1)
 
             Button {
               sendCurrentInput()
@@ -854,7 +717,7 @@ struct ChatTabView: View {
       }
       .onChange(of: scenePhase) { _, newPhase in
         guard newPhase == .background else { return }
-        Task { await stopSpeechForBackground() }
+        speech.stop()
       }
     }
   }
@@ -1096,84 +959,6 @@ private enum ComposerImageTranscoder {
     let renderer = UIGraphicsImageRenderer(size: newSize)
     return renderer.image { _ in
       image.draw(in: CGRect(origin: .zero, size: newSize))
-    }
-  }
-}
-
-private struct VoiceRailWaveformView: View {
-  enum Mode {
-    case idle
-    case active
-    case generating
-  }
-
-  var mode: Mode
-  var color: Color
-  var level: Float = 0
-
-  private let barWidth: CGFloat = 4
-  private let barSpacing: CGFloat = 5
-  @State private var history: [Float] = Array(repeating: 0.02, count: 64)
-  @State private var lastTick: TimeInterval = 0
-
-  var body: some View {
-    TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: mode == .idle)) { timeline in
-      let t = timeline.date.timeIntervalSinceReferenceDate
-      Canvas { context, size in
-        let centerY = size.height / 2
-        let barCount = max(1, Int((size.width + barSpacing) / (barWidth + barSpacing)))
-        let bars = currentBars(at: t, count: barCount)
-
-        for index in 0..<bars.count {
-          let height = max(2, bars[index] * (size.height - 2))
-          let x = CGFloat(index) * (barWidth + barSpacing)
-          let rect = CGRect(
-            x: x,
-            y: centerY - height / 2,
-            width: barWidth,
-            height: height
-          )
-          context.fill(Path(roundedRect: rect, cornerRadius: min(2, height / 2)), with: .color(color))
-        }
-      }
-      .onChange(of: timeline.date) {
-        if mode == .active {
-          advanceHistory(at: t)
-        } else if mode == .idle && history.contains(where: { $0 > 0.03 }) {
-          history = history.map { $0 * 0.6 }
-        }
-      }
-    }
-    .opacity(mode == .idle ? 0.55 : 1)
-  }
-
-  private func advanceHistory(at t: TimeInterval) {
-    guard t - lastTick >= 1.0 / 30.0 else { return }
-    lastTick = t
-    let sample = max(Float(0.04), min(level, 1))
-    history.removeFirst()
-    history.append(sample)
-  }
-
-  private func currentBars(at t: TimeInterval, count: Int) -> [CGFloat] {
-    switch mode {
-    case .idle:
-      return Array(repeating: 0.03, count: count)
-    case .active:
-      if history.count >= count {
-        return history.suffix(count).map { CGFloat($0) }
-      }
-      return Array(repeating: 0.03, count: count - history.count) + history.map { CGFloat($0) }
-    case .generating:
-      let position = (t * 12.0).truncatingRemainder(dividingBy: Double(count))
-      return (0..<count).map { index in
-        let distance = min(
-          abs(Double(index) - position),
-          Double(count) - abs(Double(index) - position)
-        )
-        let intensity = max(0, 1 - distance / 3)
-        return CGFloat(0.05 + intensity * 0.85)
-      }
     }
   }
 }
