@@ -19,7 +19,7 @@ Audit of VibePad's server integration against the OpenCode v2 API, based on:
 - OpenCode `dev` branch OpenAPI spec (`packages/sdk/openapi.json`, repo `anomalyco/opencode`)
 - The published `@opencode-ai/sdk` 1.17.20 (which now ships a `/v2` subpath export)
 - The live `/doc` spec of the locally installed OpenCode 1.17.15
-- VibePad's current API usage in `OpenCodeClient/OpenCodeClient/Services/APIClient.swift` and `SSEClient.swift`
+- VibePad's current API usage in `VibePad/Services/APIClient.swift` and `SSEClient.swift`
 
 ## 1. What "v2" actually is
 

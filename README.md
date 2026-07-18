@@ -1,130 +1,52 @@
 # VibePad
 
-VibePad is a native iPad client for [OpenCode](https://github.com/opencode-ai/opencode). It connects to an OpenCode server so you can work with sessions, chat, tool calls, diffs, files, voice input, and host/SSH profiles from an iPad.
+VibePad is a native iPadOS client for OpenCode. It connects to an OpenCode server, presents a
+SwiftCN-owned workspace, and adds automatic previews, Pencil context, and voice steering.
 
-VibePad is under active development. There is no VibePad TestFlight or App Store build yet; the current goal is a stable developer beta.
+## Repository
 
-## What works today
-
-- Chat with streaming responses, reasoning, tool cards, permissions, questions, todos, image attachments, and model/agent selection.
-- Browse remote files, search, diffs, Markdown, code, and images.
-- Create, fork, archive, restore, and delete sessions.
-- Connect directly over LAN, VPN, Tailscale, or HTTPS with optional Basic Auth.
-- Connect through a key-authenticated Citadel SSH tunnel with TOFU host-key checking.
-- Dictate through the existing VoiceFlowKit integration.
-- Select an OpenCode project or enter a custom remote directory; project-scoped API requests carry that directory.
-
-The active project context is the connected host, selected remote directory/worktree, and current session. It is the place where OpenCode requests run—not the model's context window. The next product slice will make that context persistently visible before adding live previews and Pencil markup.
-
-## Requirements
-
-- iPadOS 17.6 or later.
-- A reachable OpenCode server started with `opencode serve` or `opencode web`.
-- For development: Xcode 26.6 or later with iOS/iPadOS platform support.
-- For repository checks: Apple's `swift-format` and SwiftLint.
-
-The current baseline uses the Swift 6 language mode, complete strict concurrency checking, the Swift 6.3.3 compiler, and the iOS/iPadOS 26.5 SDK. The deployment target remains iPadOS 17.6 so the app supports more than only the newest iPadOS release.
-
-## Connect an iPad
-
-1. Start OpenCode on the host, for example with `opencode serve --port 4096`.
-2. Make the service reachable from the iPad. Prefer a trusted LAN, VPN/Tailscale route, HTTPS, or the built-in SSH tunnel.
-3. In VibePad, add or select a host, test the connection, and choose a project/directory.
-4. Create or select a session and open Chat.
-
-Do not expose an unauthenticated OpenCode server directly to the public internet.
-
-## Repository layout
-
-| Path | Purpose |
-|---|---|
-| `OpenCodeClient/` | The only shipped app tree: Xcode project, sources, unit tests, and UI tests. |
-| `docs/` | Product requirements, API notes, test notes, and the active TODO. |
-| `scripts/` | Deterministic formatting and lint helpers plus small maintenance scripts. |
-| `opencode-official/` | Optional, gitignored checkout of the OpenCode server for integration work. |
-| `VibePad.xcworkspace/` | Shared workspace and pinned Swift package resolution. |
-
-## Development
-
-Install the checks once:
-
-```bash
-brew install swift-format swiftlint
+```text
+VibePad.xcodeproj/   Xcode project, targets, schemes, and Swift package resolution
+VibePad/             shipped application source and resources
+VibePadTests/        Swift Testing and integration tests
+VibePadUITests/      XCUITest acceptance coverage
+VibePadCLI/          the single Swift maintenance CLI
+Config/              release configuration
+References/          gitignored OpenCode and Orb UI reference checkouts
+docs/                canonical product, API, parity, and test documentation
 ```
 
-Format and lint:
+The Xcode project uses synchronized folder groups. The filesystem is the source layout; do not add
+individual files to `project.pbxproj`.
 
-```bash
-./scripts/format.sh
-./scripts/lint.sh
+## Open and build
+
+Open `VibePad.xcodeproj` in Xcode. The shared app scheme is `VibePad`.
+
+The maintenance interface is the root-level Swift CLI:
+
+```text
+swift run --package-path VibePadCLI vibepad format
+swift run --package-path VibePadCLI vibepad lint
+swift run --package-path VibePadCLI vibepad build
+swift run --package-path VibePadCLI vibepad test
+swift run --package-path VibePadCLI vibepad parity check --require-upstream
+swift run --package-path VibePadCLI vibepad providers check
+swift run --package-path VibePadCLI vibepad providers sync
+swift run --package-path VibePadCLI vibepad test-flight upload
 ```
 
-Enable the repository-managed pre-commit check once per clone:
+The Xcode and release commands require macOS. The OpenCode reference checkout is expected at
+`References/OpenCode` when source parity verification is requested. SwiftCN components are copied
+from the sibling `swiftcn-ui` registry using `swiftcn.json` and `.swiftcn.lock.json`.
 
-```bash
-git config core.hooksPath .githooks
-```
+## Product delivery
 
-The hook verifies Apple `swift-format` and SwiftLint without rewriting files. If it fails, run `./scripts/format.sh` and retry. Builds and tests stay out of pre-commit because they are substantially slower.
+The four TestFlight cuts are defined in `docs/VIBEPAD_PRD.md`:
 
-Open the workspace, not a second app tree:
+1. OpenCode workspace.
+2. Automatic live preview.
+3. Pencil feedback.
+4. Voice/orb interaction.
 
-```bash
-open VibePad.xcworkspace
-```
-
-Build from the command line:
-
-```bash
-xcodebuild -workspace VibePad.xcworkspace \
-  -scheme OpenCodeClient \
-  -destination 'generic/platform=iOS Simulator' \
-  CODE_SIGNING_ALLOWED=NO build
-```
-
-Build tests and run unit tests sequentially against an installed iPad simulator:
-
-```bash
-xcodebuild -workspace VibePad.xcworkspace \
-  -scheme OpenCodeClient \
-  -destination 'platform=iOS Simulator,name=iPad (A16)' \
-  CODE_SIGNING_ALLOWED=NO build-for-testing
-
-xcodebuild -workspace VibePad.xcworkspace \
-  -scheme OpenCodeClient \
-  -destination 'platform=iOS Simulator,name=iPad (A16)' \
-  CODE_SIGNING_ALLOWED=NO test-without-building \
-  -only-testing:OpenCodeClientTests
-```
-
-Do not run build and test concurrently: they share Xcode's build database. The shared scheme keeps UI tests serial because parallel UI workers require cloned simulators and proved unreliable on this Xcode/runtime combination. The command-line override below makes that intent explicit:
-
-```bash
-xcodebuild -workspace VibePad.xcworkspace \
-  -scheme OpenCodeClient \
-  -destination 'platform=iOS Simulator,name=iPad (A16)' \
-  -parallel-testing-enabled NO \
-  CODE_SIGNING_ALLOWED=NO test-without-building \
-  -only-testing:OpenCodeClientUITests \
-  -skip-testing:OpenCodeClientUITests/Tier4DriverUITests
-```
-
-`Tier4DriverUITests` is environment-driven live-server testing. Its send flow requires an explicit `OPENCODE_SERVER_URL` or `TIER4_SERVER_URL` plus `TIER4_PROMPT`. Never point it at an OpenCode process someone is actively using; use a separate temporary server and port.
-
-## Server API
-
-VibePad targets the OpenCode v2 API (`/api/*`, server ≥ 1.17.15) for the session
-runtime — messages, prompt, interrupt, events, permissions, questions, agents,
-commands, and file browsing — and falls back to legacy routes only where v2 has
-no equivalent yet. `docs/OpenCode_API_v2_Audit.md` records the full mapping.
-
-## TestFlight
-
-`./scripts/testflight.sh` archives the app and uploads it to App Store Connect
-using an App Store Connect API key (no Apple ID session). The script header
-documents the one-time setup: create the app record in the App Store Connect
-web UI, create an API key, and export the three `VIBEPAD_ASC_*` variables.
-
-## Upstream
-
-The app began as a fork of [`grapeot/opencode_ios_client`](https://github.com/grapeot/opencode_ios_client). Preserve that upstream as a read-only Git remote after the VibePad repository is created.
+`docs/OpenCode_Parity_Matrix.md` is the acceptance ledger for native OpenCode coverage.

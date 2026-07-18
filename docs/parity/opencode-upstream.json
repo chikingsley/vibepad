@@ -1,0 +1,192 @@
+{
+  "schema_version": 1,
+  "repository": "https://github.com/anomalyco/opencode.git",
+  "branch": "dev",
+  "commit": "17544802c38a4d35834275526ccf38be1cdcfbf4",
+  "license": "MIT",
+  "openapi": "packages/sdk/openapi.json",
+  "swiftcn_items": [
+    "attachment",
+    "button",
+    "combobox",
+    "command",
+    "context-menu",
+    "dropdown-menu",
+    "input-group",
+    "message",
+    "message-scroller",
+    "popover",
+    "response",
+    "speech-input",
+    "tabs",
+    "textarea",
+    "theme"
+  ],
+  "capabilities": [
+    {
+      "id": "project-home",
+      "area": "workspace",
+      "upstream_sources": ["packages/app/src/pages/home.tsx", "packages/app/src/pages/layout/sidebar-project.tsx"],
+      "api_paths": ["/project", "/project/current"],
+      "native_owner": "VibePad/App/ContentView.swift",
+      "implementation": "partial",
+      "contract": "manual",
+      "xcuitest": "partial",
+      "testflight": "unverified"
+    },
+    {
+      "id": "session-tabs",
+      "area": "workspace",
+      "upstream_sources": ["packages/app/src/components/titlebar-tab-strip.tsx", "packages/app/src/context/tabs.tsx"],
+      "api_paths": ["/api/session", "/api/session/{sessionID}"],
+      "native_owner": "VibePad/Features/Workspace/WorkspaceStore.swift",
+      "implementation": "partial",
+      "contract": "covered",
+      "xcuitest": "partial",
+      "testflight": "unverified"
+    },
+    {
+      "id": "draft-tab-promotion",
+      "area": "workspace",
+      "upstream_sources": ["packages/app/src/context/tabs.tsx", "packages/app/src/pages/new-session.tsx"],
+      "api_paths": ["/api/session", "/api/session/{sessionID}/prompt"],
+      "native_owner": "VibePad/Features/Workspace/WorkspaceStore.swift",
+      "implementation": "partial",
+      "contract": "covered",
+      "xcuitest": "partial",
+      "testflight": "unverified"
+    },
+    {
+      "id": "chat-timeline",
+      "area": "chat",
+      "upstream_sources": ["packages/app/src/pages/session.tsx"],
+      "api_paths": ["/api/session/{sessionID}/message", "/api/session/{sessionID}/history"],
+      "native_owner": "VibePad/Features/Chat/ChatTabView.swift",
+      "implementation": "implemented",
+      "contract": "covered",
+      "xcuitest": "partial",
+      "testflight": "unverified"
+    },
+    {
+      "id": "streaming-events",
+      "area": "chat",
+      "upstream_sources": ["packages/app/src/pages/session.tsx"],
+      "api_paths": ["/api/event", "/api/session/{sessionID}/event"],
+      "native_owner": "VibePad/Core/API/SSEClient.swift",
+      "implementation": "implemented",
+      "contract": "covered",
+      "xcuitest": "live-only",
+      "testflight": "unverified"
+    },
+    {
+      "id": "composer-text",
+      "area": "composer",
+      "upstream_sources": ["packages/app/src/pages/session/composer/session-composer-region.tsx"],
+      "api_paths": ["/api/session/{sessionID}/prompt", "/api/session/{sessionID}/interrupt"],
+      "native_owner": "VibePad/Features/Chat/Components/SessionComposer.swift",
+      "implementation": "implemented",
+      "contract": "covered",
+      "xcuitest": "covered",
+      "testflight": "unverified"
+    },
+    {
+      "id": "composer-context-and-attachments",
+      "area": "composer",
+      "upstream_sources": ["packages/app/src/components/prompt-input/context-items.tsx", "packages/app/src/components/prompt-input/image-attachments.tsx"],
+      "api_paths": ["/api/fs/find", "/api/session/{sessionID}/prompt"],
+      "native_owner": "VibePad/Features/Chat/Components/SessionComposer.swift",
+      "implementation": "partial",
+      "contract": "covered",
+      "xcuitest": "partial",
+      "testflight": "unverified"
+    },
+    {
+      "id": "composer-model-agent-command",
+      "area": "composer",
+      "upstream_sources": ["packages/app/src/pages/session/composer/index.ts", "packages/app/src/components/prompt-input/slash-popover.tsx"],
+      "api_paths": ["/api/model", "/api/agent", "/api/command", "/api/session/{sessionID}/model", "/api/session/{sessionID}/agent"],
+      "native_owner": "VibePad/Features/Chat/Components/SessionComposer.swift",
+      "implementation": "partial",
+      "contract": "covered",
+      "xcuitest": "partial",
+      "testflight": "unverified"
+    },
+    {
+      "id": "permissions-and-questions",
+      "area": "chat",
+      "upstream_sources": ["packages/app/src/pages/session/composer/session-permission-dock.tsx", "packages/app/src/pages/session/composer/session-question-dock.tsx"],
+      "api_paths": ["/api/permission/request", "/api/question/request"],
+      "native_owner": "VibePad/Features/Chat/PermissionController.swift",
+      "implementation": "implemented",
+      "contract": "covered",
+      "xcuitest": "partial",
+      "testflight": "unverified"
+    },
+    {
+      "id": "files",
+      "area": "review",
+      "upstream_sources": ["packages/app/src/pages/session/session-side-panel.tsx"],
+      "api_paths": ["/api/fs/list", "/api/fs/read/*", "/api/fs/find"],
+      "native_owner": "VibePad/Features/Files/FileStore.swift",
+      "implementation": "partial",
+      "contract": "covered",
+      "xcuitest": "missing",
+      "testflight": "unverified"
+    },
+    {
+      "id": "review-diffs",
+      "area": "review",
+      "upstream_sources": ["packages/app/src/pages/session/v2/review-panel-v2.tsx"],
+      "api_paths": ["/session/{sessionID}/diff"],
+      "native_owner": "VibePad/Features/Files/FileStore.swift",
+      "implementation": "partial",
+      "contract": "covered",
+      "xcuitest": "missing",
+      "testflight": "unverified"
+    },
+    {
+      "id": "review-comments-context",
+      "area": "review",
+      "upstream_sources": ["packages/app/src/pages/session/v2/review-panel-v2.tsx"],
+      "api_paths": ["/api/session/{sessionID}/prompt"],
+      "native_owner": "VibePad/Features/Review/ReviewStore.swift",
+      "implementation": "missing",
+      "contract": "covered",
+      "xcuitest": "missing",
+      "testflight": "unverified"
+    },
+    {
+      "id": "terminal",
+      "area": "terminal",
+      "upstream_sources": ["packages/app/src/pages/session/terminal-panel-v2.tsx"],
+      "api_paths": ["/api/pty", "/api/pty/{ptyID}/connect"],
+      "native_owner": "VibePad/Features/Terminal/TerminalStore.swift",
+      "implementation": "missing",
+      "contract": "missing",
+      "xcuitest": "missing",
+      "testflight": "unverified"
+    },
+    {
+      "id": "status-services",
+      "area": "status",
+      "upstream_sources": ["packages/app/src/components/status-popover-body.tsx"],
+      "api_paths": ["/api/health", "/mcp", "/lsp", "/config"],
+      "native_owner": "VibePad/Features/Workspace/WorkspaceShellView.swift",
+      "implementation": "partial",
+      "contract": "partial",
+      "xcuitest": "missing",
+      "testflight": "unverified"
+    },
+    {
+      "id": "session-actions",
+      "area": "sessions",
+      "upstream_sources": ["packages/app/src/pages/session.tsx"],
+      "api_paths": ["/session/{sessionID}", "/session/{sessionID}/fork", "/session/{sessionID}/share"],
+      "native_owner": "VibePad/App/State/AppState+Sessions.swift",
+      "implementation": "partial",
+      "contract": "covered",
+      "xcuitest": "partial",
+      "testflight": "unverified"
+    }
+  ]
+}

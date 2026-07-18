@@ -1,4 +1,4 @@
-# Lessons — OpenCode iOS Client
+# Lessons — VibePad
 
 > 从实现与 Code Review 过程中总结的可复用经验
 

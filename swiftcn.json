@@ -5,5 +5,5 @@
   "platform": "iPadOS",
   "registry": "../swiftcn-ui/registry.json",
   "schemaVersion": 1,
-  "target": "OpenCodeClient/OpenCodeClient/Features/Components/UI"
+  "target": "VibePad/Features/Components/UI"
 }

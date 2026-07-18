@@ -1,9 +1,11 @@
 strict: true
 
 included:
-  - OpenCodeClient/OpenCodeClient
-  - OpenCodeClient/OpenCodeClientTests
-  - OpenCodeClient/OpenCodeClientUITests
+  - VibePad
+  - VibePadTests
+  - VibePadUITests
+  - VibePadCLI/Sources
+  - VibePadCLI/Tests
 
 excluded:
   - .build
