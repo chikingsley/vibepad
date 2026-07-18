@@ -1,52 +1,29 @@
 # VibePad
 
-VibePad is a native iPadOS client for OpenCode. It connects to an OpenCode server, presents a
-SwiftCN-owned workspace, and adds automatic previews, Pencil context, and voice steering.
+VibePad is a universal Expo workbench for running coding-agent sessions,
+inspecting projects and previews, and coordinating work across hosts.
 
-## Repository
+The active rewrite is organized as a Bun workspace:
 
-```text
-VibePad.xcodeproj/   Xcode project, targets, schemes, and Swift package resolution
-VibePad/             shipped application source and resources
-VibePadTests/        Swift Testing and integration tests
-VibePadUITests/      XCUITest acceptance coverage
-VibePadCLI/          the single Swift maintenance CLI
-Config/              release configuration
-References/          gitignored OpenCode and Orb UI reference checkouts
-docs/                canonical product, API, parity, and test documentation
+- `apps/client`: the Expo Router client for iPad, iPhone, and web;
+- `apps/host`: the local host control plane;
+- `packages/protocol`: provider-neutral wire contracts and capabilities;
+- `packages/provider-opencode`: the first harness adapter;
+- `packages/ui`: VibePad-owned universal components and motion primitives.
+
+The previous SwiftUI application is preserved on `archive/swift-native`; see
+[`docs/legacy/swift-native.md`](docs/legacy/swift-native.md).
+
+## Development
+
+```sh
+bun install
+bun run dev
 ```
 
-The Xcode project uses synchronized folder groups. The filesystem is the source layout; do not add
-individual files to `project.pbxproj`.
+Run the complete local quality gate with:
 
-## Open and build
-
-Open `VibePad.xcodeproj` in Xcode. The shared app scheme is `VibePad`.
-
-The maintenance interface is the root-level Swift CLI:
-
-```text
-swift run --package-path VibePadCLI vibepad format
-swift run --package-path VibePadCLI vibepad lint
-swift run --package-path VibePadCLI vibepad build
-swift run --package-path VibePadCLI vibepad test
-swift run --package-path VibePadCLI vibepad parity check --require-upstream
-swift run --package-path VibePadCLI vibepad providers check
-swift run --package-path VibePadCLI vibepad providers sync
-swift run --package-path VibePadCLI vibepad test-flight upload
+```sh
+bun run check
 ```
 
-The Xcode and release commands require macOS. The OpenCode reference checkout is expected at
-`References/OpenCode` when source parity verification is requested. SwiftCN components are copied
-from the sibling `swiftcn-ui` registry using `swiftcn.json` and `.swiftcn.lock.json`.
-
-## Product delivery
-
-The four TestFlight cuts are defined in `docs/VIBEPAD_PRD.md`:
-
-1. OpenCode workspace.
-2. Automatic live preview.
-3. Pencil feedback.
-4. Voice/orb interaction.
-
-`docs/OpenCode_Parity_Matrix.md` is the acceptance ledger for native OpenCode coverage.

@@ -1,9 +1,0 @@
-{
-  "fileLayout": "flat",
-  "formatSwift": true,
-  "includePreviews": false,
-  "platform": "iPadOS",
-  "registry": "../swiftcn-ui/registry.json",
-  "schemaVersion": 1,
-  "target": "VibePad/Features/Components/UI"
-}
