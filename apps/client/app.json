@@ -10,9 +10,10 @@
     "ios": {
       "icon": "./assets/expo.icon",
       "supportsTablet": true,
-      "bundleIdentifier": "com.gmk.vibepad"
+      "bundleIdentifier": "studio.peacockery.vibepad"
     },
     "android": {
+      "package": "studio.peacockery.vibepad",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
