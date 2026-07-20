@@ -55,7 +55,7 @@ function PreviewWorkbenchSurface({
     const review$ = preview.state$.bySessionId[sessionId]?.review;
     return {
       cueCount:
-        review$?.cues.get().length ?? emptyPreviewReviewDraft.cues.length,
+        review$?.cues.get()?.length ?? emptyPreviewReviewDraft.cues.length,
       draftHasText: (composer$?.draft.get() ?? "").trim().length > 0,
       pendingSelectionCount:
         review$?.pendingSelectionCount.get() ??
