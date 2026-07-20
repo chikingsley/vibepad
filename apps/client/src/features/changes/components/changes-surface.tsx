@@ -1,18 +1,18 @@
+import {
+  LegendList,
+  type LegendListRenderItemProps,
+} from "@legendapp/list/react-native";
+import { useValue } from "@legendapp/state/react";
 import type { WorkspaceFileChange } from "@vibepad/protocol/files";
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  FlatList,
-  type ListRenderItemInfo,
-  Pressable,
-  ScrollView,
-  useWindowDimensions,
-  View,
-} from "react-native";
+import { useCallback, useMemo } from "react";
+import { Pressable, useWindowDimensions, View } from "react-native";
 
 import { Text } from "@/components/ui/text";
+import { idleFileNavigation } from "@/features/files/state/file-navigation-store";
 import { useProjectFileChanges } from "@/lib/use-project-files";
 import { cn } from "@/lib/utils";
+import { useVibePadFileNavigationStore } from "@/lib/vibepad-host-context";
 
 const changesPaneBreakpoint = 720;
 
@@ -86,8 +86,12 @@ function ChangeRow({
 }
 
 const patchLineKey = (_line: string, index: number) => `${index}`;
+const changeKey = ({ path }: WorkspaceFileChange) => path;
 
-const renderPatchLine = ({ item, index }: ListRenderItemInfo<string>) => (
+const renderPatchLine = ({
+  item,
+  index,
+}: LegendListRenderItemProps<string>) => (
   <View className={cn("min-h-5 flex-row", patchLineClass(item))}>
     <Text className="w-12 shrink-0 px-2 text-right font-mono text-[10px] text-muted-foreground/60">
       {index + 1}
@@ -104,23 +108,26 @@ const renderPatchLine = ({ item, index }: ListRenderItemInfo<string>) => (
 export function ChangesSurface({
   active,
   projectId,
+  sessionId,
 }: {
   readonly active: boolean;
   readonly projectId: string;
+  readonly sessionId: string;
 }) {
   const { width } = useWindowDimensions();
   const split = width >= changesPaneBreakpoint;
   const changes = useProjectFileChanges(projectId, active);
-  const [selectedPath, setSelectedPath] = useState<string | undefined>();
-
-  useEffect(() => {
-    if (
-      changes.status === "ready" &&
-      !changes.data.some((change) => change.path === selectedPath)
-    ) {
-      setSelectedPath(changes.data[0]?.path);
-    }
-  }, [changes, selectedPath]);
+  const navigation = useVibePadFileNavigationStore();
+  const requestedPath = useValue(
+    () =>
+      navigation.state$.bySessionId[sessionId]?.selectedChange.get() ??
+      idleFileNavigation.selectedChange
+  );
+  const selectedPath = changes.data.some(
+    (change) => change.path === requestedPath
+  )
+    ? requestedPath
+    : changes.data[0]?.path;
 
   const selectedChange = changes.data.find(
     (change) => change.path === selectedPath
@@ -139,6 +146,20 @@ export function ChangesSurface({
         { additions: 0, deletions: 0 }
       ),
     [changes.data]
+  );
+  const selectChange = useCallback(
+    (path: string) => navigation.selectChange(sessionId, path),
+    [navigation, sessionId]
+  );
+  const renderChange = useCallback(
+    ({ item }: LegendListRenderItemProps<WorkspaceFileChange>) => (
+      <ChangeRow
+        change={item}
+        onSelect={selectChange}
+        selected={item.path === selectedPath}
+      />
+    ),
+    [selectChange, selectedPath]
   );
   let changeList: ReactNode;
   if (changes.status === "error") {
@@ -161,16 +182,15 @@ export function ChangesSurface({
     );
   } else {
     changeList = (
-      <ScrollView className="flex-1">
-        {changes.data.map((change) => (
-          <ChangeRow
-            change={change}
-            key={change.path}
-            onSelect={setSelectedPath}
-            selected={change.path === selectedPath}
-          />
-        ))}
-      </ScrollView>
+      <LegendList
+        data={changes.data}
+        dataKey={`changes:${projectId}`}
+        estimatedItemSize={44}
+        keyExtractor={changeKey}
+        recycleItems
+        renderItem={renderChange}
+        style={{ flex: 1 }}
+      />
     );
   }
 
@@ -218,10 +238,14 @@ export function ChangesSurface({
               </Text>
             </View>
             {patchLines.length > 0 ? (
-              <FlatList
+              <LegendList
                 data={patchLines}
+                dataKey={`patch:${selectedChange.path}`}
+                estimatedItemSize={20}
                 keyExtractor={patchLineKey}
+                recycleItems
                 renderItem={renderPatchLine}
+                style={{ flex: 1 }}
                 testID="change-patch"
               />
             ) : (

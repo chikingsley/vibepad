@@ -575,6 +575,7 @@ export function SessionCanvas({
             review={previewReview}
             sendError={sendError}
             sending={sending}
+            sessionId={session.id}
             showPreviewReviewTray={hideChat}
             surface={workbench.surface}
           />

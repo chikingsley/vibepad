@@ -38,6 +38,7 @@ export function SessionWorkbench({
   project,
   review,
   sendError,
+  sessionId,
   sending,
   showPreviewReviewTray,
   surface,
@@ -53,6 +54,7 @@ export function SessionWorkbench({
   readonly project: ProjectSummary;
   readonly review: PreviewReviewDraft;
   readonly sendError: string | undefined;
+  readonly sessionId: string;
   readonly sending: boolean;
   readonly showPreviewReviewTray: boolean;
   readonly surface: WorkbenchSurface;
@@ -129,22 +131,21 @@ export function SessionWorkbench({
           showReviewTray={showPreviewReviewTray}
         />
       </View>
-      <View
-        className="min-h-0 flex-1"
-        style={{ display: surface === "files" ? "flex" : "none" }}
-      >
-        <FilesSurface
-          active={surface === "files"}
-          projectId={project.id}
-          projectName={project.name}
-        />
-      </View>
-      <View
-        className="min-h-0 flex-1"
-        style={{ display: surface === "changes" ? "flex" : "none" }}
-      >
-        <ChangesSurface active={surface === "changes"} projectId={project.id} />
-      </View>
+      {surface === "files" ? (
+        <View className="min-h-0 flex-1">
+          <FilesSurface
+            active
+            projectId={project.id}
+            projectName={project.name}
+            sessionId={sessionId}
+          />
+        </View>
+      ) : null}
+      {surface === "changes" ? (
+        <View className="min-h-0 flex-1">
+          <ChangesSurface active projectId={project.id} sessionId={sessionId} />
+        </View>
+      ) : null}
     </View>
   );
 }

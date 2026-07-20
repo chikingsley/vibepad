@@ -6,6 +6,14 @@ import {
   useMemo,
 } from "react";
 import {
+  createFileNavigationStore,
+  type FileNavigationStore,
+} from "@/features/files/state/file-navigation-store";
+import {
+  createProjectFilesStore,
+  type ProjectFilesStore,
+} from "@/features/files/state/project-files-store";
+import {
   createSessionRuntimeStore,
   type SessionRuntimeStore,
 } from "@/features/timeline/state/session-runtime-store";
@@ -28,6 +36,8 @@ import {
 
 interface VibePadHostRuntime {
   readonly client: VibePadHostClient;
+  readonly fileNavigation: FileNavigationStore;
+  readonly projectFiles: ProjectFilesStore;
   readonly projectResources: ProjectResourcesStore;
   readonly sessionRuntime: SessionRuntimeStore;
   readonly workspace: WorkspaceStore;
@@ -50,6 +60,8 @@ export function VibePadHostProvider({
     const workspace = createWorkspaceStore(client);
     return {
       client,
+      fileNavigation: createFileNavigationStore(),
+      projectFiles: createProjectFilesStore(client),
       projectResources: createProjectResourcesStore(client),
       sessionRuntime: createSessionRuntimeStore(
         client,
@@ -61,6 +73,7 @@ export function VibePadHostProvider({
   }, [baseUrl, hostId]);
   useEffect(
     () => () => {
+      runtime.projectFiles.cancelPending();
       runtime.projectResources.cancelPending();
       runtime.sessionRuntime.cancelPending();
       runtime.workspace.cancelPending();
@@ -83,6 +96,12 @@ const useVibePadHostRuntime = () => {
 };
 
 export const useVibePadHost = () => useVibePadHostRuntime().client;
+
+export const useVibePadFileNavigationStore = () =>
+  useVibePadHostRuntime().fileNavigation;
+
+export const useVibePadProjectFilesStore = () =>
+  useVibePadHostRuntime().projectFiles;
 
 export const useVibePadProjectResourcesStore = () =>
   useVibePadHostRuntime().projectResources;

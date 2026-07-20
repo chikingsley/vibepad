@@ -1,66 +1,31 @@
-import type {
-  WorkspaceFileChange,
-  WorkspaceFileContent,
-  WorkspaceFileNode,
-} from "@vibepad/protocol/files";
-import { useEffect, useState } from "react";
+import { useValue } from "@legendapp/state/react";
+import { useEffect } from "react";
 
-import { useVibePadHost } from "@/lib/vibepad-host-context";
-
-type ListState<T> =
-  | { readonly data: readonly T[]; readonly status: "idle" }
-  | { readonly data: readonly T[]; readonly status: "loading" }
-  | {
-      readonly data: readonly T[];
-      readonly message: string;
-      readonly status: "error";
-    }
-  | { readonly data: readonly T[]; readonly status: "ready" };
-
-type ContentState =
-  | { readonly status: "idle" }
-  | { readonly status: "loading" }
-  | { readonly message: string; readonly status: "error" }
-  | { readonly data: WorkspaceFileContent; readonly status: "ready" };
-
-const errorMessage = (error: unknown) =>
-  error instanceof Error ? error.message : "Unknown VibePad host error";
+import {
+  idleFileChangesState,
+  idleFileContentState,
+  idleFileNodesState,
+} from "@/features/files/state/project-files-state";
+import { useVibePadProjectFilesStore } from "@/lib/vibepad-host-context";
 
 export function useProjectFiles(
   projectId: string,
   path: string,
   enabled: boolean
 ) {
-  const host = useVibePadHost();
-  const [state, setState] = useState<ListState<WorkspaceFileNode>>({
-    data: [],
-    status: "idle",
-  });
+  const store = useVibePadProjectFilesStore();
 
   useEffect(() => {
-    if (!enabled) {
-      return;
+    if (enabled) {
+      store.loadDirectory(projectId, path).catch(() => undefined);
     }
+  }, [enabled, path, projectId, store]);
 
-    const controller = new AbortController();
-    setState((current) => ({ data: current.data, status: "loading" }));
-    host
-      .listFiles(projectId, path, controller.signal)
-      .then((data) => {
-        setState({ data, status: "ready" });
-      })
-      .catch((error: unknown) => {
-        if (!controller.signal.aborted) {
-          setState({ data: [], message: errorMessage(error), status: "error" });
-        }
-      });
-
-    return () => {
-      controller.abort();
-    };
-  }, [enabled, host, path, projectId]);
-
-  return state;
+  return useValue(
+    () =>
+      store.state$.directoriesByProjectId[projectId]?.[path]?.get() ??
+      idleFileNodesState
+  );
 }
 
 export function useProjectFileContent(
@@ -68,64 +33,33 @@ export function useProjectFileContent(
   path: string | undefined,
   enabled: boolean
 ) {
-  const host = useVibePadHost();
-  const [state, setState] = useState<ContentState>({ status: "idle" });
+  const store = useVibePadProjectFilesStore();
 
   useEffect(() => {
-    if (!(enabled && path)) {
-      return;
+    if (enabled && path) {
+      store.loadContent(projectId, path).catch(() => undefined);
     }
+  }, [enabled, path, projectId, store]);
 
-    const controller = new AbortController();
-    setState({ status: "loading" });
-    host
-      .readFile(projectId, path, controller.signal)
-      .then((data) => {
-        setState({ data, status: "ready" });
-      })
-      .catch((error: unknown) => {
-        if (!controller.signal.aborted) {
-          setState({ message: errorMessage(error), status: "error" });
-        }
-      });
-
-    return () => {
-      controller.abort();
-    };
-  }, [enabled, host, path, projectId]);
-
-  return state;
+  return useValue(() =>
+    path
+      ? (store.state$.contentsByProjectId[projectId]?.[path]?.get() ??
+        idleFileContentState)
+      : idleFileContentState
+  );
 }
 
 export function useProjectFileChanges(projectId: string, enabled: boolean) {
-  const host = useVibePadHost();
-  const [state, setState] = useState<ListState<WorkspaceFileChange>>({
-    data: [],
-    status: "idle",
-  });
+  const store = useVibePadProjectFilesStore();
 
   useEffect(() => {
-    if (!enabled) {
-      return;
+    if (enabled) {
+      store.loadChanges(projectId).catch(() => undefined);
     }
+  }, [enabled, projectId, store]);
 
-    const controller = new AbortController();
-    setState((current) => ({ data: current.data, status: "loading" }));
-    host
-      .listFileChanges(projectId, controller.signal)
-      .then((data) => {
-        setState({ data, status: "ready" });
-      })
-      .catch((error: unknown) => {
-        if (!controller.signal.aborted) {
-          setState({ data: [], message: errorMessage(error), status: "error" });
-        }
-      });
-
-    return () => {
-      controller.abort();
-    };
-  }, [enabled, host, projectId]);
-
-  return state;
+  return useValue(
+    () =>
+      store.state$.changesByProjectId[projectId]?.get() ?? idleFileChangesState
+  );
 }
