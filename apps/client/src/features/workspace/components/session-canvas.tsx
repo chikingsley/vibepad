@@ -65,8 +65,10 @@ function SessionContent({
         </View>
       ) : null}
       <SessionInteractions
+        active={interactions.state.status !== "idle"}
         interactions={interactions.state.data}
         onResolved={interactions.refresh}
+        sessionId={session.id}
       />
       {timeline.status === "loading" && timelineMatchesSession ? (
         <Text variant="muted">Loading the live timeline…</Text>

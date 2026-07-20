@@ -18,6 +18,10 @@ import {
   type ProjectFilesStore,
 } from "@/features/files/state/project-files-store";
 import {
+  createInteractionResponseStore,
+  type InteractionResponseStore,
+} from "@/features/interactions/state/interaction-response-store";
+import {
   createPreviewStore,
   type PreviewStore,
 } from "@/features/preview/state/preview-store";
@@ -53,6 +57,7 @@ import {
 interface VibePadHostRuntime {
   readonly client: VibePadHostClient;
   readonly fileNavigation: FileNavigationStore;
+  readonly interactionResponses: InteractionResponseStore;
   readonly preview: PreviewStore;
   readonly projectFiles: ProjectFilesStore;
   readonly projectResources: ProjectResourcesStore;
@@ -81,6 +86,7 @@ export function VibePadHostProvider({
     return {
       client,
       fileNavigation: createFileNavigationStore(),
+      interactionResponses: createInteractionResponseStore(),
       preview: createPreviewStore(),
       projectFiles: createProjectFilesStore(client),
       projectResources: createProjectResourcesStore(client),
@@ -124,6 +130,9 @@ export const useVibePadHost = () => useVibePadHostRuntime().client;
 
 export const useVibePadFileNavigationStore = () =>
   useVibePadHostRuntime().fileNavigation;
+
+export const useVibePadInteractionResponseStore = () =>
+  useVibePadHostRuntime().interactionResponses;
 
 export const useVibePadProjectFilesStore = () =>
   useVibePadHostRuntime().projectFiles;
