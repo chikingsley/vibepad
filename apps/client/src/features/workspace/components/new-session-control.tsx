@@ -2,14 +2,16 @@ import {
   LegendList,
   type LegendListRenderItemProps,
 } from "@legendapp/list/react-native";
+import type { Observable } from "@legendapp/state";
+import { useObservable, useValue } from "@legendapp/state/react";
 import type { TriggerRef } from "@rn-primitives/popover";
 import type { HarnessId } from "@vibepad/protocol/provider";
-import { useColorScheme } from "nativewind";
-import { useCallback, useMemo, useRef, useState } from "react";
-import { Platform, TextInput, View } from "react-native";
+import { useCallback, useMemo, useRef } from "react";
+import { Platform, View } from "react-native";
 
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
+import { ObservableSearchField } from "@/components/ui/observable-search-field";
 import {
   Popover,
   PopoverContent,
@@ -20,7 +22,6 @@ import {
   HarnessIcon,
   harnessLabel,
 } from "@/features/harness/components/harness-icon";
-import { THEME } from "@/lib/theme";
 import { boundedListHeight } from "@/lib/virtualized-list-layout";
 
 export interface NewSessionProject {
@@ -39,6 +40,12 @@ interface NewSessionControlProps {
 
 const projectKey = (project: NewSessionProject) => project.id;
 const projectItemSize = () => 56;
+
+interface NewSessionControlState {
+  creatingProjectId: string | undefined;
+  errorMessage: string | undefined;
+  query: string;
+}
 
 function ProjectOption({
   creating,
@@ -96,20 +103,30 @@ function ProjectOption({
   );
 }
 
-export function NewSessionControl({
-  disabled,
+function NewSessionError({
+  state$,
+}: {
+  readonly state$: Observable<NewSessionControlState>;
+}) {
+  const errorMessage = useValue(state$.errorMessage);
+  return errorMessage ? (
+    <Text className="px-1 text-red-600 text-xs">{errorMessage}</Text>
+  ) : null;
+}
+
+function NewSessionProjectResults({
   onCreate,
   projects,
   selectedProjectId,
-}: NewSessionControlProps) {
-  const { colorScheme } = useColorScheme();
-  const theme = THEME[colorScheme === "dark" ? "dark" : "light"];
-  const triggerRef = useRef<TriggerRef>(null);
-  const [creatingProjectId, setCreatingProjectId] = useState<
-    string | undefined
-  >();
-  const [errorMessage, setErrorMessage] = useState<string | undefined>();
-  const [query, setQuery] = useState("");
+  state$,
+}: {
+  readonly onCreate: (projectId: string) => Promise<void>;
+  readonly projects: readonly NewSessionProject[];
+  readonly selectedProjectId: string | undefined;
+  readonly state$: Observable<NewSessionControlState>;
+}) {
+  const query = useValue(state$.query);
+  const creatingProjectId = useValue(state$.creatingProjectId);
   const selectedProject = projects.find(
     (project) => project.id === selectedProjectId
   );
@@ -131,37 +148,17 @@ export function NewSessionControl({
     );
   }, [projects, query, selectedProject]);
 
-  const createSession = useCallback(
-    async (projectId: string) => {
-      if (creatingProjectId) {
-        return;
-      }
-      setCreatingProjectId(projectId);
-      setErrorMessage(undefined);
-      try {
-        await onCreate(projectId);
-        triggerRef.current?.close();
-      } catch (error) {
-        setErrorMessage(
-          error instanceof Error ? error.message : "Unable to create session"
-        );
-      } finally {
-        setCreatingProjectId(undefined);
-      }
-    },
-    [creatingProjectId, onCreate]
-  );
   const renderProject = useCallback(
     ({ item }: LegendListRenderItemProps<NewSessionProject>) => (
       <ProjectOption
         creating={creatingProjectId === item.id}
         disabled={Boolean(creatingProjectId)}
-        onCreate={createSession}
+        onCreate={onCreate}
         project={item}
         selected={item.id === selectedProjectId}
       />
     ),
-    [createSession, creatingProjectId, selectedProjectId]
+    [creatingProjectId, onCreate, selectedProjectId]
   );
   const emptyProjects = useMemo(
     () => (
@@ -178,6 +175,63 @@ export function NewSessionControl({
     items: visibleProjects,
     maxHeight: 320,
   });
+
+  return (
+    <View
+      pointerEvents={creatingProjectId ? "none" : "auto"}
+      style={{ height: listHeight }}
+      testID="new-session-project-list"
+    >
+      <LegendList
+        contentContainerStyle={{ gap: 4 }}
+        data={visibleProjects}
+        dataKey="new-session-projects"
+        extraData={`${creatingProjectId ?? "idle"}:${selectedProjectId ?? "none"}`}
+        getFixedItemSize={projectItemSize}
+        keyExtractor={projectKey}
+        ListEmptyComponent={emptyProjects}
+        recycleItems
+        renderItem={renderProject}
+        style={{ flex: 1 }}
+        {...(Platform.OS === "web"
+          ? {}
+          : { keyboardShouldPersistTaps: "handled" as const })}
+      />
+    </View>
+  );
+}
+
+export function NewSessionControl({
+  disabled,
+  onCreate,
+  projects,
+  selectedProjectId,
+}: NewSessionControlProps) {
+  const triggerRef = useRef<TriggerRef>(null);
+  const state$ = useObservable<NewSessionControlState>({
+    creatingProjectId: undefined,
+    errorMessage: undefined,
+    query: "",
+  });
+  const createSession = useCallback(
+    async (projectId: string) => {
+      if (state$.creatingProjectId.peek()) {
+        return;
+      }
+      state$.assign({ creatingProjectId: projectId, errorMessage: undefined });
+      try {
+        await onCreate(projectId);
+        triggerRef.current?.close();
+      } catch (error) {
+        state$.errorMessage.set(
+          error instanceof Error ? error.message : "Unable to create session"
+        );
+      } finally {
+        state$.creatingProjectId.set(undefined);
+      }
+    },
+    [onCreate, state$]
+  );
 
   return (
     <Popover>
@@ -208,40 +262,18 @@ export function NewSessionControl({
             Choose the workspace and harness for this session.
           </Text>
         </View>
-        <View className="flex-row items-center gap-2 rounded-lg border border-border px-3">
-          <Icon className="text-muted-foreground" name="search" size={13} />
-          <TextInput
-            autoCapitalize="none"
-            autoCorrect={false}
-            className="h-10 min-w-0 flex-1 text-foreground text-sm outline-none"
-            onChangeText={setQuery}
-            placeholder="Search workspaces and harnesses…"
-            placeholderTextColor={theme.mutedForeground}
-            style={{ color: theme.foreground }}
-            testID="new-session-search"
-            value={query}
-          />
-        </View>
-        <View style={{ height: listHeight }} testID="new-session-project-list">
-          <LegendList
-            contentContainerStyle={{ gap: 4 }}
-            data={visibleProjects}
-            dataKey="new-session-projects"
-            extraData={`${creatingProjectId ?? "idle"}:${selectedProjectId ?? "none"}`}
-            getFixedItemSize={projectItemSize}
-            keyExtractor={projectKey}
-            ListEmptyComponent={emptyProjects}
-            recycleItems
-            renderItem={renderProject}
-            style={{ flex: 1 }}
-            {...(Platform.OS === "web"
-              ? {}
-              : { keyboardShouldPersistTaps: "handled" as const })}
-          />
-        </View>
-        {errorMessage ? (
-          <Text className="px-1 text-red-600 text-xs">{errorMessage}</Text>
-        ) : null}
+        <ObservableSearchField
+          placeholder="Search workspaces and harnesses…"
+          query$={state$.query}
+          testID="new-session-search"
+        />
+        <NewSessionProjectResults
+          onCreate={createSession}
+          projects={projects}
+          selectedProjectId={selectedProjectId}
+          state$={state$}
+        />
+        <NewSessionError state$={state$} />
       </PopoverContent>
     </Popover>
   );

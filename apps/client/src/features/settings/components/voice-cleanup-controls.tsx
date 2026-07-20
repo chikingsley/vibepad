@@ -2,12 +2,13 @@ import {
   LegendList,
   type LegendListRenderItemProps,
 } from "@legendapp/list/react-native";
+import type { Observable } from "@legendapp/state";
+import { useObservable, useValue } from "@legendapp/state/react";
 import type { TriggerRef } from "@rn-primitives/popover";
 import type { VoiceCleanupPromptProfile } from "@vibepad/protocol/settings";
 import type { VoiceCleanupModel } from "@vibepad/protocol/voice";
-import { useColorScheme } from "nativewind";
-import { useCallback, useMemo, useRef, useState } from "react";
-import { Platform, TextInput, View } from "react-native";
+import { useCallback, useMemo, useRef } from "react";
+import { Platform, View } from "react-native";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -15,13 +16,13 @@ import {
   ProviderIcon,
   resolveProviderIconName,
 } from "@/components/ui/icon";
+import { ObservableSearchField } from "@/components/ui/observable-search-field";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Text } from "@/components/ui/text";
-import { THEME } from "@/lib/theme";
 import { boundedListHeight } from "@/lib/virtualized-list-layout";
 
 const providerLabel = (provider: string) =>
@@ -69,22 +70,18 @@ function VoiceModelOption({
   );
 }
 
-export function VoiceCleanupModelPicker({
-  disabled,
+function VoiceModelResults({
   models,
   onSelect,
+  query$,
   selectedModelId,
 }: {
-  readonly disabled: boolean;
   readonly models: readonly VoiceCleanupModel[];
   readonly onSelect: (modelId: string) => void;
+  readonly query$: Observable<string>;
   readonly selectedModelId: string | null;
 }) {
-  const { colorScheme } = useColorScheme();
-  const theme = THEME[colorScheme === "dark" ? "dark" : "light"];
-  const triggerRef = useRef<TriggerRef>(null);
-  const [query, setQuery] = useState("");
-  const selectedModel = models.find((model) => model.id === selectedModelId);
+  const query = useValue(query$);
   const visibleModels = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
     if (!normalized) {
@@ -96,22 +93,15 @@ export function VoiceCleanupModelPicker({
         .includes(normalized)
     );
   }, [models, query]);
-  const select = useCallback(
-    (modelId: string) => {
-      onSelect(modelId);
-      triggerRef.current?.close();
-    },
-    [onSelect]
-  );
   const renderModel = useCallback(
     ({ item: model }: LegendListRenderItemProps<VoiceCleanupModel>) => (
       <VoiceModelOption
         model={model}
-        onSelect={select}
+        onSelect={onSelect}
         selected={model.id === selectedModelId}
       />
     ),
-    [select, selectedModelId]
+    [onSelect, selectedModelId]
   );
   const emptyModels = useMemo(
     () => (
@@ -128,6 +118,48 @@ export function VoiceCleanupModelPicker({
     items: visibleModels,
     maxHeight: 288,
   });
+
+  return (
+    <View style={{ height: listHeight }}>
+      <LegendList
+        contentContainerStyle={{ gap: 4 }}
+        data={visibleModels}
+        dataKey="voice-models"
+        getFixedItemSize={voiceModelItemSize}
+        keyExtractor={voiceModelKey}
+        ListEmptyComponent={emptyModels}
+        recycleItems
+        renderItem={renderModel}
+        style={{ flex: 1 }}
+        {...(Platform.OS === "web"
+          ? {}
+          : { keyboardShouldPersistTaps: "handled" as const })}
+      />
+    </View>
+  );
+}
+
+export function VoiceCleanupModelPicker({
+  disabled,
+  models,
+  onSelect,
+  selectedModelId,
+}: {
+  readonly disabled: boolean;
+  readonly models: readonly VoiceCleanupModel[];
+  readonly onSelect: (modelId: string) => void;
+  readonly selectedModelId: string | null;
+}) {
+  const triggerRef = useRef<TriggerRef>(null);
+  const query$ = useObservable("");
+  const selectedModel = models.find((model) => model.id === selectedModelId);
+  const select = useCallback(
+    (modelId: string) => {
+      onSelect(modelId);
+      triggerRef.current?.close();
+    },
+    [onSelect]
+  );
 
   return (
     <Popover>
@@ -152,36 +184,17 @@ export function VoiceCleanupModelPicker({
         sideOffset={6}
         testID="voice-cleanup-model-menu"
       >
-        <View className="flex-row items-center gap-2 rounded-lg border border-border px-3">
-          <Icon className="text-muted-foreground" name="search" size={13} />
-          <TextInput
-            autoCapitalize="none"
-            autoCorrect={false}
-            className="h-10 min-w-0 flex-1 text-foreground text-sm outline-none"
-            onChangeText={setQuery}
-            placeholder="Search Voice Lab models…"
-            placeholderTextColor={theme.mutedForeground}
-            style={{ color: theme.foreground }}
-            testID="voice-cleanup-model-search"
-            value={query}
-          />
-        </View>
-        <View style={{ height: listHeight }}>
-          <LegendList
-            contentContainerStyle={{ gap: 4 }}
-            data={visibleModels}
-            dataKey="voice-models"
-            getFixedItemSize={voiceModelItemSize}
-            keyExtractor={voiceModelKey}
-            ListEmptyComponent={emptyModels}
-            recycleItems
-            renderItem={renderModel}
-            style={{ flex: 1 }}
-            {...(Platform.OS === "web"
-              ? {}
-              : { keyboardShouldPersistTaps: "handled" as const })}
-          />
-        </View>
+        <ObservableSearchField
+          placeholder="Search Voice Lab models…"
+          query$={query$}
+          testID="voice-cleanup-model-search"
+        />
+        <VoiceModelResults
+          models={models}
+          onSelect={select}
+          query$={query$}
+          selectedModelId={selectedModelId}
+        />
       </PopoverContent>
     </Popover>
   );
