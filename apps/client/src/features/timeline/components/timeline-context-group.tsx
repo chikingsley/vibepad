@@ -1,11 +1,12 @@
 import type { TimelinePart } from "@vibepad/protocol/timeline";
-import { useCallback, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { View } from "react-native";
 
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { TimelineActivityRow } from "@/features/timeline/components/timeline-activity-row";
 import { TimelineShellPart } from "@/features/timeline/components/timeline-shell-part";
 import { TimelineToolPart } from "@/features/timeline/components/timeline-tool-part";
+import { useTimelineDisclosure } from "@/features/timeline/timeline-disclosure-context";
 
 type ContextToolPart = Extract<TimelinePart, { type: "tool" }> & {
   readonly category: "context";
@@ -32,7 +33,8 @@ export function TimelineContextGroup({
 }: {
   readonly parts: readonly ContextPart[];
 }) {
-  const [open, setOpen] = useState(false);
+  const disclosureId = `context:${parts[0]?.id ?? "empty"}`;
+  const { open, setOpen, toggle } = useTimelineDisclosure(disclosureId);
   const active = parts.some(
     (part) => part.status === "pending" || part.status === "running"
   );
@@ -58,8 +60,6 @@ export function TimelineContextGroup({
       .filter(Boolean)
       .join(", ");
   }, [parts]);
-  const toggle = useCallback(() => setOpen((value) => !value), []);
-
   return (
     <Collapsible onOpenChange={setOpen} open={open}>
       <TimelineActivityRow

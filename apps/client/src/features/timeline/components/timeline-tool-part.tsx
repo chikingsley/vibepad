@@ -1,5 +1,4 @@
 import type { TimelinePart } from "@vibepad/protocol/timeline";
-import { useCallback, useState } from "react";
 import { View } from "react-native";
 
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
@@ -9,6 +8,7 @@ import {
   TimelineActivityRow,
   TimelineDetailPanel,
 } from "@/features/timeline/components/timeline-activity-row";
+import { useTimelineDisclosure } from "@/features/timeline/timeline-disclosure-context";
 
 type ToolPart = Extract<TimelinePart, { type: "tool" }>;
 
@@ -79,7 +79,7 @@ export function TimelineToolPart({
   readonly hideDetails?: boolean | undefined;
   readonly part: ToolPart;
 }) {
-  const [open, setOpen] = useState(false);
+  const { open, setOpen, toggle } = useTimelineDisclosure(`tool:${part.id}`);
   const presentation = toolPresentation(part);
   const expandable =
     !hideDetails &&
@@ -87,7 +87,6 @@ export function TimelineToolPart({
       hasDetail(part.output) ||
       hasDetail(part.error) ||
       hasDetail(part.metadata));
-  const toggle = useCallback(() => setOpen((value) => !value), []);
   const subtitle = part.target ?? part.name;
 
   return (

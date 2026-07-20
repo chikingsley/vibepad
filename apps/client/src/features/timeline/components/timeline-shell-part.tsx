@@ -1,5 +1,4 @@
 import type { TimelinePart } from "@vibepad/protocol/timeline";
-import { useCallback, useState } from "react";
 import { ScrollView, View } from "react-native";
 
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
@@ -8,6 +7,7 @@ import {
   TimelineActivityRow,
   TimelineDetailPanel,
 } from "@/features/timeline/components/timeline-activity-row";
+import { useTimelineDisclosure } from "@/features/timeline/timeline-disclosure-context";
 
 type ShellPart = Extract<TimelinePart, { type: "shell" }>;
 
@@ -32,7 +32,7 @@ export function TimelineShellPart({
   readonly labelMode?: "action" | "shell" | undefined;
   readonly part: ShellPart;
 }) {
-  const [open, setOpen] = useState(false);
+  const { open, setOpen, toggle } = useTimelineDisclosure(`shell:${part.id}`);
   const active = part.status === "pending" || part.status === "running";
   const output = part.output
     .replace(ansiPattern, "")
@@ -41,8 +41,6 @@ export function TimelineShellPart({
   const expandable =
     !hideDetails && Boolean(part.command || output || part.error);
   const title = shellTitle(labelMode, active);
-  const toggle = useCallback(() => setOpen((value) => !value), []);
-
   return (
     <Collapsible onOpenChange={setOpen} open={open}>
       <TimelineActivityRow

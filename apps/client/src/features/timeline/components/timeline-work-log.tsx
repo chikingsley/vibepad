@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { View } from "react-native";
 
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
@@ -9,6 +9,7 @@ import {
 import { TimelineActivitySequence } from "@/features/timeline/components/timeline-activity-sequence";
 import { isContextPart } from "@/features/timeline/components/timeline-context-group";
 import type { TimelineActivityPart } from "@/features/timeline/model/timeline-parts";
+import { useTimelineDisclosure } from "@/features/timeline/timeline-disclosure-context";
 
 const countPhrase = (count: number, singular: string, plural: string) =>
   count > 0 ? `${count} ${count === 1 ? singular : plural}` : undefined;
@@ -140,7 +141,7 @@ export function TimelineWorkLog({
   readonly id: string;
   readonly parts: readonly TimelineActivityPart[];
 }) {
-  const [open, setOpen] = useState(false);
+  const { open, setOpen, toggle } = useTimelineDisclosure(`work-log:${id}`);
   const active = parts.some(
     (part) =>
       "status" in part &&
@@ -170,8 +171,6 @@ export function TimelineWorkLog({
     ? formatDuration(Date.parse(completedAt) - Date.parse(createdAt))
     : undefined;
   const title = workTitle(active, failed, duration);
-  const toggle = useCallback(() => setOpen((value) => !value), []);
-
   return (
     <Collapsible onOpenChange={setOpen} open={open}>
       <TimelineActivityRow

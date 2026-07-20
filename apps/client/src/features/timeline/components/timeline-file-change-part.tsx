@@ -2,7 +2,7 @@ import type {
   TimelineFileChange,
   TimelinePart,
 } from "@vibepad/protocol/timeline";
-import { useCallback, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { View } from "react-native";
 
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
@@ -13,6 +13,7 @@ import {
   TimelineDetailPanel,
 } from "@/features/timeline/components/timeline-activity-row";
 import { TimelinePatch } from "@/features/timeline/components/timeline-patch";
+import { useTimelineDisclosure } from "@/features/timeline/timeline-disclosure-context";
 
 type FileChangePart = Extract<TimelinePart, { type: "file-change" }>;
 
@@ -101,9 +102,9 @@ function FileChangeRow({
   readonly change: TimelineFileChange;
   readonly partId: string;
 }) {
-  const [open, setOpen] = useState(false);
+  const disclosureId = `file:${partId}:${change.action}:${change.path}`;
+  const { open, setOpen, toggle } = useTimelineDisclosure(disclosureId);
   const expandable = Boolean(change.patch ?? change.content);
-  const toggle = useCallback(() => setOpen((value) => !value), []);
 
   return (
     <Collapsible onOpenChange={setOpen} open={open}>
@@ -136,7 +137,9 @@ export function TimelineFileChangePart({
 }: {
   readonly part: FileChangePart;
 }) {
-  const [open, setOpen] = useState(false);
+  const { open, setOpen, toggle } = useTimelineDisclosure(
+    `file-change:${part.id}`
+  );
   const active = part.status === "pending" || part.status === "running";
   const totals = useMemo(
     () =>
@@ -151,7 +154,6 @@ export function TimelineFileChangePart({
   );
   const single = part.changes.length === 1 ? part.changes[0] : undefined;
   const expandable = part.changes.length > 0;
-  const toggle = useCallback(() => setOpen((value) => !value), []);
   const title = fileChangeTitle(single, active, part.changes.length);
   const subtitle = single
     ? (single.previousPath ?? directoryName(single.path))

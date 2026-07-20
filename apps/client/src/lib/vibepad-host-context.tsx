@@ -22,6 +22,10 @@ import {
   type SessionRuntimeStore,
 } from "@/features/timeline/state/session-runtime-store";
 import {
+  createTimelineDisclosureStore,
+  type TimelineDisclosureStore,
+} from "@/features/timeline/state/timeline-disclosure-store";
+import {
   createVoiceCatalogStore,
   type VoiceCatalogStore,
 } from "@/features/voice/state/voice-catalog-store";
@@ -49,6 +53,7 @@ interface VibePadHostRuntime {
   readonly projectFiles: ProjectFilesStore;
   readonly projectResources: ProjectResourcesStore;
   readonly sessionRuntime: SessionRuntimeStore;
+  readonly timelineDisclosure: TimelineDisclosureStore;
   readonly voiceCatalog: VoiceCatalogStore;
   readonly workspace: WorkspaceStore;
   readonly workspaceUi: WorkspaceUiStore;
@@ -78,6 +83,7 @@ export function VibePadHostProvider({
         client,
         workspace.upsertSession
       ),
+      timelineDisclosure: createTimelineDisclosureStore(),
       voiceCatalog: createVoiceCatalogStore(client),
       workspace,
       workspaceUi: createWorkspaceUiStore(),
@@ -123,6 +129,9 @@ export const useVibePadPreviewStore = () => useVibePadHostRuntime().preview;
 
 export const useVibePadSessionRuntimeStore = () =>
   useVibePadHostRuntime().sessionRuntime;
+
+export const useVibePadTimelineDisclosureStore = () =>
+  useVibePadHostRuntime().timelineDisclosure;
 
 export const useVibePadVoiceCatalogStore = () =>
   useVibePadHostRuntime().voiceCatalog;

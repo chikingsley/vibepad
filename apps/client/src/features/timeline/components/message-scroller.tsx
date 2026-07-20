@@ -29,6 +29,7 @@ import {
   messageAnchorOffset,
 } from "@/features/timeline/model/message-scroll-state";
 import type { ProjectedTimelineBlock } from "@/features/timeline/model/timeline-projection";
+import { TimelineDisclosureScope } from "@/features/timeline/timeline-disclosure-context";
 
 const tailThreshold = 96;
 const checkpointDelay = 280;
@@ -375,54 +376,56 @@ export function MessageScroller({
         };
 
   return (
-    <View className="min-h-0 flex-1" testID="message-scroller">
-      <LegendList
-        contentContainerStyle={listContentStyle}
-        data={listData}
-        dataKey={sessionId ?? "empty"}
-        estimatedItemSize={80}
-        extraData={harnessId}
-        getItemType={timelineBlockType}
-        {...initialScrollProps}
-        ItemSeparatorComponent={TimelineItemSeparator}
-        itemsAreEqual={timelineBlocksEqual}
-        key={`${sessionId ?? "empty"}:${validOpeningPlan?.generation ?? "loading"}`}
-        keyExtractor={timelineBlockKey}
-        ListHeaderComponent={listHeader}
-        ListHeaderComponentStyle={listHeaderStyle}
-        maintainScrollAtEnd={{
-          animated: false,
-          on: { dataChange: true, itemLayout: true, layout: true },
-        }}
-        maintainScrollAtEndThreshold={0.1}
-        maintainVisibleContentPosition={{ data: true, size: true }}
-        onFirstVisibleItemChanged={handleFirstVisibleItemChanged}
-        onScroll={handleScroll}
-        recycleItems
-        ref={listRef}
-        renderItem={renderItem}
-        scrollEventThrottle={16}
-        style={listStyle}
-        {...platformListProps}
-      />
+    <TimelineDisclosureScope sessionId={sessionId}>
+      <View className="min-h-0 flex-1" testID="message-scroller">
+        <LegendList
+          contentContainerStyle={listContentStyle}
+          data={listData}
+          dataKey={sessionId ?? "empty"}
+          estimatedItemSize={80}
+          extraData={harnessId}
+          getItemType={timelineBlockType}
+          {...initialScrollProps}
+          ItemSeparatorComponent={TimelineItemSeparator}
+          itemsAreEqual={timelineBlocksEqual}
+          key={`${sessionId ?? "empty"}:${validOpeningPlan?.generation ?? "loading"}`}
+          keyExtractor={timelineBlockKey}
+          ListHeaderComponent={listHeader}
+          ListHeaderComponentStyle={listHeaderStyle}
+          maintainScrollAtEnd={{
+            animated: false,
+            on: { dataChange: true, itemLayout: true, layout: true },
+          }}
+          maintainScrollAtEndThreshold={0.1}
+          maintainVisibleContentPosition={{ data: true, size: true }}
+          onFirstVisibleItemChanged={handleFirstVisibleItemChanged}
+          onScroll={handleScroll}
+          recycleItems
+          ref={listRef}
+          renderItem={renderItem}
+          scrollEventThrottle={16}
+          style={listStyle}
+          {...platformListProps}
+        />
 
-      {detached ? (
-        <View
-          className="pointer-events-none absolute inset-x-0 bottom-4 items-center"
-          testID="jump-to-latest-container"
-        >
-          <Button
-            accessibilityLabel="Jump to latest"
-            className="pointer-events-auto size-9 rounded-full bg-background shadow-lg"
-            onPress={handleJumpToLatest}
-            size="icon"
-            testID="jump-to-latest"
-            variant="outline"
+        {detached ? (
+          <View
+            className="pointer-events-none absolute inset-x-0 bottom-4 items-center"
+            testID="jump-to-latest-container"
           >
-            <Icon name="chevron-down" size={16} />
-          </Button>
-        </View>
-      ) : null}
-    </View>
+            <Button
+              accessibilityLabel="Jump to latest"
+              className="pointer-events-auto size-9 rounded-full bg-background shadow-lg"
+              onPress={handleJumpToLatest}
+              size="icon"
+              testID="jump-to-latest"
+              variant="outline"
+            >
+              <Icon name="chevron-down" size={16} />
+            </Button>
+          </View>
+        ) : null}
+      </View>
+    </TimelineDisclosureScope>
   );
 }
