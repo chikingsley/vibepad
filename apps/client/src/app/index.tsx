@@ -1,4 +1,4 @@
-import { useAppSettings } from "@/features/settings/settings-context";
+import { useSettingsValue } from "@/features/settings/settings-context";
 import { WorkspaceShell } from "@/features/workspace/components/workspace-shell";
 import {
   defaultVibePadHostConnection,
@@ -7,9 +7,11 @@ import {
 import { VibePadHostProvider } from "@/lib/vibepad-host-context";
 
 export default function WorkspaceScreen() {
-  const { settings } = useAppSettings();
-  const activeHost = settings.connections.hosts.find(
-    (host) => host.id === settings.connections.activeHostId
+  const connections = useSettingsValue((state$) =>
+    state$.settings.connections.get()
+  );
+  const activeHost = connections.hosts.find(
+    (host) => host.id === connections.activeHostId
   );
   const connection: VibePadHostConnection = activeHost
     ? { baseUrl: activeHost.url, hostId: activeHost.id }

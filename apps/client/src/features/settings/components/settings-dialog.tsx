@@ -37,7 +37,10 @@ import {
   VoiceCleanupModelPicker,
   VoiceCleanupProfileControl,
 } from "@/features/settings/components/voice-cleanup-controls";
-import { useAppSettings } from "@/features/settings/settings-context";
+import {
+  useAppSettingsStore,
+  useSettingsValue,
+} from "@/features/settings/settings-context";
 import { THEME } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { useVibePadHost } from "@/lib/vibepad-host-context";
@@ -157,7 +160,10 @@ const settingsPersistenceLabel = (state: string) => {
 };
 
 function TimelineSettings() {
-  const { settings, update } = useAppSettings();
+  const { update } = useAppSettingsStore();
+  const selectedOpening = useSettingsValue((state$) =>
+    state$.settings.timeline.opening.get()
+  );
   const selectOpening = useCallback(
     (opening: TimelineOpeningPreference) => {
       update((current) => ({
@@ -193,7 +199,7 @@ function TimelineSettings() {
             description="Start at the latest completed assistant answer."
             label="Latest answer"
             onSelect={selectOpening}
-            selected={settings.timeline.opening === "latest-response"}
+            selected={selectedOpening === "latest-response"}
             testIdPrefix="timeline-opening"
             value="latest-response"
           />
@@ -201,7 +207,7 @@ function TimelineSettings() {
             description="Return to the last stable message and reading offset."
             label="Last position"
             onSelect={selectOpening}
-            selected={settings.timeline.opening === "last-position"}
+            selected={selectedOpening === "last-position"}
             testIdPrefix="timeline-opening"
             value="last-position"
           />
@@ -209,7 +215,7 @@ function TimelineSettings() {
             description="Open directly at the newest event and follow the tail."
             label="Bottom"
             onSelect={selectOpening}
-            selected={settings.timeline.opening === "bottom"}
+            selected={selectedOpening === "bottom"}
             testIdPrefix="timeline-opening"
             value="bottom"
           />
@@ -232,7 +238,8 @@ function TimelineSettings() {
 
 function VoiceSettings() {
   const host = useVibePadHost();
-  const { settings, update } = useAppSettings();
+  const { update } = useAppSettingsStore();
+  const voice = useSettingsValue((state$) => state$.settings.voice.get());
   const { colorScheme } = useColorScheme();
   const theme = THEME[colorScheme === "dark" ? "dark" : "light"];
   const [catalog, setCatalog] = useState<{
@@ -344,11 +351,11 @@ function VoiceSettings() {
     [update]
   );
   const cleanupConfigured = Boolean(
-    settings.voice.cleanup.model &&
-      catalog.models.some((model) => model.id === settings.voice.cleanup.model)
+    voice.cleanup.model &&
+      catalog.models.some((model) => model.id === voice.cleanup.model)
   );
   let cleanupStatus = "Ready";
-  if (settings.voice.cleanup.enabled) {
+  if (voice.cleanup.enabled) {
     cleanupStatus = "On";
   } else if (catalog.loading) {
     cleanupStatus = "Loading…";
@@ -383,7 +390,7 @@ function VoiceSettings() {
             description="Route dictation through the paired host. This remains the simulator and self-hosted default."
             label="Paired host"
             onSelect={selectTransport}
-            selected={settings.voice.transport === "host"}
+            selected={voice.transport === "host"}
             testIdPrefix="voice-transport"
             value="host"
           />
@@ -391,7 +398,7 @@ function VoiceSettings() {
             description="Connect straight to Peacockery Voice with App Attest and a device-bound Secure Enclave key."
             label="Hosted direct"
             onSelect={selectTransport}
-            selected={settings.voice.transport === "hosted"}
+            selected={voice.transport === "hosted"}
             testIdPrefix="voice-transport"
             value="hosted"
           />
@@ -402,7 +409,7 @@ function VoiceSettings() {
             title="Transcription model"
           >
             <Badge variant="secondary">
-              <Text>{voiceModelLabel(settings.voice.transcriptionModel)}</Text>
+              <Text>{voiceModelLabel(voice.transcriptionModel)}</Text>
             </Badge>
           </SettingsRow>
           <SettingsRow
@@ -415,7 +422,7 @@ function VoiceSettings() {
               testID="voice-show-interim"
               thumbColor={theme.background}
               trackColor={{ false: theme.muted, true: theme.primary }}
-              value={settings.voice.showInterimTranscript}
+              value={voice.showInterimTranscript}
             />
           </SettingsRow>
         </SettingsList>
@@ -429,9 +436,7 @@ function VoiceSettings() {
           >
             AI cleanup
           </Text>
-          <Badge
-            variant={settings.voice.cleanup.enabled ? "secondary" : "outline"}
-          >
+          <Badge variant={voice.cleanup.enabled ? "secondary" : "outline"}>
             <Text>{cleanupStatus}</Text>
           </Badge>
         </View>
@@ -442,12 +447,12 @@ function VoiceSettings() {
           >
             <Switch
               accessibilityLabel="Clean up dictation"
-              disabled={!(settings.voice.cleanup.enabled || cleanupConfigured)}
+              disabled={!(voice.cleanup.enabled || cleanupConfigured)}
               onValueChange={toggleCleanup}
               testID="voice-cleanup-enabled"
               thumbColor={theme.background}
               trackColor={{ false: theme.muted, true: theme.primary }}
-              value={settings.voice.cleanup.enabled}
+              value={voice.cleanup.enabled}
             />
           </SettingsRow>
           <SettingsRow
@@ -461,7 +466,7 @@ function VoiceSettings() {
               disabled={catalog.loading || catalog.models.length === 0}
               models={catalog.models}
               onSelect={selectCleanupModel}
-              selectedModelId={settings.voice.cleanup.model}
+              selectedModelId={voice.cleanup.model}
             />
           </SettingsRow>
           <SettingsRow
@@ -470,7 +475,7 @@ function VoiceSettings() {
           >
             <VoiceCleanupProfileControl
               onSelect={selectPromptProfile}
-              selected={settings.voice.cleanup.promptProfile}
+              selected={voice.cleanup.promptProfile}
             />
           </SettingsRow>
         </SettingsList>
@@ -540,7 +545,11 @@ export function SettingsDialog({
   const { width } = useWindowDimensions();
   const compact = width < 720;
   const [page, setPage] = useState<SettingsPage>(initialPage);
-  const { errorMessage, persistenceState, reset } = useAppSettings();
+  const { reset } = useAppSettingsStore();
+  const { errorMessage, persistenceState } = useSettingsValue((state$) => ({
+    errorMessage: state$.errorMessage.get(),
+    persistenceState: state$.persistenceState.get(),
+  }));
   const persistenceLabel = settingsPersistenceLabel(persistenceState);
 
   return (

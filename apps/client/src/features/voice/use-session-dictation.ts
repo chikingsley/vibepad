@@ -1,6 +1,6 @@
 import { realtimeVoiceEventSchema } from "@vibepad/protocol/voice";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useAppSettings } from "@/features/settings/settings-context";
+import { useSettingsValue } from "@/features/settings/settings-context";
 import {
   normalizeLinear16,
   type PcmAudioBuffer,
@@ -53,7 +53,12 @@ export function useSessionDictation({
   showInterimTranscript = false,
 }: UseSessionDictationOptions) {
   const host = useVibePadHost();
-  const { settings } = useAppSettings();
+  const transcriptionModel = useSettingsValue((state$) =>
+    state$.settings.voice.transcriptionModel.get()
+  );
+  const voiceTransport = useSettingsValue((state$) =>
+    state$.settings.voice.transport.get()
+  );
   const [state, setState] = useState<DictationState>(initialState);
   const callbackRef = useRef(onTranscript);
   const socketRef = useRef<WebSocket | undefined>(undefined);
@@ -206,11 +211,9 @@ export function useSessionDictation({
       await prepareCapture();
       setState((current) => ({ ...current, phase: "connecting" }));
       let socket: WebSocket;
-      if (settings.voice.transport === "hosted") {
+      if (voiceTransport === "hosted") {
         socket = openHostedVoiceRealtimeSocket(
-          await hostedVoiceSession.realtimeConnection(
-            settings.voice.transcriptionModel
-          )
+          await hostedVoiceSession.realtimeConnection(transcriptionModel)
         );
       } else {
         const connection = await host.voiceRealtimeConnection();
@@ -254,8 +257,8 @@ export function useSessionDictation({
     prepareCapture,
     startCapture,
     state.phase,
-    settings.voice.transcriptionModel,
-    settings.voice.transport,
+    transcriptionModel,
+    voiceTransport,
   ]);
 
   const stop = useCallback(

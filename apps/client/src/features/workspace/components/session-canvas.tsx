@@ -24,7 +24,10 @@ import {
   emptyPreviewReviewDraft,
   type PreviewFeedbackCue,
 } from "@/features/preview/preview-review";
-import { useAppSettings } from "@/features/settings/settings-context";
+import {
+  useAppSettingsStore,
+  useSettingsValue,
+} from "@/features/settings/settings-context";
 import { MessageScroller } from "@/features/timeline/components/message-scroller";
 import {
   latestFinalAnswerAnchor,
@@ -180,8 +183,11 @@ function ChatSurface({
   readonly timeline: ReturnType<typeof useSessionTimeline>;
 }) {
   const insets = useSafeAreaInsets();
-  const { readMessageCheckpoint, settings, writeMessageCheckpoint } =
-    useAppSettings();
+  const { readMessageCheckpoint, writeMessageCheckpoint } =
+    useAppSettingsStore();
+  const openingPreference = useSettingsValue((state$) =>
+    state$.settings.timeline.opening.get()
+  );
   const timelineReady =
     timeline.status === "ready" && timeline.sessionId === session?.id;
   const timelinePage = timelineReady ? timeline.data : undefined;
@@ -214,7 +220,7 @@ function ChatSurface({
         olderCursor={timelinePage?.olderCursor}
         olderLoadError={timeline.olderLoadError}
         onLoadOlder={timeline.loadOlder}
-        openingPreference={settings.timeline.opening}
+        openingPreference={openingPreference}
         readCheckpoint={readMessageCheckpoint}
         sessionId={session?.id}
         writeCheckpoint={writeMessageCheckpoint}
@@ -317,8 +323,12 @@ export function SessionCanvas({
   readonly workbench: SessionWorkbenchLayout;
 }) {
   const host = useVibePadHost();
-  const { settings } = useAppSettings();
-  const { cleanup: voiceCleanup } = settings.voice;
+  const voiceCleanup = useSettingsValue((state$) =>
+    state$.settings.voice.cleanup.get()
+  );
+  const showInterimTranscript = useSettingsValue((state$) =>
+    state$.settings.voice.showInterimTranscript.get()
+  );
   const [canvasWidth, setCanvasWidth] = useState(0);
   const [draft, setDraft] = useState("");
   const [draftSelection, setDraftSelection] = useState<DraftSelection>({
@@ -426,7 +436,7 @@ export function SessionCanvas({
     stop: stopDictationRequest,
   } = useSessionDictation({
     onTranscript: applyTranscript,
-    showInterimTranscript: settings.voice.showInterimTranscript,
+    showInterimTranscript,
   });
   const cancelDictation = useCallback(() => {
     cancelDictationRequest().catch(() => undefined);

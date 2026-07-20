@@ -5,7 +5,10 @@ import { Platform, TextInput, View } from "react-native";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
-import { useAppSettings } from "@/features/settings/settings-context";
+import {
+  useAppSettingsStore,
+  useSettingsValue,
+} from "@/features/settings/settings-context";
 import { THEME } from "@/lib/theme";
 import { useVibePadHost } from "@/lib/vibepad-host-context";
 
@@ -31,7 +34,7 @@ const normalizedHostUrl = (value: string) => {
 
 export function HostPairingControl() {
   const host = useVibePadHost();
-  const { update } = useAppSettings();
+  const { update } = useAppSettingsStore();
   const { colorScheme } = useColorScheme();
   const theme = THEME[colorScheme === "dark" ? "dark" : "light"];
   const [code, setCode] = useState("");
@@ -173,11 +176,13 @@ export function HostPairingControl() {
 
 export function RevokeCurrentHostControl() {
   const host = useVibePadHost();
-  const { settings, update } = useAppSettings();
+  const { update } = useAppSettingsStore();
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const [revoking, setRevoking] = useState(false);
-  const isPaired = settings.connections.hosts.some(
-    (candidate) => candidate.id === host.hostId
+  const isPaired = useSettingsValue((state$) =>
+    state$.settings.connections.hosts
+      .get()
+      .some((candidate) => candidate.id === host.hostId)
   );
   const revoke = useCallback(async () => {
     setRevoking(true);
@@ -266,7 +271,10 @@ function SavedHostRow({
 }
 
 export function SavedHostList() {
-  const { settings, update } = useAppSettings();
+  const { update } = useAppSettingsStore();
+  const connections = useSettingsValue((state$) =>
+    state$.settings.connections.get()
+  );
   const select = useCallback(
     (hostId: string) => {
       update((current) => ({
@@ -277,7 +285,7 @@ export function SavedHostList() {
     [update]
   );
 
-  if (settings.connections.hosts.length === 0) {
+  if (connections.hosts.length === 0) {
     return (
       <Text className="text-xs" variant="muted">
         No paired hosts
@@ -286,9 +294,9 @@ export function SavedHostList() {
   }
   return (
     <View className="min-w-72 gap-1">
-      {settings.connections.hosts.map((host) => (
+      {connections.hosts.map((host) => (
         <SavedHostRow
-          active={host.id === settings.connections.activeHostId}
+          active={host.id === connections.activeHostId}
           host={host}
           key={host.id}
           onSelect={select}
