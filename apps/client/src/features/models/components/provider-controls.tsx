@@ -2,6 +2,8 @@ import {
   LegendList,
   type LegendListRenderItemProps,
 } from "@legendapp/list/react-native";
+import type { Observable } from "@legendapp/state";
+import { useObservable, useValue } from "@legendapp/state/react";
 import type { TriggerRef } from "@rn-primitives/popover";
 import type {
   AgentSummary,
@@ -9,9 +11,8 @@ import type {
   ModelSummary,
   ProviderCatalog,
 } from "@vibepad/protocol/catalog";
-import { useColorScheme } from "nativewind";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Platform, Pressable, TextInput, View } from "react-native";
+import { Platform, Pressable, View } from "react-native";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -19,13 +20,13 @@ import {
   ProviderIcon,
   resolveProviderIconName,
 } from "@/components/ui/icon";
+import { ObservableSearchField } from "@/components/ui/observable-search-field";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Text } from "@/components/ui/text";
-import { THEME } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { boundedListHeight } from "@/lib/virtualized-list-layout";
 import { ReasoningEffortControl } from "./reasoning-effort-control";
@@ -47,6 +48,11 @@ const modelListItemKey = (item: ModelListItem) => item.id;
 const modelListItemType = (item: ModelListItem) => item.type;
 const modelListItemSize = (item: ModelListItem) =>
   item.type === "provider" ? 32 : 44;
+
+interface ModelSelectionState {
+  selecting: boolean;
+  selectionError: string | undefined;
+}
 
 function ModelOption({
   model,
@@ -94,25 +100,35 @@ function ModelOption({
   );
 }
 
-function ModelControl({
+function ModelSelectionError({
+  catalogError,
+  selection$,
+}: {
+  readonly catalogError: string | undefined;
+  readonly selection$: Observable<ModelSelectionState>;
+}) {
+  const selectionError = useValue(selection$.selectionError);
+  const message = selectionError ?? catalogError;
+  return message ? (
+    <Text className="px-2 text-red-600 text-xs">{message}</Text>
+  ) : null;
+}
+
+function ModelResults({
   catalog,
   current,
-  disabled,
-  error,
   onSelect,
+  query$,
+  selection$,
 }: {
   readonly catalog: ProviderCatalog | undefined;
   readonly current: ModelReference | undefined;
-  readonly disabled: boolean;
-  readonly error: string | undefined;
-  readonly onSelect: (model: ModelReference) => Promise<void>;
+  readonly onSelect: (model: ModelSummary) => void;
+  readonly query$: Observable<string>;
+  readonly selection$: Observable<ModelSelectionState>;
 }) {
-  const { colorScheme } = useColorScheme();
-  const theme = THEME[colorScheme === "dark" ? "dark" : "light"];
-  const triggerRef = useRef<TriggerRef>(null);
-  const [query, setQuery] = useState("");
-  const [selecting, setSelecting] = useState(false);
-  const [selectionError, setSelectionError] = useState<string | undefined>();
+  const query = useValue(query$);
+  const selecting = useValue(selection$.selecting);
   const providerNames = useMemo(
     () =>
       new Map(
@@ -170,23 +186,6 @@ function ModelControl({
     return result;
   }, [catalog, providerNames, query]);
 
-  const select = useCallback(
-    async (model: ModelSummary) => {
-      setSelecting(true);
-      setSelectionError(undefined);
-      try {
-        await onSelect(model);
-        triggerRef.current?.close();
-      } catch (reason) {
-        setSelectionError(
-          reason instanceof Error ? reason.message : "Unable to switch model"
-        );
-      } finally {
-        setSelecting(false);
-      }
-    },
-    [onSelect]
-  );
   const renderItem = useCallback(
     ({ item }: LegendListRenderItemProps<ModelListItem>) =>
       item.type === "provider" ? (
@@ -198,21 +197,83 @@ function ModelControl({
       ) : (
         <ModelOption
           model={item.model}
-          onSelect={select}
+          onSelect={onSelect}
           selected={
             current ? modelKey(item.model) === modelKey(current) : false
           }
         />
       ),
-    [current, select]
+    [current, onSelect]
   );
-  const currentProvider = current?.providerId ?? "opencode";
   const listHeight = boundedListHeight({
     emptyHeight: 48,
     itemSize: modelListItemSize,
     items,
     maxHeight: 360,
   });
+
+  return (
+    <View
+      pointerEvents={selecting ? "none" : "auto"}
+      style={{ height: listHeight }}
+      testID="model-selector-list"
+    >
+      <LegendList
+        data={items}
+        dataKey="provider-models"
+        getFixedItemSize={modelListItemSize}
+        getItemType={modelListItemType}
+        keyExtractor={modelListItemKey}
+        recycleItems
+        renderItem={renderItem}
+        style={{ flex: 1, opacity: selecting ? 0.55 : 1 }}
+        {...(Platform.OS === "web"
+          ? {}
+          : { keyboardShouldPersistTaps: "handled" as const })}
+      />
+    </View>
+  );
+}
+
+function ModelControl({
+  catalog,
+  current,
+  disabled,
+  error,
+  onSelect,
+}: {
+  readonly catalog: ProviderCatalog | undefined;
+  readonly current: ModelReference | undefined;
+  readonly disabled: boolean;
+  readonly error: string | undefined;
+  readonly onSelect: (model: ModelReference) => Promise<void>;
+}) {
+  const triggerRef = useRef<TriggerRef>(null);
+  const query$ = useObservable("");
+  const selection$ = useObservable<ModelSelectionState>({
+    selecting: false,
+    selectionError: undefined,
+  });
+  const select = useCallback(
+    async (model: ModelSummary) => {
+      if (selection$.selecting.peek()) {
+        return;
+      }
+      selection$.assign({ selecting: true, selectionError: undefined });
+      try {
+        await onSelect(model);
+        triggerRef.current?.close();
+      } catch (reason) {
+        selection$.selectionError.set(
+          reason instanceof Error ? reason.message : "Unable to switch model"
+        );
+      } finally {
+        selection$.selecting.set(false);
+      }
+    },
+    [onSelect, selection$]
+  );
+  const currentProvider = current?.providerId ?? "opencode";
 
   return (
     <Popover>
@@ -250,40 +311,19 @@ function ModelControl({
         sideOffset={8}
         testID="model-selector-menu"
       >
-        <View className="flex-row items-center gap-2 rounded-lg border border-border px-3">
-          <Icon className="text-muted-foreground" name="search" size={13} />
-          <TextInput
-            autoCapitalize="none"
-            autoCorrect={false}
-            className="h-10 min-w-0 flex-1 text-foreground text-sm outline-none"
-            onChangeText={setQuery}
-            placeholder="Search providers and models…"
-            placeholderTextColor={theme.mutedForeground}
-            style={{ color: theme.foreground }}
-            testID="model-selector-search"
-            value={query}
-          />
-        </View>
-        {error || selectionError ? (
-          <Text className="px-2 text-red-600 text-xs">
-            {selectionError ?? error}
-          </Text>
-        ) : null}
-        <View style={{ height: listHeight }} testID="model-selector-list">
-          <LegendList
-            data={items}
-            dataKey="provider-models"
-            getFixedItemSize={modelListItemSize}
-            getItemType={modelListItemType}
-            keyExtractor={modelListItemKey}
-            recycleItems
-            renderItem={renderItem}
-            style={{ flex: 1, opacity: selecting ? 0.55 : 1 }}
-            {...(Platform.OS === "web"
-              ? {}
-              : { keyboardShouldPersistTaps: "handled" as const })}
-          />
-        </View>
+        <ObservableSearchField
+          placeholder="Search providers and models…"
+          query$={query$}
+          testID="model-selector-search"
+        />
+        <ModelSelectionError catalogError={error} selection$={selection$} />
+        <ModelResults
+          catalog={catalog}
+          current={current}
+          onSelect={select}
+          query$={query$}
+          selection$={selection$}
+        />
       </PopoverContent>
     </Popover>
   );
