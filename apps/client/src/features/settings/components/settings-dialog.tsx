@@ -3,7 +3,6 @@ import type {
   VoiceCleanupPromptProfile,
 } from "@vibepad/protocol/settings";
 import { appSettingsSchemaVersion } from "@vibepad/protocol/settings";
-import type { VoiceCleanupModel } from "@vibepad/protocol/voice";
 import { useColorScheme } from "nativewind";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -42,9 +41,9 @@ import {
   useSettingsValue,
 } from "@/features/settings/settings-context";
 import type { SettingsPage } from "@/features/settings/settings-page";
+import { useVoiceCatalog } from "@/features/voice/use-voice-catalog";
 import { THEME } from "@/lib/theme";
 import { cn } from "@/lib/utils";
-import { useVibePadHost } from "@/lib/vibepad-host-context";
 
 const settingsPages: readonly {
   readonly icon: IconName;
@@ -236,64 +235,32 @@ function TimelineSettings() {
 }
 
 function VoiceSettings() {
-  const host = useVibePadHost();
   const { update } = useAppSettingsStore();
   const voice = useSettingsValue((state$) => state$.settings.voice.get());
+  const catalog = useVoiceCatalog();
   const { colorScheme } = useColorScheme();
   const theme = THEME[colorScheme === "dark" ? "dark" : "light"];
-  const [catalog, setCatalog] = useState<{
-    readonly errorMessage?: string;
-    readonly loading: boolean;
-    readonly models: readonly VoiceCleanupModel[];
-  }>({ loading: true, models: [] });
-
   useEffect(() => {
-    const controller = new AbortController();
-    setCatalog({ loading: true, models: [] });
-    host
-      .loadVoiceCleanupModels(controller.signal)
-      .then((models) => {
-        if (controller.signal.aborted) {
-          return;
-        }
-        setCatalog({ loading: false, models });
-        if (models.length === 0) {
-          return;
-        }
-        update((current) => {
-          const selected = current.voice.cleanup.model;
-          if (selected && models.some((model) => model.id === selected)) {
-            return current;
-          }
-          return {
-            ...current,
-            voice: {
-              ...current.voice,
-              cleanup: {
-                ...current.voice.cleanup,
-                model: models[0]?.id ?? null,
-              },
-            },
-          };
-        });
-      })
-      .catch((error: unknown) => {
-        if (controller.signal.aborted) {
-          return;
-        }
-        setCatalog({
-          errorMessage:
-            error instanceof Error
-              ? error.message
-              : "Unable to load Voice Lab models",
-          loading: false,
-          models: [],
-        });
-      });
-    return () => {
-      controller.abort();
-    };
-  }, [host, update]);
+    if (catalog.models.length === 0) {
+      return;
+    }
+    update((current) => {
+      const selected = current.voice.cleanup.model;
+      if (selected && catalog.models.some((model) => model.id === selected)) {
+        return current;
+      }
+      return {
+        ...current,
+        voice: {
+          ...current.voice,
+          cleanup: {
+            ...current.voice.cleanup,
+            model: catalog.models[0]?.id ?? null,
+          },
+        },
+      };
+    });
+  }, [catalog.models, update]);
 
   const toggleInterim = useCallback(
     (showInterimTranscript: boolean) => {
@@ -356,7 +323,7 @@ function VoiceSettings() {
   let cleanupStatus = "Ready";
   if (voice.cleanup.enabled) {
     cleanupStatus = "On";
-  } else if (catalog.loading) {
+  } else if (catalog.status === "loading" || catalog.status === "idle") {
     cleanupStatus = "Loading…";
   } else if (catalog.errorMessage) {
     cleanupStatus = "Unavailable";
@@ -462,7 +429,9 @@ function VoiceSettings() {
             title="Cleanup model"
           >
             <VoiceCleanupModelPicker
-              disabled={catalog.loading || catalog.models.length === 0}
+              disabled={
+                catalog.status === "loading" || catalog.models.length === 0
+              }
               models={catalog.models}
               onSelect={selectCleanupModel}
               selectedModelId={voice.cleanup.model}

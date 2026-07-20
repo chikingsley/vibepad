@@ -1,9 +1,13 @@
+import {
+  LegendList,
+  type LegendListRenderItemProps,
+} from "@legendapp/list/react-native";
 import type { TriggerRef } from "@rn-primitives/popover";
 import type { VoiceCleanupPromptProfile } from "@vibepad/protocol/settings";
 import type { VoiceCleanupModel } from "@vibepad/protocol/voice";
 import { useColorScheme } from "nativewind";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { ScrollView, TextInput, View } from "react-native";
+import { Platform, TextInput, View } from "react-native";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -21,6 +25,7 @@ import { THEME } from "@/lib/theme";
 
 const providerLabel = (provider: string) =>
   provider.charAt(0).toLocaleUpperCase() + provider.slice(1);
+const voiceModelKey = (model: VoiceCleanupModel) => model.id;
 
 function VoiceModelOption({
   model,
@@ -96,6 +101,24 @@ export function VoiceCleanupModelPicker({
     },
     [onSelect]
   );
+  const renderModel = useCallback(
+    ({ item: model }: LegendListRenderItemProps<VoiceCleanupModel>) => (
+      <VoiceModelOption
+        model={model}
+        onSelect={select}
+        selected={model.id === selectedModelId}
+      />
+    ),
+    [select, selectedModelId]
+  );
+  const emptyModels = useMemo(
+    () => (
+      <Text className="px-3 py-5 text-center text-xs" variant="muted">
+        No matching language models.
+      </Text>
+    ),
+    []
+  );
 
   return (
     <Popover>
@@ -134,25 +157,20 @@ export function VoiceCleanupModelPicker({
             value={query}
           />
         </View>
-        <ScrollView
-          className="max-h-72"
-          contentContainerClassName="gap-1"
-          keyboardShouldPersistTaps="handled"
-        >
-          {visibleModels.map((model) => (
-            <VoiceModelOption
-              key={model.id}
-              model={model}
-              onSelect={select}
-              selected={model.id === selectedModelId}
-            />
-          ))}
-          {visibleModels.length === 0 ? (
-            <Text className="px-3 py-5 text-center text-xs" variant="muted">
-              No matching language models.
-            </Text>
-          ) : null}
-        </ScrollView>
+        <LegendList
+          contentContainerStyle={{ gap: 4 }}
+          data={visibleModels}
+          dataKey={`voice-models:${query.trim().toLocaleLowerCase()}`}
+          estimatedItemSize={52}
+          keyExtractor={voiceModelKey}
+          ListEmptyComponent={emptyModels}
+          recycleItems
+          renderItem={renderModel}
+          style={{ maxHeight: 288 }}
+          {...(Platform.OS === "web"
+            ? {}
+            : { keyboardShouldPersistTaps: "handled" as const })}
+        />
       </PopoverContent>
     </Popover>
   );

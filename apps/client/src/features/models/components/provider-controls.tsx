@@ -1,3 +1,7 @@
+import {
+  LegendList,
+  type LegendListRenderItemProps,
+} from "@legendapp/list/react-native";
 import type { TriggerRef } from "@rn-primitives/popover";
 import type {
   AgentSummary,
@@ -7,7 +11,7 @@ import type {
 } from "@vibepad/protocol/catalog";
 import { useColorScheme } from "nativewind";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { FlatList, Pressable, TextInput, View } from "react-native";
+import { Platform, Pressable, TextInput, View } from "react-native";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -38,6 +42,8 @@ type ModelListItem =
     };
 
 const modelKey = (model: ModelReference) => `${model.providerId}:${model.id}`;
+const modelListItemKey = (item: ModelListItem) => item.id;
+const modelListItemType = (item: ModelListItem) => item.type;
 
 function ModelOption({
   model,
@@ -179,7 +185,7 @@ function ModelControl({
     [onSelect]
   );
   const renderItem = useCallback(
-    ({ item }: { readonly item: ModelListItem }) =>
+    ({ item }: LegendListRenderItemProps<ModelListItem>) =>
       item.type === "provider" ? (
         <View className="px-2 pt-3 pb-1">
           <Text className="font-semibold text-[10px] uppercase" variant="muted">
@@ -197,7 +203,6 @@ function ModelControl({
       ),
     [current, select]
   );
-  const keyExtractor = useCallback((item: ModelListItem) => item.id, []);
   const currentProvider = current?.providerId ?? "opencode";
 
   return (
@@ -255,14 +260,19 @@ function ModelControl({
             {selectionError ?? error}
           </Text>
         ) : null}
-        <FlatList
+        <LegendList
           data={items}
-          initialNumToRender={18}
-          keyboardShouldPersistTaps="handled"
-          keyExtractor={keyExtractor}
+          dataKey={`provider-models:${query.trim().toLocaleLowerCase()}`}
+          estimatedItemSize={48}
+          getItemType={modelListItemType}
+          keyExtractor={modelListItemKey}
+          recycleItems
           renderItem={renderItem}
           style={{ maxHeight: 360, opacity: selecting ? 0.55 : 1 }}
           testID="model-selector-list"
+          {...(Platform.OS === "web"
+            ? {}
+            : { keyboardShouldPersistTaps: "handled" as const })}
         />
       </PopoverContent>
     </Popover>
