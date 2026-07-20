@@ -22,10 +22,12 @@ import {
 } from "@/components/ui/popover";
 import { Text } from "@/components/ui/text";
 import { THEME } from "@/lib/theme";
+import { boundedListHeight } from "@/lib/virtualized-list-layout";
 
 const providerLabel = (provider: string) =>
   provider.charAt(0).toLocaleUpperCase() + provider.slice(1);
 const voiceModelKey = (model: VoiceCleanupModel) => model.id;
+const voiceModelItemSize = () => 48;
 
 function VoiceModelOption({
   model,
@@ -119,6 +121,13 @@ export function VoiceCleanupModelPicker({
     ),
     []
   );
+  const listHeight = boundedListHeight({
+    emptyHeight: 56,
+    gap: 4,
+    itemSize: voiceModelItemSize,
+    items: visibleModels,
+    maxHeight: 288,
+  });
 
   return (
     <Popover>
@@ -157,20 +166,22 @@ export function VoiceCleanupModelPicker({
             value={query}
           />
         </View>
-        <LegendList
-          contentContainerStyle={{ gap: 4 }}
-          data={visibleModels}
-          dataKey={`voice-models:${query.trim().toLocaleLowerCase()}`}
-          estimatedItemSize={52}
-          keyExtractor={voiceModelKey}
-          ListEmptyComponent={emptyModels}
-          recycleItems
-          renderItem={renderModel}
-          style={{ maxHeight: 288 }}
-          {...(Platform.OS === "web"
-            ? {}
-            : { keyboardShouldPersistTaps: "handled" as const })}
-        />
+        <View style={{ height: listHeight }}>
+          <LegendList
+            contentContainerStyle={{ gap: 4 }}
+            data={visibleModels}
+            dataKey="voice-models"
+            getFixedItemSize={voiceModelItemSize}
+            keyExtractor={voiceModelKey}
+            ListEmptyComponent={emptyModels}
+            recycleItems
+            renderItem={renderModel}
+            style={{ flex: 1 }}
+            {...(Platform.OS === "web"
+              ? {}
+              : { keyboardShouldPersistTaps: "handled" as const })}
+          />
+        </View>
       </PopoverContent>
     </Popover>
   );

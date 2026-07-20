@@ -27,6 +27,7 @@ import {
 import { Text } from "@/components/ui/text";
 import { THEME } from "@/lib/theme";
 import { cn } from "@/lib/utils";
+import { boundedListHeight } from "@/lib/virtualized-list-layout";
 import { ReasoningEffortControl } from "./reasoning-effort-control";
 
 type ModelListItem =
@@ -44,6 +45,8 @@ type ModelListItem =
 const modelKey = (model: ModelReference) => `${model.providerId}:${model.id}`;
 const modelListItemKey = (item: ModelListItem) => item.id;
 const modelListItemType = (item: ModelListItem) => item.type;
+const modelListItemSize = (item: ModelListItem) =>
+  item.type === "provider" ? 32 : 44;
 
 function ModelOption({
   model,
@@ -204,6 +207,12 @@ function ModelControl({
     [current, select]
   );
   const currentProvider = current?.providerId ?? "opencode";
+  const listHeight = boundedListHeight({
+    emptyHeight: 48,
+    itemSize: modelListItemSize,
+    items,
+    maxHeight: 360,
+  });
 
   return (
     <Popover>
@@ -260,20 +269,21 @@ function ModelControl({
             {selectionError ?? error}
           </Text>
         ) : null}
-        <LegendList
-          data={items}
-          dataKey={`provider-models:${query.trim().toLocaleLowerCase()}`}
-          estimatedItemSize={48}
-          getItemType={modelListItemType}
-          keyExtractor={modelListItemKey}
-          recycleItems
-          renderItem={renderItem}
-          style={{ maxHeight: 360, opacity: selecting ? 0.55 : 1 }}
-          testID="model-selector-list"
-          {...(Platform.OS === "web"
-            ? {}
-            : { keyboardShouldPersistTaps: "handled" as const })}
-        />
+        <View style={{ height: listHeight }} testID="model-selector-list">
+          <LegendList
+            data={items}
+            dataKey="provider-models"
+            getFixedItemSize={modelListItemSize}
+            getItemType={modelListItemType}
+            keyExtractor={modelListItemKey}
+            recycleItems
+            renderItem={renderItem}
+            style={{ flex: 1, opacity: selecting ? 0.55 : 1 }}
+            {...(Platform.OS === "web"
+              ? {}
+              : { keyboardShouldPersistTaps: "handled" as const })}
+          />
+        </View>
       </PopoverContent>
     </Popover>
   );

@@ -176,6 +176,7 @@ export function FilesSurface({
             data={nodes}
             dataKey={`${projectId}:${path}`}
             estimatedItemSize={36}
+            key={`file-tree:${projectId}:${path}`}
             keyExtractor={fileNodeKey}
             recycleItems
             renderItem={renderNode}
@@ -192,6 +193,7 @@ export function FilesSurface({
               dataKey={`file-tabs:${sessionId}`}
               estimatedItemSize={176}
               horizontal
+              key={`file-tabs:${sessionId}`}
               keyExtractor={fileTabKey}
               recycleItems
               renderItem={renderTab}

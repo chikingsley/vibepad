@@ -186,6 +186,7 @@ export function ChangesSurface({
         data={changes.data}
         dataKey={`changes:${projectId}`}
         estimatedItemSize={44}
+        key={`changes:${projectId}`}
         keyExtractor={changeKey}
         recycleItems
         renderItem={renderChange}
@@ -238,16 +239,18 @@ export function ChangesSurface({
               </Text>
             </View>
             {patchLines.length > 0 ? (
-              <LegendList
-                data={patchLines}
-                dataKey={`patch:${selectedChange.path}`}
-                estimatedItemSize={20}
-                keyExtractor={patchLineKey}
-                recycleItems
-                renderItem={renderPatchLine}
-                style={{ flex: 1 }}
-                testID="change-patch"
-              />
+              <View className="min-h-0 flex-1" testID="change-patch">
+                <LegendList
+                  data={patchLines}
+                  dataKey={`patch:${selectedChange.path}`}
+                  estimatedItemSize={20}
+                  key={`patch:${selectedChange.path}`}
+                  keyExtractor={patchLineKey}
+                  recycleItems
+                  renderItem={renderPatchLine}
+                  style={{ flex: 1 }}
+                />
+              </View>
             ) : (
               <View className="flex-1 items-center justify-center px-8">
                 <Text variant="muted">

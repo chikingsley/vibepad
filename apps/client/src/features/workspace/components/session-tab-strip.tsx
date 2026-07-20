@@ -129,6 +129,12 @@ export function SessionTabStrip({
     [onClose, onSelect]
   );
 
+  if (sessionIds.length === 0) {
+    // Legend List 3.3.3 mutates subscribers during an empty-to-populated
+    // reset under React 19. Mounting after hydration avoids that reset path.
+    return <View style={{ flex: 1, minWidth: 0 }} />;
+  }
+
   return (
     <LegendList
       contentContainerStyle={{

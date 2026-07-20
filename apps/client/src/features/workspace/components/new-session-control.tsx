@@ -21,6 +21,7 @@ import {
   harnessLabel,
 } from "@/features/harness/components/harness-icon";
 import { THEME } from "@/lib/theme";
+import { boundedListHeight } from "@/lib/virtualized-list-layout";
 
 export interface NewSessionProject {
   readonly harnessId: HarnessId;
@@ -37,6 +38,7 @@ interface NewSessionControlProps {
 }
 
 const projectKey = (project: NewSessionProject) => project.id;
+const projectItemSize = () => 56;
 
 function ProjectOption({
   creating,
@@ -169,6 +171,13 @@ export function NewSessionControl({
     ),
     []
   );
+  const listHeight = boundedListHeight({
+    emptyHeight: 56,
+    gap: 4,
+    itemSize: projectItemSize,
+    items: visibleProjects,
+    maxHeight: 320,
+  });
 
   return (
     <Popover>
@@ -213,22 +222,23 @@ export function NewSessionControl({
             value={query}
           />
         </View>
-        <LegendList
-          contentContainerStyle={{ gap: 4 }}
-          data={visibleProjects}
-          dataKey={`new-session-projects:${query.trim().toLocaleLowerCase()}`}
-          estimatedItemSize={56}
-          extraData={`${creatingProjectId ?? "idle"}:${selectedProjectId ?? "none"}`}
-          keyExtractor={projectKey}
-          ListEmptyComponent={emptyProjects}
-          recycleItems
-          renderItem={renderProject}
-          style={{ maxHeight: 320 }}
-          testID="new-session-project-list"
-          {...(Platform.OS === "web"
-            ? {}
-            : { keyboardShouldPersistTaps: "handled" as const })}
-        />
+        <View style={{ height: listHeight }} testID="new-session-project-list">
+          <LegendList
+            contentContainerStyle={{ gap: 4 }}
+            data={visibleProjects}
+            dataKey="new-session-projects"
+            extraData={`${creatingProjectId ?? "idle"}:${selectedProjectId ?? "none"}`}
+            getFixedItemSize={projectItemSize}
+            keyExtractor={projectKey}
+            ListEmptyComponent={emptyProjects}
+            recycleItems
+            renderItem={renderProject}
+            style={{ flex: 1 }}
+            {...(Platform.OS === "web"
+              ? {}
+              : { keyboardShouldPersistTaps: "handled" as const })}
+          />
+        </View>
         {errorMessage ? (
           <Text className="px-1 text-red-600 text-xs">{errorMessage}</Text>
         ) : null}
