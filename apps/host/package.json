@@ -4,17 +4,24 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "bootstrap": "bun src/bootstrap-cli.ts",
     "dev": "bun --watch src/index.ts",
+    "service": "bun src/service-cli.ts",
     "start": "bun src/index.ts",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@chikingsley/peacockery-voice-client": "workspace:*",
+    "@vibepad/provider-codex": "workspace:*",
     "@vibepad/provider-opencode": "workspace:*",
     "@vibepad/protocol": "workspace:*",
     "zod": "4.4.3"
   },
   "devDependencies": {
+    "@opencode-ai/sdk": "1.18.3",
     "@types/bun": "1.3.14",
-    "typescript": "7.0.2"
+    "typescript": "7.0.2",
+    "vitest": "4.1.10"
   }
 }

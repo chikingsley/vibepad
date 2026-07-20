@@ -8,9 +8,19 @@
     "scheme": "vibepad",
     "userInterfaceStyle": "automatic",
     "ios": {
+      "appleTeamId": "XM69J99HWP",
       "icon": "./assets/expo.icon",
       "supportsTablet": true,
-      "bundleIdentifier": "studio.peacockery.vibepad"
+      "bundleIdentifier": "studio.peacockery.vibepad",
+      "entitlements": {
+        "com.apple.developer.devicecheck.appattest-environment": "development"
+      },
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        },
+        "NSLocalNetworkUsageDescription": "VibePad connects to your paired development hosts over your private network."
+      }
     },
     "android": {
       "package": "studio.peacockery.vibepad",
@@ -27,6 +37,23 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      [
+        "react-native-nano-icons",
+        {
+          "iconSets": [
+            {
+              "fontFamily": "VibePadUI",
+              "inputDir": "./assets/icons/ui",
+              "outputDir": "./assets/icons/nanoicons"
+            },
+            {
+              "fontFamily": "VibePadProviders",
+              "inputDir": "./assets/icons/providers",
+              "outputDir": "./assets/icons/nanoicons"
+            }
+          ]
+        }
+      ],
       "expo-router",
       [
         "expo-splash-screen",
@@ -35,7 +62,16 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
-      ]
+      ],
+      [
+        "expo-audio",
+        {
+          "enableBackgroundRecording": false,
+          "microphonePermission": "Allow VibePad to turn your speech into an editable message."
+        }
+      ],
+      "expo-sqlite",
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,

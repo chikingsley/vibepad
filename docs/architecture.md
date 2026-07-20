@@ -4,33 +4,156 @@
 
 VibePad has two product runtimes:
 
-1. The universal Expo client renders projects, sessions, chat, files, previews,
-   and coordination state.
-2. The host service owns harness processes, provider adapters, filesystem
-   access, preview lifecycle, and local coordination integrations.
+1. The universal Expo client renders projects, sessions, chat, files, previews, and coordination state.
+1. The host service owns harness processes, provider adapters, filesystem access, preview lifecycle, and local coordination integrations.
 
-The client communicates with the host through a versioned HTTP/WebSocket
-protocol. It never launches local harness or preview processes itself.
+The client communicates with the host through a versioned HTTP streaming protocol. It never launches local harness or preview processes itself. Ordinary JSON requests carry snapshots and turns, while an NDJSON response carries ordered provider events. Long-lived event responses disable Bun's per-request idle timeout; otherwise an inactive session is silently disconnected after ten seconds. Downstream cancellation propagates through the provider boundary with `AbortSignal` so reconnects do not leave orphaned OpenCode SSE connections or Codex event subscriptions. The client transport may move to WebSocket when multiplexing or bidirectional control earns that complexity without changing the provider-neutral event envelope.
+
+One host can register several adapters. `ProviderRouter` aggregates provider manifests, health, projects, and sessions, then routes each qualified project or session ID back to its owner. Codex and OpenCode IDs are explicitly namespaced, so a fresh router can recover ownership after a host restart without first rebuilding an in-memory discovery map. The router temporarily accepts OpenCode's former raw `ses_*` form so already-open tabs survive the migration. A failed provider health check therefore degrades its own inventory without erasing a healthy peer. Client event reconnects use bounded exponential backoff and reset only after the provider actually yields another event, avoiding a tight request loop while a host or provider remains unavailable.
+
+OpenCode transport remains owned by its generated SDK. A blank-host install pins the matching OpenCode binary in VibePad application data and starts a Basic-authenticated, loopback-only `opencode serve` child with the host. An explicit external server remains supported, but leaving an unrelated manual process on port 4096 is not the default lifecycle. Codex transport remains host-local: the host starts `codex app-server --listen stdio://`, exchanges newline-delimited requests, responses, server requests, and notifications, and disposes the child on host shutdown. The generated Codex binding set records the installed CLI version and contains only the transitive type closure used by the adapter. Remote app-server WebSocket access is not the default VibePad client transport and must not bypass host pairing or app-server authentication.
+
+Provider events that are required to reconstruct the visible timeline cross a durable host seam. The host stores the exact provider event and native payload in SQLite before publishing it to a client. Codex then reconciles this journal with `thread/turns/list` after an app-server restart because the canonical list can omit completed command items. Chat Sync remains an archive, search, and future repair source; the interactive UI does not depend on a second service or SSH search to render a turn it already observed.
+
+## Client preferences and credentials
+
+Client preferences use a versioned `AppSettings` schema. Version 2 owns timeline-opening behavior, voice preferences, saved host metadata, and the active-host selection; version 1 migrates without inventing a paired host. Native clients persist that value with `expo-sqlite/kv-store`; per-session reading checkpoints use the same local database but a separate versioned key. A checkpoint stores a semantic timeline item plus its relative reading offset, so streamed content and layout changes do not invalidate the reader's place. Unknown schema versions or invalid payloads fall back to current defaults instead of being interpreted as valid settings.
+
+The web client uses the same storage interface backed by `localStorage`. `expo-sqlite` web support is still alpha and requires a WebAssembly Metro setup plus cross-origin isolation headers. Those headers can constrain embedded preview/browser behavior, so VibePad does not impose that tradeoff merely to persist a small preference payload.
+
+Preferences are distinct from secrets and from the host's provider-event journal. The native host-credential boundary uses Expo SecureStore and accepts only storage-safe host identifiers plus validated Basic or bearer credential shapes. Web keeps bearer credentials in memory and never writes them into browser storage. Add Host opens the pairing form, and selecting another saved profile remounts host-scoped client state so sessions from different hosts cannot leak through a stale singleton.
+
+The host creates an eight-character, one-use `XXXX-XXXX` pairing code with a ten-minute lifetime at startup. VibePad adopts the human-readable `user_code` convention from OAuth device flow while retaining its local host-pairing protocol. A source address receives five failed redemption attempts during the code window before the host returns HTTP 429 with a retry interval. Redeeming the code returns a device token once; the host stores only its SHA-256 hash in a dedicated SQLite authorization database, while host metadata remains in preferences and the native token remains in SecureStore. Pairing also persists a random app installation UUID plus app, client, device-model, platform, and OS metadata in a separate relational table. This evidence supports Voice training provenance but is never accepted as authentication. Remote HTTP and streaming requests require the bearer token. Voice WebSockets carry it through a negotiated subprotocol rather than a URL, preventing credentials from entering query logs. Revocation marks the device row immediately and removes the local profile and credential. Loopback command-line access without a browser origin remains available for development, while loopback browser requests still require pairing so an arbitrary webpage cannot use permissive local CORS as an authorization bypass.
+
+## Host reachability and bootstrap
+
+The default private path is a direct tailnet connection. VibePad Host binds port 4100 to the machine's Tailscale address, and clients use its MagicDNS name such as `http://hochi:4100`. Tailscale supplies the encrypted private network and tailnet policy; the VibePad device token remains the application authorization layer. Ordinary VibePad traffic goes straight to the host and port. Tailscale Serve remains available to unrelated services, while SSH serves bootstrap and recovery. Loopback remains available for same-host development.
+
+The repository-local host installer discovers the current Tailscale IPv4 address and short MagicDNS name, rejects an accidental public bind, detects Codex and OpenCode executables, and writes a user-owned service. Linux uses a systemd user unit and macOS uses a LaunchAgent. Both source a mode-`0600` host environment whose installer-owned fields can be refreshed without replacing operator-managed credentials. Install and restart operations wait for the HTTP health endpoint; status reports process and endpoint health separately. The service binds to Tailscale directly, so installing VibePad does not create a Tailscale Serve route.
+
+The iOS client declares local-network access deliberately and uses the unqualified MagicDNS machine name rather than a public `.ts.net` URL. The physical-device gate must prove HTTP, NDJSON streaming, and Voice WebSocket behavior through the tailnet. Binding to `0.0.0.0` is an explicit fallback rather than the default because it also exposes VibePad on unrelated interfaces.
+
+SSH belongs to bootstrap and recovery. A blank Mac flow reaches the machine once, installs Bun and VibePad Host, detects and optionally installs supported harnesses, performs provider-owned login, installs a LaunchAgent, discovers the Tailscale address, starts the host, and presents its URL plus pairing code. The archived Swift implementation supplies the behavioral reference for installed, start, connect, offline, and recovery states; the Expo rewrite reproduces that contract in TypeScript.
+
+The checkout bootstrap installs the pinned Bun runtime when needed, acquires or uses VibePad source, asks for consent before installing the selected isolated toolchain, verifies provider-owned authentication, installs Agent Browser and Chrome, and installs the host user service. Hojo supplies the macOS LaunchAgent acceptance. A signed release artifact and a clean Linux bootstrap remain release work; the executable checkout path is not represented as code-signed software.
 
 ## Canonical versus provider-specific behavior
 
-Canonical concepts are earned by working implementations. OpenCode is the
-first reference provider. A concept enters the shared protocol only when it is
-needed by VibePad as a product concept and can retain its meaning across
-providers.
+Canonical concepts are earned by working implementations. OpenCode is the first reference provider. A concept enters the shared protocol only when it is needed by VibePad as a product concept and can retain its meaning across providers.
 
-The first shared concepts are host, project, session, turn, timeline item,
-model, permission, question, file change, connection state, and capability.
-Each event also retains its provider-native payload for lossless rendering and
-forward compatibility.
+The first shared concepts are host, project, session, turn, timeline item, model, permission, question, file change, connection state, and capability. Each event also retains its provider-native payload for lossless rendering and forward compatibility.
 
-Capabilities answer whether a connected adapter supports an operation and,
-when useful, describe constraints or a provider-owned control surface. The UI
-must not infer support from provider names.
+Capabilities answer whether a connected adapter supports an operation and, when useful, describe constraints or a provider-owned control surface. The UI must not infer support from provider names.
 
 ## First vertical slice
 
-The first slice connects the client to one host and one real OpenCode server,
-lists projects and sessions, resumes or creates a session, streams its timeline,
-and handles one real interactive request. The common contract grows from that
-running path. Codex is the second provider used to challenge and refine it.
+The first slice connected the client to one host and one real OpenCode server, listed projects and sessions, resumed or created a session, streamed its timeline, and handled real interactive requests. Codex is now the second live provider behind that same host and client contract. It challenged identity, generated-protocol ownership, reasoning variants, collaboration modes, app-server server requests, and multi-provider health without making those details universal by name.
+
+## Workspace shell
+
+The durable navigation hierarchy is host, workspace, then session:
+
+- The sidebar is the inventory. A workspace row shows the folder on the left, its host on the right, and expands to reveal durable sessions.
+- The top tab strip is the active working set. Opening a session focuses its existing tab or creates one; closing a tab does not delete the session.
+- A tab represents one work context: a harness session plus its local chat, preview, file, diff, and inspector state. Files and previews do not become unrelated top-level tabs by default. Chat remains mounted as the primary surface while Files, Changes, and Preview open in a session-local right workbench. The workbench can be split beside chat, expanded to the available canvas, or replace chat at narrow widths without losing either surface's state.
+- Idle, working, retrying, permission-needed, and question-needed are explicit provider-derived session states. Offline belongs to the host/workspace boundary. Unread is local viewing state; it must not be conflated with a provider interaction. VibePad does not invent a generic blocked state when a provider has not supplied a concrete reason.
+
+This keeps history and discovery in one place while allowing a small number of concurrent sessions across different workspaces and hosts.
+
+The visual implementation uses VibePad-owned RNR components. OpenCode is the reference for provider behavior and timeline semantics; Codex is the reference for the workspace-oriented information architecture. Neither upstream UI owns VibePad's product contract.
+
+The header uses OpenCode's stacked status glyph as the actionable host and service-status control instead of representing connection state with a green dot alone. A small badge may communicate healthy, degraded, disconnected, or attention-needed state, but the glyph remains stable and opens the status surface. Host reachability, provider health, and ancillary MCP or language service health remain distinct values inside that surface.
+
+The shell header has three jobs and does not repeat the main canvas:
+
+- The header `+` creates a session. It remains available when the sidebar is collapsed and first asks for a discovered workspace; adding or cloning a project is a separate host action.
+- The center strip is the open-session working set. Its tabs show session identity and workspace context, not files or generic application sections.
+- The right side opens Chat, Files, Changes, and Preview for the selected session, shows the selected host, and opens the detailed host, provider, MCP, LSP, and plugin status surface.
+
+The canvas has no persistent secondary session header. Session title, workspace, host, and activity already exist in the sidebar and active tab; rename and later archive/share operations live in the session action menu. A conversation begins with its timeline, and an empty conversation remains visually empty. A quiet, non-semantic provider watermark may be explored later, but it must not become another status card or empty-state message.
+
+OpenCode archive is deliberately one-way in the current adapter. The provider sets an archive timestamp but does not expose a supported operation to clear it, so the UI removes the session from active inventory and offers no misleading Undo. Reversible archive can be added provider by provider when it is real.
+
+The selected session exposes compact workbench launchers in the main header. Chat closes the workbench; Files, Changes, and Preview open or retarget it. The top strip remains session tabs, avoiding a mixed row of harness sessions, files, and browser pages with incompatible lifecycle rules. Workbench controls are session-local, so switching tabs restores each session's mode and expanded state.
+
+Files uses a landscape inventory/content split inside the right workbench. An ordinary file tap replaces the selected file, while long-press retains another file as an additive tab. The file list also aggregates additions and deletions from structured VCS data at both file and folder level. Changes uses the same split for changed-file inventory and a virtualized patch. Files and Changes open expanded by default because their own inventory/content split needs the canvas; Restore Split remains available when chat context is useful. Preview opens beside chat by default so captures can land directly in the existing composer. Workbench surfaces remain mounted while hidden, so selected files, open file tabs, selected diffs, and live preview feedback survive retargeting the workbench or returning to Chat.
+
+The OpenCode implementation uses the generated v2 `file.list`, `file.read`, and `vcs.diff` operations. VibePad projects their results into a small provider-neutral read/list/change contract and does not reproduce OpenCode transport or parse `git` command output. Search, write/apply, branch comparison, and binary preview remain separate capabilities rather than being implied by this first read-only slice.
+
+## Icon system
+
+VibePad uses React Native Nano Icons through a small RNR-compatible wrapper. The source SVGs remain inspectable and are compiled into typed font families:
+
+- `VibePadUI` contains the deliberately small product glyph set used by the universal shell;
+- `VibePadProviders` contains the provider marks vendored from OpenCode so model and provider identity does not depend on a remote asset service.
+
+The generated fonts and glyph maps are loaded by the universal Expo root. A component asks for a typed icon name, size, color, and accessibility behavior; feature code does not import arbitrary SVG implementations or couple itself to the generator. The upstream OpenCode assets are source material, while the generated family names and wrapper are VibePad-owned contracts.
+
+Harness identity is explicit protocol data and remains separate from model provider identity. `HarnessIcon` maps OpenCode, Codex, and Claude Code to semantic glyphs for session rows, active tabs, and assistant messages. Model selectors continue to use the provider family, so a Codex session using an OpenAI model and an OpenCode session using the same model remain distinguishable.
+
+## Timeline transport and rendering
+
+Provider SDK or app-server messages do not go directly into React components. Each adapter projects stable product concepts into `TimelineItem` and `TimelinePart`, retains the complete provider-native value on every item, and marks unmapped synthetic or system material as provider detail rather than discarding it. The client first loads a bounded snapshot, then consumes ordered session events and refreshes that projection while a turn is running.
+
+This keeps three concerns independent:
+
+1. generated OpenCode v2 and Codex app-server bindings own their native types, while their adapters own their distinct transports;
+1. the VibePad protocol owns stable message, reasoning, tool, attachment, shell, notice, visibility, and lifecycle semantics;
+1. the Expo renderer owns native layout, motion, selection, and accessibility.
+
+The AI SDK and AI Elements are useful references for streaming state and item composition, but they do not wrap or replace the OpenCode transport. Vercel's Streamdown is DOM-oriented. The native candidate is `react-native-streamdown`, which requires a development build because its enriched Markdown renderer is native. Until the project intentionally crosses that build boundary, the Expo Go slice renders complete native text and reasoning without truncation. The Markdown renderer should later be introduced behind platform-specific message-content components, not spread through the timeline contract.
+
+## Component parity and React Native translation
+
+Base UI, shadcn/ui, and OpenCode are behavioral references. For example, the VibePad sidebar keeps shadcn's useful composition boundaries: provider, trigger, header, scrollable content, groups, menu items, item actions, badges, inset, and an adaptive mobile sheet. VibePad implements those boundaries with React Native components and product-specific state rather than importing the web sidebar.
+
+React Native Reusables supplies source-owned building blocks such as button, text, collapsible, popover, dropdown menu, tooltip, dialog, and portal. It does not currently provide the complete VibePad sidebar composition, so that thin composition belongs to `packages/ui`. We retain parity with the upstream behavior and accessibility model while allowing touch targets, gestures, breakpoints, and motion to follow native conventions.
+
+Product code is organized by feature. Shared primitives remain under `components/ui`; workspace, composer, files, changes, preview, and harness components live beside their owning feature. A feature may customize a shared primitive in its own `components` directory without hiding that duplication in a page or router file. Expo Router files remain thin route boundaries.
+
+Most application code is ordinary TypeScript and React: hooks, stores, queries, schemas, provider events, and component state are shared. Universal rendering uses `View`, `Text`, `Pressable`, `ScrollView`, and other React Native primitives instead of DOM elements. NativeWind covers supported styling; Reanimated covers motion. Platform files are reserved for real differences, such as a browser iframe on web versus WebView on native. Native modules are needed only for capabilities Expo does not expose, not for the workspace shell or provider protocol.
+
+## Preview boundary
+
+The host preview broker owns process lifecycle, readiness, logs, and exposure. The client renders the URL it receives:
+
+- web uses a normal browser frame;
+- iOS and Android use an Expo-compatible WebView;
+- Apple Simulator surfaces are provided by Mac-side tooling such as Argent Lens or ServeSim and enter through the same preview URL contract.
+
+Preview transport is independent of rendering. Direct Tailscale reachability is the default private path for host-owned previews. A local URL remains useful on the host, and an externally managed tunnel can satisfy the same client contract when a machine is outside the tailnet.
+
+Preview browser tabs are subordinate to one session work context, not peers of the top-level harness-session tabs. Each browser tab owns its URL, navigation history, loading state, and page target. Closing a browser tab closes only that page target. It never archives the harness session or implicitly stops a dev server, browser profile, or host process; process shutdown is a separate, explicit preview-broker operation. Closing the last page hides Preview and leaves the session and host resources intact.
+
+The native renderer explicitly uses the platform's persistent WebView data store with cookies, DOM storage, and cache enabled, so ordinary on-device browsing is not incognito and survives tab replacement and app restarts. This is useful but is not the final Kasm-like contract: device WebView state cannot be controlled by a host agent. The durable shared-browser design is a host-owned named profile and long-lived browser process whose tabs are broker targets. Human interaction and agent navigation must attach to those same targets so cookies, local storage, IndexedDB, service workers, cache, login state, and tab history do not fork into two browsers. Profile clearing, isolation, permissions, and credential protection remain explicit user operations.
+
+The named profile is a real Chrome or Chromium user-data directory on the host, not a VibePad browser implementation. Loading the same URL in a client WebView would create a second browser and is therefore not the shared-browser path. For authenticated browsing, the broker exposes the host page target's live surface and input channel; VibePad and browser-capable agents both operate that exact target. Agent Browser/CDP can provide the agent-side control seam, while the broker keeps raw browser-control ports private.
+
+VibePad-launched harnesses receive the selected broker profile as their default browser tool through the VibePad MCP/tool configuration. An independently launched harness is not silently hijacked; it uses the profile only after its browser tooling is configured for the broker. A person signs into websites once through the human-visible target, after which the profile reuses the resulting cookies without disclosing passwords to agents. A remote host needs the broker, a supported browser binary, storage for the profile, and private reachability, but not necessarily a physical display: headless operation covers ordinary pages, with a headed or virtual-display mode retained for sites and platform features that require it.
+
+The first review surface has Browse, Select, and Draw modes. Select records a normalized point and, when the renderer can resolve it, a DOM anchor containing selector, bounds, text, role, accessibility label, component/test identifier, and source hints. Same-origin web content and native WebView injection can resolve DOM data; cross-origin web frames retain an honest coordinate-only fallback. Draw stores normalized vector points, pointer identity, pressure when available, viewport dimensions, URL, and an offset from the review clock. These cues remain structured instead of being flattened into a screenshot.
+
+The current feedback bundle combines selections, strokes, cue-relative timing, and an editable note and has been delivered to a real OpenCode session. The selected composer treatment is a timestamped capture strip: each cue follows the Base UI attachment anatomy with a thumbnail, title, compact description, open target, and remove action. In split view the strip belongs to the existing chat composer; Preview does not create a second draft or composer. When Preview is expanded and chat is hidden, the same draft appears as a floating bottom tray with Cancel and Send controls. Detailed URL, viewport, DOM-anchor, vector, and timestamp data belongs in a deliberate review detail surface rather than a persistent preview HUD. Real raster screenshot capture, microphone audio, and STT transcript alignment are still separate work. Simulator gestures validate the interaction path but cannot prove physical Apple Pencil pressure; that requires an iPad hardware pass.
+
+Voice is three product surfaces, not one overloaded mode:
+
+1. dictation produces editable composer or review text;
+1. spoken notifications summarize important state without reading the full chat response;
+1. a global conversational orchestrator can inspect and operate typed session and coordination controls across projects.
+
+The first hardware flow is an explicit review button followed by talking while selecting elements and/or drawing, then Send. Hold-to-talk/drag and voice-command Send are later interactions built on the same timestamped capture model.
+
+Ordinary composer dictation uses Expo Audio's foreground PCM stream at the client boundary. Audio is normalized to 16 kHz mono signed linear16 and sent to the host, which authenticates a WebSocket to Voice Lab's `elevenlabs-scribe_v2` realtime route. A shared host credential service mints, caches, and refreshes a least-privilege Voice child token for each paired installation and attaches the recorded Peacockery client metadata to HTTP and realtime requests. The parent minting key and child tokens are never bundled into Expo. Stop returns the committed transcript to the saved composer selection; the adjacent Send action requests the same transcription and sends the resulting draft. Interim text is retained by the controller but hidden by default so dictation does not cover the conversation. Browser capture is a separate adapter behind the same controller; iPad uses Expo's native `AudioStream`.
+
+## Coordination boundary
+
+VibePad's host and provider adapters own sessions launched through the product. Agent-bus supplies cross-harness peer discovery, lifecycle messages, safe-point pause/resume requests, handoffs, and resource leases. Together they form the control plane needed by the product; ACPX is not required as the foundation and must not silently intercept every ordinary Codex, Claude Code, or OpenCode launch. It may remain an optional compatibility adapter for externally managed persistent ACP sessions when that interoperability earns a concrete journey.
+
+## UI verification
+
+Argent and Maestro are complementary:
+
+- Argent drives exploratory development: launch, inspect, tap, screenshot, debug, profile, and report what the agent actually sees.
+- Maestro owns readable, deterministic flows that defend completed behavior.
+
+Every UI slice is run before it is marked complete. Milestones require a reviewable screenshot or recording, and important controls receive stable accessibility identifiers for Maestro rather than coordinate-only tests.

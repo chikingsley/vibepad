@@ -1,0 +1,20 @@
+<?xml encoding="UTF-8" version="1.0" ?>
+<!--
+  Preserved OpenCode IconV2 "status" glyph for design reference.
+  Source: References/OpenCode/packages/ui/src/v2/components/icon.tsx
+  This asset is intentionally not used by the live VibePad shell.
+-->
+<svg
+  fill="none"
+  height="20"
+  viewBox="0 0 20 20"
+  width="20"
+  xmlns="http://www.w3.org/2000/svg"
+>
+  <title>OpenCode stacked status glyph</title>
+  <path
+    d="M2 10V18H18V10M2 10V2H18V10M2 10H18M5 6H9M5 14H9"
+    stroke="currentColor"
+    stroke-width="1"
+  />
+</svg>

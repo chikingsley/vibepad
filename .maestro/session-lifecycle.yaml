@@ -1,0 +1,50 @@
+appId: host.exp.Exponent
+name: VibePad OpenCode session lifecycle
+---
+- launchApp
+- openLink: ${EXPO_URL}
+- setOrientation: LANDSCAPE_LEFT
+- tapOn:
+    text: Continue
+    optional: true
+- tapOn:
+    text: Close
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: new-session-trigger
+    timeout: 30000
+- tapOn:
+    id: new-session-trigger
+- assertVisible:
+    id: new-session-menu
+- tapOn:
+    id: new-session-project-${PROJECT_ID}
+- extendedWaitUntil:
+    visible:
+      id: selected-session-actions-trigger
+    timeout: 30000
+- tapOn:
+    id: selected-session-actions-trigger
+- assertVisible:
+    id: selected-session-actions-menu
+- tapOn:
+    id: selected-session-rename
+- assertVisible:
+    id: selected-session-title-input
+- tapOn:
+    id: selected-session-title-clear
+- tapOn:
+    id: selected-session-title-input
+- inputText: ${SESSION_TITLE}
+- pressKey: enter
+- extendedWaitUntil:
+    visible:
+      id: selected-session-actions-trigger
+    timeout: 30000
+- assertNotVisible:
+    id: selected-session-title-input
+- assertVisible:
+    id: session-canvas
+- assertVisible:
+    id: message-send-inactive

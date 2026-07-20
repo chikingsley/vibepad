@@ -4,6 +4,8 @@ export const capabilityIds = [
   "project.list",
   "session.list",
   "session.create",
+  "session.archive",
+  "session.rename",
   "session.resume",
   "session.children",
   "session.share",

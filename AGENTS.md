@@ -39,6 +39,25 @@
   scattered one-off durations.
 - Add React Native Reusables components as source only when a real surface uses
   them; do not import the entire registry.
+- Use current Base UI, shadcn/ui, and OpenCode source as references for
+  behavior, state shape, composition, accessibility, and interaction detail.
+  Translate those contracts to React Native primitives instead of copying DOM
+  markup, browser CSS, or framework-specific state machinery.
+- Keep shared React logic and universal React Native components in the default
+  implementation. Add `.web.tsx` or `.native.tsx` variants only when a platform
+  has a real renderer or capability difference.
+
+## UI evidence
+
+- Give stable `testID` values to controls and landmarks used by end-to-end
+  flows; do not couple durable tests to translated labels or coordinates.
+- Use Argent for agent-driven simulator exploration, screenshots, runtime
+  inspection, debugging, and profiling.
+- Use Maestro flows for deterministic user journeys and regression checks.
+- A UI roadmap item is complete only after it has been exercised in a running
+  app and its required screenshot or recording has been reviewed.
+- Keep screenshot and recording output out of Git unless a specific artifact
+  is intentionally promoted to product documentation.
 
 ## Git
 
@@ -46,4 +65,3 @@
 - Do not add `.gitkeep` or other empty placeholder files.
 - Preserve unrelated user changes and verify archive refs before deleting
   legacy implementation paths.
-

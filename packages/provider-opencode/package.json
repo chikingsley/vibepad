@@ -5,9 +5,12 @@
   "type": "module",
   "exports": {
     "./adapter": "./src/adapter.ts",
+    "./ids": "./src/ids.ts",
     "./manifest": "./src/manifest.ts"
   },
   "scripts": {
+    "test": "vitest run",
+    "test:live": "bun scripts/run-live-tests.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -15,6 +18,8 @@
     "@vibepad/protocol": "workspace:*"
   },
   "devDependencies": {
-    "typescript": "7.0.2"
+    "@types/bun": "1.3.14",
+    "typescript": "7.0.2",
+    "vitest": "4.1.10"
   }
 }

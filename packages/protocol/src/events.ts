@@ -16,6 +16,7 @@ export const providerEventKindSchema = z.enum([
 export type ProviderEventKind = z.infer<typeof providerEventKindSchema>;
 
 export const providerEventSchema = z.object({
+  cursor: z.string().min(1).optional(),
   eventId: z.string().min(1),
   kind: providerEventKindSchema,
   native: z.unknown(),
@@ -26,3 +27,13 @@ export const providerEventSchema = z.object({
   timestamp: z.string().datetime({ offset: true }),
 });
 export type ProviderEvent = z.infer<typeof providerEventSchema>;
+
+export interface ProviderEventStore {
+  append: (event: ProviderEvent) => void;
+  latestSequence: (providerId: string) => number;
+  list: (
+    providerId: string,
+    sessionId: string,
+    afterSequence?: number
+  ) => readonly ProviderEvent[];
+}

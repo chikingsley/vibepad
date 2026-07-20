@@ -9,7 +9,8 @@
     "includes": [
       "!apps/client/assets",
       "!apps/client/src/components/ui",
-      "!apps/client/src/global.css"
+      "!apps/client/src/global.css",
+      "!packages/provider-codex/generated"
     ]
   },
   "linter": {

@@ -1,0 +1,53 @@
+appId: host.exp.Exponent
+name: VibePad real files and changes
+---
+- launchApp
+- openLink: ${EXPO_URL}
+- setOrientation: LANDSCAPE_LEFT
+- tapOn:
+    text: Continue
+    optional: true
+- tapOn:
+    text: Close
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: session-surface-files
+    timeout: 30000
+- tapOn:
+    id: session-surface-files
+- assertVisible:
+    id: files-surface
+- assertVisible:
+    id: session-workbench
+- tapOn:
+    id: session-workbench-expand
+- tapOn:
+    id: session-workbench-expand
+- tapOn:
+    id: session-workbench-close
+- assertNotVisible:
+    id: session-workbench
+- tapOn:
+    id: session-surface-files
+- extendedWaitUntil:
+    visible:
+      id: file-node-README.md
+    timeout: 15000
+- tapOn:
+    id: file-node-README.md
+- extendedWaitUntil:
+    visible:
+      id: file-content
+    timeout: 15000
+- tapOn:
+    id: session-surface-chat
+- tapOn:
+    id: session-surface-files
+- assertVisible:
+    id: file-content
+- tapOn:
+    id: session-surface-changes
+- assertVisible:
+    id: changes-surface
+- takeScreenshot: files-and-changes

@@ -11,8 +11,12 @@
     "dev": "bun run --filter @vibepad/client start",
     "dev:host": "bun run --filter @vibepad/host dev",
     "fix": "ultracite fix",
+    "host:bootstrap": "bun run --filter @vibepad/host bootstrap",
+    "host:service": "bun run --filter @vibepad/host service",
     "lint": "ultracite check",
     "test": "bun run --filter '*' test",
+    "test:live:codex": "bun run --filter @vibepad/provider-codex test:live",
+    "test:live:opencode": "bun run --filter @vibepad/provider-opencode test:live",
     "typecheck": "bun run --filter '*' typecheck"
   },
   "devDependencies": {
@@ -20,5 +24,8 @@
     "typescript": "7.0.2",
     "ultracite": "7.9.4",
     "vitest": "4.1.10"
-  }
+  },
+  "trustedDependencies": [
+    "@shopify/react-native-skia"
+  ]
 }

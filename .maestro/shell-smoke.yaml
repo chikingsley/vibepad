@@ -1,0 +1,78 @@
+appId: host.exp.Exponent
+name: VibePad shell smoke
+---
+- launchApp
+- openLink: ${EXPO_URL}
+- setOrientation: LANDSCAPE_LEFT
+- tapOn:
+    text: Continue
+    optional: true
+- tapOn:
+    text: Close
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: workspace-sidebar
+    timeout: 30000
+- assertVisible:
+    id: sidebar-toggle
+- assertVisible:
+    id: header-host-status
+- assertVisible:
+    id: session-tab-strip
+- assertVisible:
+    id: new-session-trigger
+- assertVisible:
+    id: session-canvas
+- assertVisible:
+    id: message-send-inactive
+- tapOn:
+    id: sidebar-toggle
+- waitForAnimationToEnd
+- assertNotVisible:
+    id: workspace-sidebar
+- tapOn:
+    id: sidebar-toggle
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: workspace-sidebar
+    timeout: 5000
+- tapOn:
+    id: message-composer
+- inputText: "Composer state"
+- assertVisible:
+    id: message-send-active
+- takeScreenshot: shell-header-composer-text
+- eraseText
+- hideKeyboard
+- assertVisible:
+    id: message-send-inactive
+- tapOn:
+    id: header-host-status
+- assertVisible:
+    id: host-connection-menu
+- assertVisible:
+    id: host-add-connection
+- tapOn:
+    id: host-connection-close
+- assertVisible:
+    id: system-status-trigger
+- tapOn:
+    id: system-status-trigger
+- assertVisible:
+    id: system-status-tab-mcp
+- assertVisible:
+    id: system-status-tab-lsp
+- assertVisible:
+    id: system-status-tab-plugins
+- assertVisible:
+    id: system-status-panel-mcp
+- tapOn:
+    id: system-status-tab-lsp
+- assertVisible:
+    id: system-status-panel-lsp
+- tapOn:
+    id: system-status-tab-plugins
+- assertVisible:
+    id: system-status-panel-plugins

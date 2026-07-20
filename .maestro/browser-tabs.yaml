@@ -1,0 +1,39 @@
+appId: host.exp.Exponent
+name: VibePad persistent browser tabs
+---
+- launchApp
+- openLink: ${EXPO_URL}
+- setOrientation: LANDSCAPE_LEFT
+- tapOn:
+    text: Continue
+    optional: true
+- tapOn:
+    text: Close
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: session-surface-preview
+    timeout: 30000
+- tapOn:
+    id: session-surface-preview
+- extendedWaitUntil:
+    visible:
+      text: Open Google
+    timeout: 30000
+- assertVisible:
+    id: browser-tab-browser-tab-1
+- tapOn:
+    text: Open Google
+- extendedWaitUntil:
+    visible:
+      id: browser-tab-browser-tab-2
+    timeout: 30000
+- assertVisible:
+    id: browser-profile-status
+- takeScreenshot: browser-tabs-google
+- tapOn:
+    id: browser-tab-close-browser-tab-2
+- assertNotVisible:
+    id: browser-tab-browser-tab-2
+- assertVisible:
+    id: browser-tab-browser-tab-1

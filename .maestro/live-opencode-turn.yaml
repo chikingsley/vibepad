@@ -1,0 +1,31 @@
+appId: host.exp.Exponent
+name: VibePad live OpenCode turn
+---
+- launchApp
+- openLink: ${EXPO_URL}
+- setOrientation: LANDSCAPE_LEFT
+- tapOn:
+    text: Continue
+    optional: true
+- tapOn:
+    text: Close
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: session-timeline
+    timeout: 30000
+- tapOn:
+    id: message-composer
+- eraseText
+- inputText: ${TURN_PROMPT}
+- assertVisible:
+    id: message-send-active
+- hideKeyboard
+- tapOn:
+    id: message-send-active
+- extendedWaitUntil:
+    visible:
+      text: ${TURN_REPLY}
+    timeout: 60000
+- assertVisible:
+    id: message-send-inactive

@@ -1,0 +1,14 @@
+{
+  "iconSets": [
+    {
+      "fontFamily": "VibePadUI",
+      "inputDir": "./assets/icons/ui",
+      "outputDir": "./assets/icons/nanoicons"
+    },
+    {
+      "fontFamily": "VibePadProviders",
+      "inputDir": "./assets/icons/providers",
+      "outputDir": "./assets/icons/nanoicons"
+    }
+  ]
+}

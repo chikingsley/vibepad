@@ -1,0 +1,23 @@
+{
+  "name": "@chikingsley/peacockery-voice-client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "openapi-fetch": "0.17.0"
+  },
+  "vibepadUpstream": {
+    "commit": "304057e901f374f819ed49f0fec62f60c88eb852",
+    "repository": "https://github.com/chikingsley/peacockery-voice.git",
+    "sourcePath": "clients/typescript"
+  }
+}

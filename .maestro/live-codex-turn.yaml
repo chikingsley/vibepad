@@ -1,0 +1,106 @@
+appId: host.exp.Exponent
+name: VibePad live Codex provider journey
+---
+- extendedWaitUntil:
+    visible:
+      id: new-session-trigger
+    timeout: 30000
+- tapOn:
+    id: new-session-trigger
+    waitToSettleTimeoutMs: 100
+- extendedWaitUntil:
+    visible:
+      id: new-session-menu
+    timeout: 10000
+- tapOn:
+    id: new-session-search
+    waitToSettleTimeoutMs: 100
+- eraseText
+- inputText: ${PROJECT_NAME}
+- extendedWaitUntil:
+    visible:
+      id: new-session-project-${PROJECT_ID}
+    timeout: 30000
+- tapOn:
+    id: new-session-project-${PROJECT_ID}
+    waitToSettleTimeoutMs: 100
+- extendedWaitUntil:
+    visible:
+      id: selected-session-actions-trigger
+    timeout: 30000
+- tapOn:
+    id: selected-session-actions-trigger
+- assertVisible:
+    id: selected-session-actions-menu
+- tapOn:
+    id: selected-session-rename
+- tapOn:
+    id: selected-session-title-clear
+- tapOn:
+    id: selected-session-title-input
+- inputText: ${SESSION_TITLE}
+- pressKey: enter
+- hideKeyboard
+- extendedWaitUntil:
+    visible:
+      id: model-selector
+    timeout: 30000
+- tapOn:
+    id: model-selector
+    waitToSettleTimeoutMs: 100
+- assertVisible:
+    id: model-selector-menu
+- tapOn:
+    id: model-selector-search
+    waitToSettleTimeoutMs: 100
+- eraseText
+- inputText: gpt-5.6-sol
+- tapOn:
+    id: model-option-openai-gpt-5.6-sol
+    waitToSettleTimeoutMs: 100
+- extendedWaitUntil:
+    visible:
+      id: reasoning-effort-selector
+    timeout: 30000
+- tapOn:
+    id: reasoning-effort-selector
+    waitToSettleTimeoutMs: 100
+- assertVisible:
+    id: reasoning-effort-menu
+- tapOn:
+    id: reasoning-effort-option-low
+    waitToSettleTimeoutMs: 100
+- tapOn:
+    id: agent-selector
+    waitToSettleTimeoutMs: 100
+- assertVisible:
+    id: agent-selector-menu
+- tapOn:
+    id: agent-option-plan
+    waitToSettleTimeoutMs: 100
+- tapOn:
+    id: message-composer
+    waitToSettleTimeoutMs: 100
+- eraseText
+- inputText: ${TURN_PROMPT}
+- assertVisible:
+    id: message-send-active
+- tapOn:
+    id: message-send-active
+    waitToSettleTimeoutMs: 100
+- runFlow:
+    when:
+      visible:
+        id: message-send-active
+    commands:
+      - tapOn:
+          id: message-send-active
+          waitToSettleTimeoutMs: 100
+- extendedWaitUntil:
+    visible:
+      text: ${TURN_REPLY}
+    timeout: 90000
+- assertVisible:
+    id: message-send-inactive
+- hideKeyboard
+- takeScreenshot: codex-live-turn

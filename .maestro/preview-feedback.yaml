@@ -1,0 +1,65 @@
+appId: host.exp.Exponent
+name: VibePad preview selection and drawing
+---
+- launchApp
+- openLink: ${EXPO_URL}
+- setOrientation: LANDSCAPE_LEFT
+- tapOn:
+    text: Continue
+    optional: true
+- tapOn:
+    text: Close
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: session-surface-preview
+    timeout: 30000
+- tapOn:
+    id: session-surface-preview
+- assertVisible:
+    id: preview-surface
+- tapOn:
+    id: preview-mode-select
+- tapOn:
+    id: preview-feedback-overlay
+- extendedWaitUntil:
+    visible:
+      id: preview-selection-label
+    timeout: 10000
+- assertVisible:
+    id: preview-feedback-count
+    text: 1 cue.*
+- tapOn:
+    id: session-workbench-expand
+- assertVisible:
+    id: preview-review-tray
+- takeScreenshot: preview-feedback-selection-only
+- tapOn:
+    id: session-workbench-expand
+- assertNotVisible:
+    id: preview-review-tray
+- tapOn:
+    id: preview-mode-draw
+- swipe:
+    start: 62%,45%
+    end: 75%,35%
+    duration: 700
+- extendedWaitUntil:
+    visible:
+      id: preview-feedback-count
+      text: 2 cues.*
+    timeout: 10000
+- assertVisible:
+    id: preview-feedback-count
+    text: 2 cues.*
+- tapOn:
+    id: session-workbench-expand
+- assertVisible:
+    id: preview-review-tray
+- takeScreenshot: preview-feedback-two-cues
+- tapOn:
+    id: preview-feedback-clear
+- assertNotVisible:
+    id: preview-feedback-count
+- assertNotVisible:
+    id: preview-review-tray
