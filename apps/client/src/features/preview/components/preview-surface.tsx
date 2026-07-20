@@ -1,49 +1,37 @@
-import {
-  type Dispatch,
-  type SetStateAction,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import {
-  Linking,
-  Platform,
-  Pressable,
-  TextInput,
-  type TextInputSubmitEditingEvent,
-  View,
-} from "react-native";
+import { useValue } from "@legendapp/state/react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import { Linking, Platform, View } from "react-native";
 import { Button } from "@/components/ui/button";
-import { Icon, type IconName } from "@/components/ui/icon";
+import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
 import { BrowserTabStrip } from "@/features/preview/components/browser-tab-strip";
+import { FeedbackOverlay } from "@/features/preview/components/feedback-overlay";
 import {
-  FeedbackOverlay,
-  type FeedbackPoint,
-  type FeedbackSelectionPoint,
-  type FeedbackStroke,
-  type PreviewInteractionMode,
-} from "@/features/preview/components/feedback-overlay";
-import {
-  type DomSelectionResult,
   PreviewFrame,
   type PreviewFrameHandle,
-  type PreviewNavigationState,
 } from "@/features/preview/components/preview-frame";
+import { PreviewInteractionBar } from "@/features/preview/components/preview-interaction-bar";
+import { PreviewNavigationBar } from "@/features/preview/components/preview-navigation-bar";
 import { PreviewReviewTray } from "@/features/preview/components/preview-review-tray";
 import {
   browserTabTitle,
   type PreviewBrowserTab,
   type PreviewBrowserTabOwner,
+  type PreviewNavigationState,
 } from "@/features/preview/preview-browser-tab";
+import type { DomSelectionResult } from "@/features/preview/preview-dom-selection";
 import type {
-  PreviewReviewDraft,
+  FeedbackPoint,
+  FeedbackSelectionPoint,
+  FeedbackStroke,
+  PreviewInteractionMode,
+} from "@/features/preview/preview-interaction";
+import type {
   PreviewSelectionCue,
   PreviewStrokeCue,
 } from "@/features/preview/preview-review";
-import { cn } from "@/lib/utils";
+import { idlePreviewSession } from "@/features/preview/state/preview-store";
+import { useVibePadPreviewStore } from "@/lib/vibepad-host-context";
 
 interface PendingSelection {
   readonly offsetMs: number;
@@ -60,12 +48,10 @@ interface PreviewSurfaceProps {
   readonly expanded: boolean;
   readonly hostName: string;
   readonly onClose: () => void;
-  readonly onReviewChange: Dispatch<SetStateAction<PreviewReviewDraft>>;
   readonly onSendReview: () => void;
   readonly onToggleExpanded: () => void;
-  readonly onUrlChange: (url: string) => void;
-  readonly review: PreviewReviewDraft;
   readonly sending: boolean;
+  readonly sessionId: string;
   readonly showReviewTray: boolean;
 }
 
@@ -94,258 +80,39 @@ const newBrowserTabUrl = () =>
     ? "https://www.google.com/webhp?igu=1"
     : "https://www.google.com";
 
-const createBrowserTab = (
-  id: string,
-  url: string,
-  owner: PreviewBrowserTabOwner
-): PreviewBrowserTab => ({
-  draftUrl: url,
-  id,
-  loading: true,
-  navigation: {
-    canGoBack: false,
-    canGoForward: false,
-    url,
-  },
-  owner,
-  sourceUrl: url,
-  title: browserTabTitle(url),
-});
-
-function PreviewToolButton({
-  accessibilityLabel,
-  disabled = false,
-  icon,
-  onPress,
-  testID,
-}: {
-  readonly accessibilityLabel: string;
-  readonly disabled?: boolean;
-  readonly icon: IconName;
-  readonly onPress: () => void;
-  readonly testID: string;
-}) {
-  return (
-    <Button
-      accessibilityLabel={accessibilityLabel}
-      className="size-8 rounded-md"
-      disabled={disabled}
-      onPress={onPress}
-      size="icon"
-      testID={testID}
-      variant="ghost"
-    >
-      <Icon className="text-muted-foreground" name={icon} size={14} />
-    </Button>
-  );
-}
-
-function InteractionModeButton({
-  icon,
-  label,
-  mode,
-  onSelect,
-  selected,
-}: {
-  readonly icon: IconName;
-  readonly label: string;
-  readonly mode: PreviewInteractionMode;
-  readonly onSelect: (mode: PreviewInteractionMode) => void;
-  readonly selected: boolean;
-}) {
-  const select = useCallback(() => {
-    onSelect(mode);
-  }, [mode, onSelect]);
-
-  return (
-    <Pressable
-      accessibilityLabel={`${label} preview mode`}
-      className={cn(
-        "h-8 flex-row items-center gap-1.5 rounded-md px-2.5 active:bg-accent",
-        selected ? "bg-accent" : "bg-transparent"
-      )}
-      onPress={select}
-      testID={`preview-mode-${mode}`}
-    >
-      <Icon
-        className={selected ? "text-foreground" : "text-muted-foreground"}
-        name={icon}
-        size={13}
-      />
-      <Text className="text-[11px]">{label}</Text>
-    </Pressable>
-  );
-}
-
-function PreviewNavigationBar({
-  canGoBack,
-  canGoForward,
-  draftUrl,
-  expanded,
-  hasActiveTab,
-  loading,
-  onBack,
-  onClose,
-  onDraftUrlChange,
-  onForward,
-  onOpenExternal,
-  onReload,
-  onSubmitDraftUrl,
-  onToggleExpanded,
-}: {
-  readonly canGoBack: boolean;
-  readonly canGoForward: boolean;
-  readonly draftUrl: string;
-  readonly expanded: boolean;
-  readonly hasActiveTab: boolean;
-  readonly loading: boolean;
-  readonly onBack: () => void;
-  readonly onClose: () => void;
-  readonly onDraftUrlChange: (value: string) => void;
-  readonly onForward: () => void;
-  readonly onOpenExternal: () => void;
-  readonly onReload: () => void;
-  readonly onSubmitDraftUrl: (event: TextInputSubmitEditingEvent) => void;
-  readonly onToggleExpanded: () => void;
-}) {
-  return (
-    <View className="h-11 flex-row items-center gap-1 border-border border-b px-2">
-      <PreviewToolButton
-        accessibilityLabel="Preview back"
-        disabled={!canGoBack}
-        icon="chevron-left"
-        onPress={onBack}
-        testID="preview-back"
-      />
-      <PreviewToolButton
-        accessibilityLabel="Preview forward"
-        disabled={!canGoForward}
-        icon="chevron-right"
-        onPress={onForward}
-        testID="preview-forward"
-      />
-      <PreviewToolButton
-        accessibilityLabel="Reload preview"
-        disabled={!hasActiveTab}
-        icon="rotate-ccw"
-        onPress={onReload}
-        testID="preview-reload"
-      />
-      <View className="mx-1 h-8 min-w-40 flex-1 flex-row items-center rounded-md border border-border bg-card px-2">
-        <TextInput
-          accessibilityLabel="Preview URL"
-          autoCapitalize="none"
-          autoCorrect={false}
-          className="min-w-0 flex-1 text-[12px] text-foreground outline-none"
-          editable={hasActiveTab}
-          onChangeText={onDraftUrlChange}
-          onSubmitEditing={onSubmitDraftUrl}
-          returnKeyType="go"
-          testID="preview-url"
-          value={draftUrl}
-        />
-        {loading ? (
-          <Text className="text-[10px]" variant="muted">
-            Loading…
-          </Text>
-        ) : null}
-      </View>
-      <PreviewToolButton
-        accessibilityLabel="Open preview externally"
-        disabled={!hasActiveTab}
-        icon="external-link"
-        onPress={onOpenExternal}
-        testID="preview-open-external"
-      />
-      <PreviewToolButton
-        accessibilityLabel={expanded ? "Restore split view" : "Expand preview"}
-        icon={expanded ? "minimize-2" : "maximize-2"}
-        onPress={onToggleExpanded}
-        testID="session-workbench-expand"
-      />
-      <PreviewToolButton
-        accessibilityLabel="Close preview"
-        icon="x"
-        onPress={onClose}
-        testID="session-workbench-close"
-      />
-    </View>
-  );
-}
-
-function PreviewInteractionBar({
-  mode,
-  onSelectMode,
-}: {
-  readonly mode: PreviewInteractionMode;
-  readonly onSelectMode: (mode: PreviewInteractionMode) => void;
-}) {
-  return (
-    <View className="h-11 flex-row items-center gap-1 border-border border-b px-2">
-      <InteractionModeButton
-        icon="browser"
-        label="Interact"
-        mode="browse"
-        onSelect={onSelectMode}
-        selected={mode === "browse"}
-      />
-      <InteractionModeButton
-        icon="mouse-pointer"
-        label="Select"
-        mode="select"
-        onSelect={onSelectMode}
-        selected={mode === "select"}
-      />
-      <InteractionModeButton
-        icon="pencil"
-        label="Draw"
-        mode="draw"
-        onSelect={onSelectMode}
-        selected={mode === "draw"}
-      />
-    </View>
-  );
-}
-
 export function PreviewSurface({
   canSendReview,
   errorMessage,
   expanded,
   hostName,
   onClose,
-  onReviewChange,
   onSendReview,
   onToggleExpanded,
-  onUrlChange,
-  review,
   sending,
+  sessionId,
   showReviewTray,
 }: PreviewSurfaceProps) {
+  const preview = useVibePadPreviewStore();
   const initialUrl = useMemo(() => defaultPreviewUrl(hostName), [hostName]);
   const frameRefs = useRef(new Map<string, PreviewFrameHandle>());
   const frameRefCallbacks = useRef(
     new Map<string, (handle: PreviewFrameHandle | null) => void>()
   );
   const pendingSelections = useRef(new Map<string, PendingSelection>());
-  const reviewStartedAt = useRef<number | undefined>(undefined);
-  const sequence = useRef(0);
-  const tabSequence = useRef(1);
-  const [tabs, setTabs] = useState<readonly PreviewBrowserTab[]>(() => [
-    createBrowserTab("browser-tab-1", initialUrl, "page"),
-  ]);
-  const [activeTabId, setActiveTabId] = useState<string | undefined>(
-    "browser-tab-1"
+  const { activeTabId, mode, review, tabs } = useValue(
+    () => preview.state$.bySessionId[sessionId]?.get() ?? idlePreviewSession
   );
-  const [mode, setMode] = useState<PreviewInteractionMode>("browse");
   const activeTab = tabs.find((tab) => tab.id === activeTabId);
+
+  useEffect(() => {
+    preview.ensureSession(sessionId, initialUrl);
+  }, [initialUrl, preview, sessionId]);
 
   const updateTab = useCallback(
     (tabId: string, update: (tab: PreviewBrowserTab) => PreviewBrowserTab) => {
-      setTabs((current) =>
-        current.map((tab) => (tab.id === tabId ? update(tab) : tab))
-      );
+      preview.updateTab(sessionId, tabId, update);
     },
-    []
+    [preview, sessionId]
   );
 
   const refForTab = useCallback((tabId: string) => {
@@ -366,13 +133,9 @@ export function PreviewSurface({
 
   const openBrowserTab = useCallback(
     (url: string, owner: PreviewBrowserTabOwner) => {
-      tabSequence.current += 1;
-      const id = `browser-tab-${tabSequence.current}`;
-      const tab = createBrowserTab(id, url, owner);
-      setTabs((current) => [...current, tab]);
-      setActiveTabId(id);
+      preview.openTab(sessionId, url, owner);
     },
-    []
+    [preview, sessionId]
   );
   const openNewTab = useCallback(() => {
     openBrowserTab(newBrowserTabUrl(), "user");
@@ -383,17 +146,17 @@ export function PreviewSurface({
     },
     [openBrowserTab]
   );
-  const selectTab = useCallback((tabId: string) => {
-    setActiveTabId(tabId);
-  }, []);
+  const selectTab = useCallback(
+    (tabId: string) => {
+      preview.selectTab(sessionId, tabId);
+    },
+    [preview, sessionId]
+  );
   const closeTab = useCallback(
     (tabId: string) => {
-      const closingIndex = tabs.findIndex((tab) => tab.id === tabId);
-      if (closingIndex < 0) {
+      if (!tabs.some((tab) => tab.id === tabId)) {
         return;
       }
-      const remaining = tabs.filter((tab) => tab.id !== tabId);
-      setTabs(remaining);
       frameRefs.current.delete(tabId);
       frameRefCallbacks.current.delete(tabId);
 
@@ -405,73 +168,61 @@ export function PreviewSurface({
         }
       }
       if (removedPendingSelection) {
-        onReviewChange((current) => ({
+        preview.updateReview(sessionId, (current) => ({
           ...current,
           pendingSelectionCount: pendingSelections.current.size,
         }));
       }
 
-      if (activeTabId === tabId) {
-        const nextIndex = Math.min(closingIndex, remaining.length - 1);
-        setActiveTabId(nextIndex >= 0 ? remaining[nextIndex]?.id : undefined);
-      }
-      if (remaining.length === 0) {
+      if (preview.closeTab(sessionId, tabId) === 0) {
         onClose();
       }
     },
-    [activeTabId, onClose, onReviewChange, tabs]
+    [onClose, preview, sessionId, tabs]
   );
-
-  useEffect(() => {
-    if (activeTab) {
-      onUrlChange(activeTab.navigation.url);
-    }
-  }, [activeTab, onUrlChange]);
 
   useEffect(() => {
     if (review.reviewing) {
       return;
     }
     pendingSelections.current.clear();
-    reviewStartedAt.current = undefined;
   }, [review.reviewing]);
 
-  const offsetForCue = useCallback(() => {
-    if (!reviewStartedAt.current) {
-      reviewStartedAt.current = Date.now();
-      onReviewChange((current) => ({
-        ...current,
-        cues: [],
-        reviewing: true,
-      }));
-      return 0;
-    }
-    return Date.now() - reviewStartedAt.current;
-  }, [onReviewChange]);
+  useEffect(
+    () => () => {
+      const pendingCount = pendingSelections.current.size;
+      pendingSelections.current.clear();
+      preview.clearPendingSelections(sessionId, pendingCount);
+    },
+    [preview, sessionId]
+  );
 
   const addStroke = useCallback(
     (points: readonly FeedbackPoint[]) => {
       if (!activeTab) {
         return;
       }
-      sequence.current += 1;
+      const identity = preview.startCue(sessionId, "stroke");
+      if (!identity) {
+        return;
+      }
       const cue: PreviewStrokeCue = {
-        id: `stroke-${sequence.current}`,
+        id: identity.id,
         kind: "stroke",
-        offsetMs: offsetForCue(),
+        offsetMs: identity.offsetMs,
         points,
         target: {
           tabId: activeTab.id,
           url: activeTab.navigation.url,
         },
       };
-      onReviewChange((current) => ({
+      preview.updateReview(sessionId, (current) => ({
         ...current,
         cues: [...current.cues, cue],
         reviewing: true,
       }));
     },
-    [activeTab, offsetForCue, onReviewChange]
+    [activeTab, preview, sessionId]
   );
 
   const selectPoint = useCallback(
@@ -479,17 +230,20 @@ export function PreviewSurface({
       if (!activeTab) {
         return;
       }
-      sequence.current += 1;
-      const requestId = `selection-${sequence.current}`;
+      const identity = preview.startCue(sessionId, "selection");
+      if (!identity) {
+        return;
+      }
+      const requestId = identity.id;
       pendingSelections.current.set(requestId, {
-        offsetMs: offsetForCue(),
+        offsetMs: identity.offsetMs,
         point,
         target: {
           tabId: activeTab.id,
           url: activeTab.navigation.url,
         },
       });
-      onReviewChange((current) => ({
+      preview.updateReview(sessionId, (current) => ({
         ...current,
         pendingSelectionCount: pendingSelections.current.size,
       }));
@@ -497,7 +251,7 @@ export function PreviewSurface({
         .get(activeTab.id)
         ?.selectAt({ requestId, x: point.x, y: point.y });
     },
-    [activeTab, offsetForCue, onReviewChange]
+    [activeTab, preview, sessionId]
   );
 
   const receiveDomSelection = useCallback(
@@ -516,13 +270,13 @@ export function PreviewSurface({
         ...(result.reason ? { reason: result.reason } : {}),
         target: pending.target,
       };
-      onReviewChange((current) => ({
+      preview.updateReview(sessionId, (current) => ({
         ...current,
         cues: [...current.cues, cue],
         pendingSelectionCount: pendingSelections.current.size,
       }));
     },
-    [onReviewChange]
+    [preview, sessionId]
   );
 
   const loadDraftUrl = useCallback(() => {
@@ -547,12 +301,9 @@ export function PreviewSurface({
     }));
   }, [activeTab, updateTab]);
 
-  const submitDraftUrl = useCallback(
-    (_event: TextInputSubmitEditingEvent) => {
-      loadDraftUrl();
-    },
-    [loadDraftUrl]
-  );
+  const submitDraftUrl = useCallback(() => {
+    loadDraftUrl();
+  }, [loadDraftUrl]);
 
   const goBack = useCallback(() => {
     if (activeTab) {
@@ -604,22 +355,20 @@ export function PreviewSurface({
 
   const cancelReview = useCallback(() => {
     pendingSelections.current.clear();
-    reviewStartedAt.current = undefined;
-    onReviewChange({
-      cues: [],
-      pendingSelectionCount: 0,
-      reviewing: false,
-    });
-  }, [onReviewChange]);
+    preview.clearReview(sessionId);
+  }, [preview, sessionId]);
 
   const removeCue = useCallback(
     (cueId: string) => {
-      onReviewChange((current) => ({
-        ...current,
-        cues: current.cues.filter((cue) => cue.id !== cueId),
-      }));
+      preview.removeCue(sessionId, cueId);
     },
-    [onReviewChange]
+    [preview, sessionId]
+  );
+  const selectMode = useCallback(
+    (nextMode: PreviewInteractionMode) => {
+      preview.setMode(sessionId, nextMode);
+    },
+    [preview, sessionId]
   );
 
   const strokes = useMemo<readonly FeedbackStroke[]>(
@@ -655,6 +404,7 @@ export function PreviewSurface({
         onClose={closeTab}
         onNewTab={openNewTab}
         onSelect={selectTab}
+        sessionId={sessionId}
         tabs={tabs}
       />
       <PreviewNavigationBar
@@ -674,7 +424,7 @@ export function PreviewSurface({
         onToggleExpanded={onToggleExpanded}
       />
 
-      <PreviewInteractionBar mode={mode} onSelectMode={setMode} />
+      <PreviewInteractionBar mode={mode} onSelectMode={selectMode} />
 
       <View className="relative flex-1 overflow-hidden bg-white">
         {tabs.map((tab) => (

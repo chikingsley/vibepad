@@ -1,3 +1,4 @@
+import { useValue } from "@legendapp/state/react";
 import type { ModelReference } from "@vibepad/protocol/catalog";
 import type {
   ProjectSummary,
@@ -43,7 +44,10 @@ import {
   useSessionInteractions,
   useSessionTimeline,
 } from "@/lib/use-host-workspace";
-import { useVibePadHost } from "@/lib/vibepad-host-context";
+import {
+  useVibePadHost,
+  useVibePadPreviewStore,
+} from "@/lib/vibepad-host-context";
 
 const splitWorkbenchBreakpoint = 820;
 const endsWithWhitespace = /\s$/u;
@@ -317,6 +321,7 @@ export function SessionCanvas({
   readonly workbench: SessionWorkbenchLayout;
 }) {
   const host = useVibePadHost();
+  const preview = useVibePadPreviewStore();
   const voiceCleanup = useSettingsValue((state$) =>
     state$.settings.voice.cleanup.get()
   );
@@ -329,8 +334,12 @@ export function SessionCanvas({
     end: 0,
     start: 0,
   });
-  const [previewReview, setPreviewReview] = useState(emptyPreviewReviewDraft);
-  const [previewUrl, setPreviewUrl] = useState("");
+  const previewReview = useValue(
+    () =>
+      (session
+        ? preview.state$.bySessionId[session.id]?.review.get()
+        : undefined) ?? emptyPreviewReviewDraft
+  );
   const [sendError, setSendError] = useState<string | undefined>();
   const [interrupting, setInterrupting] = useState(false);
   const [sending, setSending] = useState(false);
@@ -362,7 +371,7 @@ export function SessionCanvas({
       const text =
         previewReview.cues.length > 0
           ? buildPreviewFeedbackPrompt(
-              previewUrl || `http://${hostName}:8081`,
+              preview.activeUrl(session?.id ?? "") || `http://${hostName}:8081`,
               note,
               previewReview.cues
             )
@@ -376,7 +385,7 @@ export function SessionCanvas({
         await host.sendTurn(session.id, text);
         setDraft("");
         setDraftSelection({ end: 0, start: 0 });
-        setPreviewReview(emptyPreviewReviewDraft);
+        preview.clearReview(session.id);
       } catch (error) {
         setSendError(
           error instanceof Error ? error.message : "Unable to send this turn"
@@ -385,7 +394,7 @@ export function SessionCanvas({
         setSending(false);
       }
     },
-    [host, hostName, previewReview.cues, previewUrl, session]
+    [host, hostName, preview, previewReview.cues, session]
   );
   const send = useCallback(async () => {
     await sendDraft(draft);
@@ -450,12 +459,14 @@ export function SessionCanvas({
     setDraft("");
     setDraftSelection({ end: 0, start: 0 });
   }, [cancelDictation, session?.id]);
-  const removeReviewCue = useCallback((cueId: string) => {
-    setPreviewReview((current) => ({
-      ...current,
-      cues: current.cues.filter((cue) => cue.id !== cueId),
-    }));
-  }, []);
+  const removeReviewCue = useCallback(
+    (cueId: string) => {
+      if (session) {
+        preview.removeCue(session.id, cueId);
+      }
+    },
+    [preview, session]
+  );
   const interrupt = useCallback(async () => {
     if (!(session && !interrupting)) {
       return;
@@ -557,22 +568,16 @@ export function SessionCanvas({
         />
       </View>
 
-      {session && project ? (
-        <View
-          className="min-h-0 min-w-0 flex-1 border-border border-l"
-          style={{ display: workbench.open ? "flex" : "none" }}
-        >
+      {active && session && project && workbench.open ? (
+        <View className="min-h-0 min-w-0 flex-1 border-border border-l">
           <SessionWorkbench
             canSendReview={canSend}
             expanded={workbench.expanded && split}
             hostName={hostName}
             onClose={closeWorkbench}
-            onReviewChange={setPreviewReview}
             onSendReview={send}
             onToggleExpanded={toggleWorkbenchExpanded}
-            onUrlChange={setPreviewUrl}
             project={project}
-            review={previewReview}
             sendError={sendError}
             sending={sending}
             sessionId={session.id}

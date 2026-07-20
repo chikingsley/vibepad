@@ -14,6 +14,10 @@ import {
   type ProjectFilesStore,
 } from "@/features/files/state/project-files-store";
 import {
+  createPreviewStore,
+  type PreviewStore,
+} from "@/features/preview/state/preview-store";
+import {
   createSessionRuntimeStore,
   type SessionRuntimeStore,
 } from "@/features/timeline/state/session-runtime-store";
@@ -41,6 +45,7 @@ import {
 interface VibePadHostRuntime {
   readonly client: VibePadHostClient;
   readonly fileNavigation: FileNavigationStore;
+  readonly preview: PreviewStore;
   readonly projectFiles: ProjectFilesStore;
   readonly projectResources: ProjectResourcesStore;
   readonly sessionRuntime: SessionRuntimeStore;
@@ -66,6 +71,7 @@ export function VibePadHostProvider({
     return {
       client,
       fileNavigation: createFileNavigationStore(),
+      preview: createPreviewStore(),
       projectFiles: createProjectFilesStore(client),
       projectResources: createProjectResourcesStore(client),
       sessionRuntime: createSessionRuntimeStore(
@@ -112,6 +118,8 @@ export const useVibePadProjectFilesStore = () =>
 
 export const useVibePadProjectResourcesStore = () =>
   useVibePadHostRuntime().projectResources;
+
+export const useVibePadPreviewStore = () => useVibePadHostRuntime().preview;
 
 export const useVibePadSessionRuntimeStore = () =>
   useVibePadHostRuntime().sessionRuntime;

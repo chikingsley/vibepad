@@ -1,5 +1,9 @@
+import {
+  LegendList,
+  type LegendListRenderItemProps,
+} from "@legendapp/list/react-native";
 import { useCallback } from "react";
-import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
+import { ActivityIndicator, Pressable, View } from "react-native";
 
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -67,41 +71,52 @@ function BrowserTab({
   );
 }
 
+const browserTabKey = (tab: PreviewBrowserTab) => tab.id;
+
 export function BrowserTabStrip({
   activeTabId,
   onClose,
   onNewTab,
   onSelect,
+  sessionId,
   tabs,
 }: {
   readonly activeTabId: string | undefined;
   readonly onClose: (tabId: string) => void;
   readonly onNewTab: () => void;
   readonly onSelect: (tabId: string) => void;
+  readonly sessionId: string;
   readonly tabs: readonly PreviewBrowserTab[];
 }) {
+  const renderTab = useCallback(
+    ({ item: tab }: LegendListRenderItemProps<PreviewBrowserTab>) => (
+      <BrowserTab
+        active={tab.id === activeTabId}
+        onClose={onClose}
+        onSelect={onSelect}
+        tab={tab}
+      />
+    ),
+    [activeTabId, onClose, onSelect]
+  );
+
   return (
     <View
       className="h-9 flex-row items-end border-border border-b bg-muted/45 pl-2"
       testID="browser-tab-strip"
     >
-      <ScrollView
-        className="min-w-0 flex-1"
-        contentContainerClassName="flex-row items-end gap-0.5"
+      <LegendList
+        contentContainerStyle={{ alignItems: "flex-end", gap: 2 }}
+        data={tabs}
+        dataKey={`browser-tabs:${sessionId}`}
+        estimatedItemSize={176}
         horizontal
-        keyboardShouldPersistTaps="handled"
+        keyExtractor={browserTabKey}
+        recycleItems
+        renderItem={renderTab}
         showsHorizontalScrollIndicator={false}
-      >
-        {tabs.map((tab) => (
-          <BrowserTab
-            active={tab.id === activeTabId}
-            key={tab.id}
-            onClose={onClose}
-            onSelect={onSelect}
-            tab={tab}
-          />
-        ))}
-      </ScrollView>
+        style={{ flex: 1, minWidth: 0 }}
+      />
       <Button
         accessibilityLabel="Open browser tab"
         className="mb-0.5 size-7 rounded-md"

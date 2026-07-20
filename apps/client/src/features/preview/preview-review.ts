@@ -1,8 +1,5 @@
-import type { FeedbackPoint } from "@/features/preview/components/feedback-overlay";
-import type {
-  DomAnchor,
-  DomSelectionResult,
-} from "@/features/preview/components/preview-frame";
+import type { DomAnchor, DomSelectionResult } from "./preview-dom-selection";
+import type { FeedbackPoint } from "./preview-interaction";
 
 export interface PreviewCueTarget {
   readonly tabId: string;

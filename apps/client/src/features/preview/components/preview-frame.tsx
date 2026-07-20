@@ -11,46 +11,18 @@ import WebView, {
   type WebViewMessageEvent,
   type WebViewNavigation,
 } from "react-native-webview";
-
-export interface NormalizedPreviewPoint {
-  readonly requestId: string;
-  readonly x: number;
-  readonly y: number;
-}
-
-export interface DomAnchor {
-  readonly ariaLabel?: string;
-  readonly component?: string;
-  readonly rect: {
-    readonly height: number;
-    readonly width: number;
-    readonly x: number;
-    readonly y: number;
-  };
-  readonly role?: string;
-  readonly selector: string;
-  readonly source?: string;
-  readonly tagName: string;
-  readonly text?: string;
-}
-
-export interface DomSelectionResult {
-  readonly anchor?: DomAnchor;
-  readonly reason?: "cross-origin" | "empty" | "unavailable";
-  readonly requestId: string;
-}
+import type { PreviewNavigationState } from "@/features/preview/preview-browser-tab";
+import type {
+  DomAnchor,
+  DomSelectionResult,
+  NormalizedPreviewPoint,
+} from "@/features/preview/preview-dom-selection";
 
 export interface PreviewFrameHandle {
   readonly goBack: () => void;
   readonly goForward: () => void;
   readonly reload: () => void;
   readonly selectAt: (point: NormalizedPreviewPoint) => void;
-}
-
-export interface PreviewNavigationState {
-  readonly canGoBack: boolean;
-  readonly canGoForward: boolean;
-  readonly url: string;
 }
 
 interface PreviewOpenWindowEvent {

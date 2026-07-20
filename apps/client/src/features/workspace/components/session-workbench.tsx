@@ -1,5 +1,5 @@
 import type { ProjectSummary } from "@vibepad/protocol/provider";
-import { type Dispatch, type SetStateAction, useCallback } from "react";
+import { useCallback } from "react";
 import { View } from "react-native";
 
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,6 @@ import { Text } from "@/components/ui/text";
 import { ChangesSurface } from "@/features/changes/components/changes-surface";
 import { FilesSurface } from "@/features/files/components/files-surface";
 import { PreviewSurface } from "@/features/preview/components/preview-surface";
-import type { PreviewReviewDraft } from "@/features/preview/preview-review";
 import type { WorkbenchSurface } from "@/features/workspace/components/session-workbench-controls";
 
 const titleForSurface = {
@@ -31,12 +30,9 @@ export function SessionWorkbench({
   expanded,
   hostName,
   onClose,
-  onReviewChange,
   onSendReview,
   onToggleExpanded,
-  onUrlChange,
   project,
-  review,
   sendError,
   sessionId,
   sending,
@@ -47,12 +43,9 @@ export function SessionWorkbench({
   readonly expanded: boolean;
   readonly hostName: string;
   readonly onClose: () => void;
-  readonly onReviewChange: Dispatch<SetStateAction<PreviewReviewDraft>>;
   readonly onSendReview: () => void;
   readonly onToggleExpanded: () => void;
-  readonly onUrlChange: (url: string) => void;
   readonly project: ProjectSummary;
-  readonly review: PreviewReviewDraft;
   readonly sendError: string | undefined;
   readonly sessionId: string;
   readonly sending: boolean;
@@ -112,25 +105,22 @@ export function SessionWorkbench({
         </View>
       )}
 
-      <View
-        className="min-h-0 flex-1"
-        style={{ display: surface === "preview" ? "flex" : "none" }}
-      >
-        <PreviewSurface
-          canSendReview={canSendReview}
-          errorMessage={sendError}
-          expanded={expanded}
-          hostName={hostName}
-          onClose={close}
-          onReviewChange={onReviewChange}
-          onSendReview={onSendReview}
-          onToggleExpanded={toggleExpanded}
-          onUrlChange={onUrlChange}
-          review={review}
-          sending={sending}
-          showReviewTray={showPreviewReviewTray}
-        />
-      </View>
+      {surface === "preview" ? (
+        <View className="min-h-0 flex-1">
+          <PreviewSurface
+            canSendReview={canSendReview}
+            errorMessage={sendError}
+            expanded={expanded}
+            hostName={hostName}
+            onClose={close}
+            onSendReview={onSendReview}
+            onToggleExpanded={toggleExpanded}
+            sending={sending}
+            sessionId={sessionId}
+            showReviewTray={showPreviewReviewTray}
+          />
+        </View>
+      ) : null}
       {surface === "files" ? (
         <View className="min-h-0 flex-1">
           <FilesSurface
