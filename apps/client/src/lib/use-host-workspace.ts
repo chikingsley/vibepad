@@ -1,31 +1,22 @@
-import type { ProviderCatalog } from "@vibepad/protocol/catalog";
+import { useValue } from "@legendapp/state/react";
 import type { PendingInteraction } from "@vibepad/protocol/interactions";
-import type {
-  ServiceSummary,
-  SessionSummary,
-} from "@vibepad/protocol/provider";
+import type { SessionSummary } from "@vibepad/protocol/provider";
 import type { TimelinePage } from "@vibepad/protocol/timeline";
 import { useCallback, useEffect, useRef, useState } from "react";
-
 import {
   mergeLatestTimelinePage,
   prependOlderTimelinePage,
 } from "@/features/timeline/model/timeline-pages";
+import {
+  idleProjectServicesState,
+  idleProviderCatalogState,
+} from "@/features/workspace/state/project-resources-store";
 import type { VibePadHostClient } from "@/lib/vibepad-host";
 import {
   useVibePadHost,
+  useVibePadProjectResourcesStore,
   useVibePadWorkspaceStore,
 } from "@/lib/vibepad-host-context";
-
-type ServicesState =
-  | { readonly data: readonly ServiceSummary[]; readonly status: "idle" }
-  | { readonly data: readonly ServiceSummary[]; readonly status: "loading" }
-  | {
-      readonly data: readonly ServiceSummary[];
-      readonly message: string;
-      readonly status: "error";
-    }
-  | { readonly data: readonly ServiceSummary[]; readonly status: "ready" };
 
 type TimelineState =
   | { readonly status: "idle" }
@@ -50,12 +41,6 @@ type InteractionsState =
       readonly status: "error";
     }
   | { readonly data: readonly PendingInteraction[]; readonly status: "ready" };
-
-type CatalogState =
-  | { readonly status: "idle" }
-  | { readonly status: "loading" }
-  | { readonly message: string; readonly status: "error" }
-  | { readonly data: ProviderCatalog; readonly status: "ready" };
 
 const errorMessage = (error: unknown) =>
   error instanceof Error ? error.message : "Unknown VibePad host error";
@@ -128,38 +113,20 @@ export function useWorkspaceLifecycle() {
 }
 
 export function useProjectServices(projectId: string | undefined) {
-  const host = useVibePadHost();
-  const [state, setState] = useState<ServicesState>({
-    data: [],
-    status: "idle",
-  });
+  const resources = useVibePadProjectResourcesStore();
 
   useEffect(() => {
-    if (!projectId) {
-      setState({ data: [], status: "idle" });
-      return;
+    if (projectId) {
+      resources.loadServices(projectId).catch(() => undefined);
     }
+  }, [projectId, resources]);
 
-    const controller = new AbortController();
-    setState((current) => ({ data: current.data, status: "loading" }));
-    host
-      .listServices(projectId, controller.signal)
-      .then((data) => {
-        setState({ data, status: "ready" });
-      })
-      .catch((error: unknown) => {
-        if (controller.signal.aborted) {
-          return;
-        }
-        setState({ data: [], message: errorMessage(error), status: "error" });
-      });
-
-    return () => {
-      controller.abort();
-    };
-  }, [host, projectId]);
-
-  return state;
+  return useValue(() =>
+    projectId
+      ? (resources.state$.servicesByProjectId[projectId]?.get() ??
+        idleProjectServicesState)
+      : idleProjectServicesState
+  );
 }
 
 export function useSessionTimeline(
@@ -479,31 +446,18 @@ export function useSessionInteractions(
 }
 
 export function useProviderCatalog(projectId: string | undefined) {
-  const host = useVibePadHost();
-  const [state, setState] = useState<CatalogState>({ status: "idle" });
+  const resources = useVibePadProjectResourcesStore();
 
   useEffect(() => {
-    if (!projectId) {
-      setState({ status: "idle" });
-      return;
+    if (projectId) {
+      resources.loadCatalog(projectId).catch(() => undefined);
     }
-    const controller = new AbortController();
-    setState({ status: "loading" });
-    host
-      .loadCatalog(projectId, controller.signal)
-      .then((data) => {
-        setState({ data, status: "ready" });
-      })
-      .catch((error: unknown) => {
-        if (!controller.signal.aborted) {
-          setState({ message: errorMessage(error), status: "error" });
-        }
-      });
+  }, [projectId, resources]);
 
-    return () => {
-      controller.abort();
-    };
-  }, [host, projectId]);
-
-  return state;
+  return useValue(() =>
+    projectId
+      ? (resources.state$.catalogsByProjectId[projectId]?.get() ??
+        idleProviderCatalogState)
+      : idleProviderCatalogState
+  );
 }

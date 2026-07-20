@@ -532,7 +532,7 @@ export function WorkspaceSidebar({
         }}
         data={rows}
         dataKey="workspace-sidebar"
-        estimatedItemSize={36}
+        estimatedItemSize={32}
         getItemType={sidebarRowType}
         keyExtractor={sidebarRowKey}
         ListFooterComponent={listFooter}

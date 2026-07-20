@@ -2,9 +2,13 @@ import {
   createContext,
   type PropsWithChildren,
   useContext,
+  useEffect,
   useMemo,
 } from "react";
-
+import {
+  createProjectResourcesStore,
+  type ProjectResourcesStore,
+} from "@/features/workspace/state/project-resources-store";
 import {
   createWorkspaceStore,
   type WorkspaceStore,
@@ -20,6 +24,7 @@ import {
 
 interface VibePadHostRuntime {
   readonly client: VibePadHostClient;
+  readonly projectResources: ProjectResourcesStore;
   readonly workspace: WorkspaceStore;
   readonly workspaceUi: WorkspaceUiStore;
 }
@@ -39,10 +44,17 @@ export function VibePadHostProvider({
     const client = new VibePadHostClient({ baseUrl, hostId });
     return {
       client,
+      projectResources: createProjectResourcesStore(client),
       workspace: createWorkspaceStore(client),
       workspaceUi: createWorkspaceUiStore(),
     };
   }, [baseUrl, hostId]);
+  useEffect(
+    () => () => {
+      runtime.projectResources.cancelPending();
+    },
+    [runtime]
+  );
   return (
     <VibePadHostContext.Provider value={runtime}>
       {children}
@@ -59,6 +71,9 @@ const useVibePadHostRuntime = () => {
 };
 
 export const useVibePadHost = () => useVibePadHostRuntime().client;
+
+export const useVibePadProjectResourcesStore = () =>
+  useVibePadHostRuntime().projectResources;
 
 export const useVibePadWorkspaceStore = () => useVibePadHostRuntime().workspace;
 
