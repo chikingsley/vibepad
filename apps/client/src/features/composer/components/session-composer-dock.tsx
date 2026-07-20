@@ -200,12 +200,17 @@ export function SessionComposerDock({
   const {
     cancel: cancelDictationRequest,
     start: startDictationRequest,
-    state: dictationState,
+    state$: dictationState$,
     stop: stopDictationRequest,
+    waveformLevels,
   } = useSessionDictation({
     onTranscript: applyTranscript,
     showInterimTranscript,
   });
+  const dictationState = useValue(() => ({
+    errorMessage: dictationState$.errorMessage.get(),
+    phase: dictationState$.phase.get(),
+  }));
   const startDictation = useCallback(() => {
     startDictationRequest().catch(() => undefined);
   }, [startDictationRequest]);
@@ -272,10 +277,10 @@ export function SessionComposerDock({
         contentOverride={
           dictationState.phase === "recording" ? (
             <DictationRecordingSurface
-              interimText={dictationState.interimText}
-              levels={dictationState.levels}
+              levels={waveformLevels}
               onSend={sendDictation}
               onStop={stopDictation}
+              state$={dictationState$}
             />
           ) : undefined
         }

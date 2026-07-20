@@ -1,5 +1,6 @@
 import { realtimeVoiceEventSchema } from "@vibepad/protocol/voice";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
+import { useSharedValue } from "react-native-reanimated";
 import { useSettingsValue } from "@/features/settings/settings-context";
 import {
   normalizeLinear16,
@@ -10,26 +11,12 @@ import {
   hostedVoiceSession,
   openHostedVoiceRealtimeSocket,
 } from "@/features/voice/security/hosted-voice-session";
+import { createDictationRuntimeStore } from "@/features/voice/state/dictation-runtime-store";
 import { usePcmCapture } from "@/features/voice/use-pcm-capture";
+import { pushWaveformLevel } from "@/features/voice/waveform-levels";
 import { useVibePadHost } from "@/lib/vibepad-host-context";
 
-const waveformPoints = 42;
 const waveformIntervalMs = 50;
-
-export type DictationPhase =
-  | "connecting"
-  | "failed"
-  | "idle"
-  | "processing"
-  | "recording"
-  | "requesting_permission";
-
-export interface DictationState {
-  readonly errorMessage?: string | undefined;
-  readonly interimText: string;
-  readonly levels: readonly number[];
-  readonly phase: DictationPhase;
-}
 
 export interface UseSessionDictationOptions {
   readonly onTranscript: (
@@ -38,12 +25,6 @@ export interface UseSessionDictationOptions {
   ) => Promise<void> | void;
   readonly showInterimTranscript?: boolean;
 }
-
-const initialState: DictationState = {
-  interimText: "",
-  levels: [],
-  phase: "idle",
-};
 
 const errorMessage = (error: unknown) =>
   error instanceof Error ? error.message : "Voice dictation failed";
@@ -59,7 +40,12 @@ export function useSessionDictation({
   const voiceTransport = useSettingsValue((state$) =>
     state$.settings.voice.transport.get()
   );
-  const [state, setState] = useState<DictationState>(initialState);
+  const storeRef = useRef<
+    ReturnType<typeof createDictationRuntimeStore> | undefined
+  >(undefined);
+  storeRef.current ??= createDictationRuntimeStore();
+  const store = storeRef.current;
+  const waveformLevels = useSharedValue<number[]>([]);
   const callbackRef = useRef(onTranscript);
   const socketRef = useRef<WebSocket | undefined>(undefined);
   const cancelledRef = useRef(false);
@@ -69,24 +55,27 @@ export function useSessionDictation({
 
   callbackRef.current = onTranscript;
 
-  const receiveBuffer = useCallback((buffer: PcmAudioBuffer) => {
-    const normalized = normalizeLinear16(buffer);
-    const socket = socketRef.current;
-    if (socket?.readyState === WebSocket.OPEN) {
-      socket.send(normalized);
-    }
+  const receiveBuffer = useCallback(
+    (buffer: PcmAudioBuffer) => {
+      const normalized = normalizeLinear16(buffer);
+      const socket = socketRef.current;
+      if (socket?.readyState === WebSocket.OPEN) {
+        socket.send(normalized);
+      }
 
-    const now = Date.now();
-    if (now - lastWaveformUpdateRef.current < waveformIntervalMs) {
-      return;
-    }
-    lastWaveformUpdateRef.current = now;
-    const level = pcmLevel(normalized);
-    setState((current) => ({
-      ...current,
-      levels: [...current.levels.slice(-(waveformPoints - 1)), level],
-    }));
-  }, []);
+      const now = Date.now();
+      if (now - lastWaveformUpdateRef.current < waveformIntervalMs) {
+        return;
+      }
+      lastWaveformUpdateRef.current = now;
+      const level = pcmLevel(normalized);
+      waveformLevels.modify((levels) => {
+        "worklet";
+        return pushWaveformLevel(levels, level);
+      }, true);
+    },
+    [waveformLevels]
+  );
   const {
     prepare: prepareCapture,
     start: startCapture,
@@ -106,13 +95,9 @@ export function useSessionDictation({
       ) {
         socket.close(1011, "Dictation failed");
       }
-      setState((current) => ({
-        ...current,
-        errorMessage: message,
-        phase: "failed",
-      }));
+      store.fail(message);
     },
-    [stopCapture]
+    [stopCapture, store]
   );
 
   const finish = useCallback(
@@ -130,25 +115,18 @@ export function useSessionDictation({
       }
       const text = transcript.trim();
       if (!text) {
-        setState((current) => ({
-          ...current,
-          errorMessage: "No speech was detected",
-          phase: "failed",
-        }));
+        store.fail("No speech was detected");
         return;
       }
       try {
         await callbackRef.current(text, sendAfterInsertRef.current);
-        setState(initialState);
+        store.reset();
+        waveformLevels.set([]);
       } catch (error) {
-        setState((current) => ({
-          ...current,
-          errorMessage: errorMessage(error),
-          phase: "failed",
-        }));
+        store.fail(errorMessage(error));
       }
     },
-    [stopCapture]
+    [stopCapture, store, waveformLevels]
   );
 
   const finishSafely = useCallback(
@@ -192,24 +170,25 @@ export function useSessionDictation({
           event.type === "transcript.delta" ||
           event.type === "transcript.committed")
       ) {
-        setState((current) => ({ ...current, interimText: event.text }));
+        store.setInterimText(event.text);
       }
     },
-    [fail, finishSafely, showInterimTranscript]
+    [fail, finishSafely, showInterimTranscript, store]
   );
 
   const start = useCallback(async () => {
-    if (state.phase !== "idle" && state.phase !== "failed") {
+    if (!store.begin()) {
       return;
     }
     cancelledRef.current = false;
     sendAfterInsertRef.current = false;
     terminalRef.current = false;
-    setState({ interimText: "", levels: [], phase: "requesting_permission" });
+    lastWaveformUpdateRef.current = 0;
+    waveformLevels.set([]);
 
     try {
       await prepareCapture();
-      setState((current) => ({ ...current, phase: "connecting" }));
+      store.setPhase("connecting");
       let socket: WebSocket;
       if (voiceTransport === "hosted") {
         socket = openHostedVoiceRealtimeSocket(
@@ -246,7 +225,7 @@ export function useSessionDictation({
         return;
       }
       await startCapture();
-      setState((current) => ({ ...current, phase: "recording" }));
+      store.setPhase("recording");
     } catch (error) {
       await fail(errorMessage(error));
     }
@@ -256,18 +235,18 @@ export function useSessionDictation({
     host,
     prepareCapture,
     startCapture,
-    state.phase,
+    store,
     transcriptionModel,
     voiceTransport,
+    waveformLevels,
   ]);
 
   const stop = useCallback(
     async (sendAfterInsert = false) => {
-      if (cancelledRef.current || state.phase !== "recording") {
+      if (cancelledRef.current || !store.beginProcessing()) {
         return;
       }
       sendAfterInsertRef.current = sendAfterInsert;
-      setState((current) => ({ ...current, phase: "processing" }));
       try {
         await stopCapture();
         const socket = socketRef.current;
@@ -279,7 +258,7 @@ export function useSessionDictation({
         await fail(errorMessage(error));
       }
     },
-    [fail, state.phase, stopCapture]
+    [fail, stopCapture, store]
   );
 
   const cancel = useCallback(async () => {
@@ -295,8 +274,9 @@ export function useSessionDictation({
     ) {
       socket.close(1000, "Dictation cancelled");
     }
-    setState(initialState);
-  }, [stopCapture]);
+    store.reset();
+    waveformLevels.set([]);
+  }, [stopCapture, store, waveformLevels]);
 
   useEffect(
     () => () => {
@@ -313,5 +293,11 @@ export function useSessionDictation({
     []
   );
 
-  return { cancel, start, state, stop } as const;
+  return {
+    cancel,
+    start,
+    state$: store.state$,
+    stop,
+    waveformLevels,
+  } as const;
 }

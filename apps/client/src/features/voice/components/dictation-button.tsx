@@ -2,7 +2,7 @@ import { ActivityIndicator } from "react-native";
 
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
-import type { DictationPhase } from "@/features/voice/use-session-dictation";
+import type { DictationPhase } from "@/features/voice/state/dictation-runtime-store";
 
 export function DictationButton({
   disabled,
