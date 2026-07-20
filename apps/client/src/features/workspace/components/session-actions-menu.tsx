@@ -1,6 +1,6 @@
+import { useObservable, useValue } from "@legendapp/state/react";
 import type { TriggerRef } from "@rn-primitives/popover";
-import { type RefObject, useCallback, useState } from "react";
-import { TextInput, View } from "react-native";
+import { type RefObject, useCallback } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -9,7 +9,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Text } from "@/components/ui/text";
+import {
+  RenameSessionForm,
+  SessionActionList,
+  type SessionActionState,
+} from "@/features/workspace/components/session-actions-menu-content";
 
 interface SessionActionsMenuProps {
   readonly onArchive: () => Promise<void>;
@@ -28,18 +32,19 @@ export function SessionActionsMenu({
   title,
   triggerRef,
 }: SessionActionsMenuProps) {
-  const [renaming, setRenaming] = useState(false);
-  const [draft, setDraft] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [archiving, setArchiving] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | undefined>();
+  const state$ = useObservable<SessionActionState>({
+    archiving: false,
+    draft: "",
+    errorMessage: undefined,
+    renaming: false,
+    saving: false,
+  });
+  const renaming = useValue(state$.renaming);
   const testIdPrefix = selected ? "selected-session" : `session-${sessionId}`;
 
   const reset = useCallback(() => {
-    setRenaming(false);
-    setDraft("");
-    setErrorMessage(undefined);
-  }, []);
+    state$.assign({ draft: "", errorMessage: undefined, renaming: false });
+  }, [state$]);
 
   const handleOpenChange = useCallback(
     (open: boolean) => {
@@ -51,18 +56,12 @@ export function SessionActionsMenu({
   );
 
   const beginRename = useCallback(() => {
-    setDraft(title);
-    setErrorMessage(undefined);
-    setRenaming(true);
-  }, [title]);
-
-  const handleDraftChange = useCallback((nextDraft: string) => {
-    setDraft(nextDraft);
-  }, []);
+    state$.assign({ draft: title, errorMessage: undefined, renaming: true });
+  }, [state$, title]);
 
   const clearDraft = useCallback(() => {
-    setDraft("");
-  }, []);
+    state$.draft.set("");
+  }, [state$]);
 
   const cancelRename = useCallback(() => {
     reset();
@@ -70,8 +69,8 @@ export function SessionActionsMenu({
   }, [reset, triggerRef]);
 
   const saveRename = useCallback(async () => {
-    const nextTitle = draft.trim();
-    if (!nextTitle || saving) {
+    const nextTitle = state$.draft.peek().trim();
+    if (!nextTitle || state$.saving.peek()) {
       return;
     }
     if (nextTitle === title) {
@@ -79,38 +78,36 @@ export function SessionActionsMenu({
       return;
     }
 
-    setSaving(true);
-    setErrorMessage(undefined);
+    state$.assign({ errorMessage: undefined, saving: true });
     try {
       await onRename(nextTitle);
       reset();
       triggerRef.current?.close();
     } catch (error) {
-      setErrorMessage(
+      state$.errorMessage.set(
         error instanceof Error ? error.message : "Unable to rename session"
       );
     } finally {
-      setSaving(false);
+      state$.saving.set(false);
     }
-  }, [cancelRename, draft, onRename, reset, saving, title, triggerRef]);
+  }, [cancelRename, onRename, reset, state$, title, triggerRef]);
 
   const archive = useCallback(async () => {
-    if (archiving) {
+    if (state$.archiving.peek()) {
       return;
     }
-    setArchiving(true);
-    setErrorMessage(undefined);
+    state$.assign({ archiving: true, errorMessage: undefined });
     try {
       await onArchive();
       triggerRef.current?.close();
     } catch (error) {
-      setErrorMessage(
+      state$.errorMessage.set(
         error instanceof Error ? error.message : "Unable to archive session"
       );
     } finally {
-      setArchiving(false);
+      state$.archiving.set(false);
     }
-  }, [archiving, onArchive, triggerRef]);
+  }, [onArchive, state$, triggerRef]);
 
   return (
     <Popover onOpenChange={handleOpenChange}>
@@ -133,97 +130,21 @@ export function SessionActionsMenu({
         testID={`${testIdPrefix}-actions-menu`}
       >
         {renaming ? (
-          <View className="gap-3">
-            <View className="gap-1">
-              <Text className="font-semibold text-sm">Rename session</Text>
-              <Text className="text-[11px]" variant="muted">
-                This changes the durable harness session title.
-              </Text>
-            </View>
-            <View className="flex-row items-center rounded-lg border border-border bg-card">
-              <TextInput
-                accessibilityLabel="Session title"
-                autoFocus
-                className="h-10 flex-1 px-3 text-foreground text-sm outline-none"
-                editable={!saving}
-                onChangeText={handleDraftChange}
-                onSubmitEditing={saveRename}
-                returnKeyType="done"
-                selectTextOnFocus
-                testID={`${testIdPrefix}-title-input`}
-                value={draft}
-              />
-              <Button
-                accessibilityLabel="Clear session title"
-                className="mr-1 size-7 rounded-md"
-                disabled={saving || draft.length === 0}
-                onPress={clearDraft}
-                size="icon"
-                testID={`${testIdPrefix}-title-clear`}
-                variant="ghost"
-              >
-                <Icon className="text-muted-foreground" name="x" size={13} />
-              </Button>
-            </View>
-            {errorMessage ? (
-              <Text className="text-red-600 text-xs">{errorMessage}</Text>
-            ) : null}
-            <View className="flex-row justify-end gap-2">
-              <Button
-                disabled={saving}
-                onPress={cancelRename}
-                size="sm"
-                testID={`${testIdPrefix}-rename-cancel`}
-                variant="ghost"
-              >
-                <Text>Cancel</Text>
-              </Button>
-              <Button
-                disabled={saving || draft.trim().length === 0}
-                onPress={saveRename}
-                size="sm"
-                testID={`${testIdPrefix}-rename-save`}
-              >
-                <Text>{saving ? "Saving…" : "Save"}</Text>
-              </Button>
-            </View>
-          </View>
+          <RenameSessionForm
+            onCancel={cancelRename}
+            onClear={clearDraft}
+            onSave={saveRename}
+            state$={state$}
+            testIdPrefix={testIdPrefix}
+          />
         ) : (
-          <View className="gap-1">
-            <View className="px-2 pt-1 pb-2">
-              <Text className="font-medium text-xs" numberOfLines={1}>
-                {title}
-              </Text>
-              <Text className="text-[10px]" variant="muted">
-                Session actions
-              </Text>
-            </View>
-            <Button
-              className="justify-start"
-              onPress={beginRename}
-              testID={`${testIdPrefix}-rename`}
-              variant="ghost"
-            >
-              <Text>Rename</Text>
-            </Button>
-            <Button
-              className="justify-start gap-2"
-              disabled={archiving}
-              onPress={archive}
-              testID={`${testIdPrefix}-archive`}
-              variant="ghost"
-            >
-              <Icon
-                className="text-muted-foreground"
-                name="archive"
-                size={14}
-              />
-              <Text>{archiving ? "Archiving…" : "Archive"}</Text>
-            </Button>
-            {errorMessage ? (
-              <Text className="px-2 text-red-600 text-xs">{errorMessage}</Text>
-            ) : null}
-          </View>
+          <SessionActionList
+            onArchive={archive}
+            onRename={beginRename}
+            state$={state$}
+            testIdPrefix={testIdPrefix}
+            title={title}
+          />
         )}
       </PopoverContent>
     </Popover>
