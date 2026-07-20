@@ -1,15 +1,5 @@
-import type {
-  ProjectSummary,
-  SessionSummary,
-} from "@vibepad/protocol/provider";
-import {
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useValue } from "@legendapp/state/react";
+import { type ReactNode, useCallback, useEffect } from "react";
 import { Pressable, useWindowDimensions, View } from "react-native";
 import Animated, {
   FadeInLeft,
@@ -18,80 +8,23 @@ import Animated, {
   ReduceMotion,
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
-import {
-  SettingsDialog,
-  type SettingsPage,
-} from "@/features/settings/components/settings-dialog";
-import {
-  SessionCanvas,
-  type SessionWorkbenchLayout,
-} from "@/features/workspace/components/session-canvas";
+import { SettingsDialog } from "@/features/settings/components/settings-dialog";
 import type { SessionSurface } from "@/features/workspace/components/session-workbench-controls";
 import { WorkspaceHeader } from "@/features/workspace/components/workspace-header";
+import { WorkspaceSessionCanvas } from "@/features/workspace/components/workspace-session-canvas";
+import { WorkspaceSidebar } from "@/features/workspace/components/workspace-sidebar";
+import { defaultWorkbenchLayout } from "@/features/workspace/state/workspace-ui-store";
 import {
-  type WorkspaceItem,
-  WorkspaceSidebar,
-} from "@/features/workspace/components/workspace-sidebar";
-import { useHostWorkspace, useProjectServices } from "@/lib/use-host-workspace";
-import { useVibePadHost } from "@/lib/vibepad-host-context";
+  useProjectServices,
+  useWorkspaceLifecycle,
+} from "@/lib/use-host-workspace";
+import {
+  useVibePadHost,
+  useVibePadWorkspaceStore,
+  useVibePadWorkspaceUiStore,
+} from "@/lib/vibepad-host-context";
 
 const regularSidebarBreakpoint = 760;
-const emptyProjects: readonly ProjectSummary[] = [];
-const emptySessions: readonly SessionSummary[] = [];
-const defaultWorkbenchLayout: SessionWorkbenchLayout = {
-  expanded: false,
-  open: false,
-  surface: "changes",
-};
-
-const sessionIndicatorState = (session: SessionSummary) => {
-  if (session.pendingInput) {
-    return session.pendingInput;
-  }
-  if (session.activity === "busy") {
-    return "working" as const;
-  }
-  if (session.activity === "retry") {
-    return "retrying" as const;
-  }
-  return "idle" as const;
-};
-
-const buildWorkspaceItems = (
-  projects: readonly ProjectSummary[],
-  sessions: readonly SessionSummary[],
-  hostName: string,
-  connection: "offline" | "online",
-  selectedSessionId: string | undefined
-): readonly WorkspaceItem[] =>
-  projects.map((project) => ({
-    connection,
-    defaultExpanded: sessions.some(
-      (session) =>
-        session.id === selectedSessionId && session.projectId === project.id
-    ),
-    harnessId: project.harnessId,
-    host: hostName,
-    id: project.id,
-    name: project.name,
-    path: project.path,
-    sessions: sessions
-      .filter((session) => session.projectId === project.id)
-      .map((session) => ({
-        harnessId: session.harnessId,
-        id: session.id,
-        state: sessionIndicatorState(session),
-        title: session.title,
-      })),
-  }));
-
-const layoutForSession = (
-  layouts: Readonly<Record<string, SessionWorkbenchLayout>>,
-  sessionId: string | undefined
-) =>
-  sessionId
-    ? (layouts[sessionId] ?? defaultWorkbenchLayout)
-    : defaultWorkbenchLayout;
 
 function DesktopSidebar({
   children,
@@ -121,196 +54,122 @@ function DesktopSidebar({
 
 export function WorkspaceShell() {
   const host = useVibePadHost();
+  const workspace = useVibePadWorkspaceStore();
+  const workspaceUi = useVibePadWorkspaceUiStore();
+  const {
+    closeMobileSidebar,
+    closeSessionTab,
+    closeSettings,
+    reconcileSessions,
+    removeSession: removeUiSession,
+    selectSession: selectWorkspaceSession,
+    selectSurface,
+    showSettings,
+    toggleSidebar: toggleWorkspaceSidebar,
+  } = workspaceUi;
   const { width } = useWindowDimensions();
   const regularLayout = width >= regularSidebarBreakpoint;
-  const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settingsPage, setSettingsPage] = useState<SettingsPage>("timeline");
-  const tabsInitialized = useRef(false);
-  const [openSessionIds, setOpenSessionIds] = useState<readonly string[]>([]);
-  const [selectedSessionId, setSelectedSessionId] = useState<string>();
-  const [workbenchLayouts, setWorkbenchLayouts] = useState<
-    Record<string, SessionWorkbenchLayout>
-  >({});
   const {
-    refresh,
-    removeSession,
-    state: workspaceState,
-    upsertSession,
-  } = useHostWorkspace();
-
-  const snapshot =
-    workspaceState.status === "ready" ? workspaceState.data : undefined;
-  const projects = snapshot?.projects ?? emptyProjects;
-  const sessions = snapshot?.sessions ?? emptySessions;
-  const hostName = snapshot?.health.host.id ?? "home-mac";
-  const hostConnection = snapshot?.health.host.healthy ? "online" : "offline";
-  const providerHealthy = snapshot?.health.provider.healthy ?? false;
-  const providerHealth = snapshot?.health.providers ?? [];
+    desktopSidebarOpen,
+    mobileSidebarOpen,
+    openSessionIds,
+    selectedSessionId,
+    settingsOpen,
+    settingsPage,
+  } = useValue(() => ({
+    desktopSidebarOpen: workspaceUi.state$.desktopSidebarOpen.get(),
+    mobileSidebarOpen: workspaceUi.state$.mobileSidebarOpen.get(),
+    openSessionIds: workspaceUi.state$.openSessionIds.get(),
+    selectedSessionId: workspaceUi.state$.selectedSessionId.get(),
+    settingsOpen: workspaceUi.state$.settingsOpen.get(),
+    settingsPage: workspaceUi.state$.settingsPage.get(),
+  }));
+  const { refresh, removeSession, upsertSession } = useWorkspaceLifecycle();
+  const {
+    errorMessage,
+    health,
+    projects,
+    selectedProject,
+    selectedWorkbench,
+    sessionIds,
+    workspaceStatus,
+  } = useValue(() => {
+    const status = workspace.state$.status.get();
+    const healthRecord = workspace.state$.health.get();
+    const projectRecords = workspace.state$.projectIds
+      .get()
+      .flatMap((projectId) => {
+        const project = workspace.project$(projectId)?.get();
+        return project ? [project] : [];
+      });
+    const selectedSession = selectedSessionId
+      ? workspace.session$(selectedSessionId)?.get()
+      : undefined;
+    return {
+      errorMessage:
+        status === "error" ? workspace.state$.errorMessage.get() : undefined,
+      health: healthRecord,
+      projects: projectRecords,
+      selectedProject: selectedSession
+        ? workspace.project$(selectedSession.projectId)?.get()
+        : undefined,
+      selectedWorkbench: selectedSessionId
+        ? (workspaceUi.state$.workbenchesBySessionId[
+            selectedSessionId
+          ]?.get() ?? defaultWorkbenchLayout)
+        : defaultWorkbenchLayout,
+      sessionIds: workspace.state$.sessionIds.get(),
+      workspaceStatus: status,
+    };
+  });
+  const hostName = health?.host.id ?? "home-mac";
+  const hostConnection = health?.host.healthy ? "online" : "offline";
+  const providerHealthy = health?.provider.healthy ?? false;
+  const providerHealth = health?.providers ?? [];
 
   useEffect(() => {
-    if (workspaceState.status !== "ready") {
+    if (workspaceStatus !== "ready") {
       return;
     }
+    const sessionsById = workspace.state$.sessionsById.peek();
+    const defaultSessionId =
+      sessionIds.find(
+        (sessionId) => sessionsById[sessionId]?.projectId !== "global"
+      ) ?? sessionIds[0];
+    const defaultSession = defaultSessionId
+      ? sessionsById[defaultSessionId]
+      : undefined;
+    reconcileSessions(
+      sessionIds,
+      defaultSession?.id,
+      defaultSession?.projectId
+    );
+  }, [reconcileSessions, sessionIds, workspace, workspaceStatus]);
 
-    const availableIds = new Set(sessions.map((session) => session.id));
-    const defaultSession =
-      sessions.find((session) => session.projectId !== "global") ?? sessions[0];
-    if (!tabsInitialized.current) {
-      tabsInitialized.current = true;
-      setOpenSessionIds(defaultSession ? [defaultSession.id] : []);
-      setSelectedSessionId(defaultSession?.id);
-      return;
-    }
-
-    const retainedIds = openSessionIds.filter((id) => availableIds.has(id));
-    if (
-      retainedIds.length !== openSessionIds.length ||
-      retainedIds.some((id, index) => id !== openSessionIds[index])
-    ) {
-      setOpenSessionIds(retainedIds);
-    }
-    if (selectedSessionId && !availableIds.has(selectedSessionId)) {
-      setSelectedSessionId(retainedIds[0]);
-    }
-  }, [openSessionIds, selectedSessionId, sessions, workspaceState.status]);
-
-  const selectedSession = sessions.find(
-    (session) => session.id === selectedSessionId
-  );
-  const selectedProject = selectedSession
-    ? projects.find((project) => project.id === selectedSession.projectId)
-    : undefined;
   const servicesState = useProjectServices(selectedProject?.id);
-  const selectedWorkbench = layoutForSession(
-    workbenchLayouts,
-    selectedSessionId
-  );
   const selectedSurface: SessionSurface = selectedWorkbench.open
     ? selectedWorkbench.surface
     : "chat";
 
-  const workspaces = useMemo(
-    () =>
-      buildWorkspaceItems(
-        projects,
-        sessions,
-        hostName,
-        hostConnection,
-        selectedSessionId
-      ),
-    [hostConnection, hostName, projects, selectedSessionId, sessions]
-  );
-
-  const openTabs = useMemo(
-    () =>
-      openSessionIds.flatMap((sessionId) => {
-        const session = sessions.find(
-          (candidate) => candidate.id === sessionId
-        );
-        if (!session) {
-          return [];
-        }
-        const project = projects.find(
-          (candidate) => candidate.id === session.projectId
-        );
-        return project ? [{ project, session }] : [];
-      }),
-    [openSessionIds, projects, sessions]
-  );
-
   const toggleSidebar = useCallback(() => {
-    if (regularLayout) {
-      setDesktopSidebarOpen((open) => !open);
-      return;
-    }
-    setMobileSidebarOpen((open) => !open);
-  }, [regularLayout]);
+    toggleWorkspaceSidebar(regularLayout);
+  }, [regularLayout, toggleWorkspaceSidebar]);
 
   const selectSession = useCallback(
     (sessionId: string) => {
-      setOpenSessionIds((current) =>
-        current.includes(sessionId) ? current : [...current, sessionId]
-      );
-      setSelectedSessionId(sessionId);
-      if (!regularLayout) {
-        setMobileSidebarOpen(false);
-      }
+      const session = workspace.state$.sessionsById.peek()[sessionId];
+      selectWorkspaceSession(sessionId, session?.projectId);
     },
-    [regularLayout]
-  );
-
-  const closeSessionTab = useCallback(
-    (sessionId: string) => {
-      const closingIndex = openSessionIds.indexOf(sessionId);
-      const remainingIds = openSessionIds.filter((id) => id !== sessionId);
-      setOpenSessionIds(remainingIds);
-      if (selectedSessionId === sessionId) {
-        const nextIndex = Math.min(
-          Math.max(closingIndex, 0),
-          remainingIds.length - 1
-        );
-        setSelectedSessionId(
-          nextIndex >= 0 ? remainingIds[nextIndex] : undefined
-        );
-      }
-    },
-    [openSessionIds, selectedSessionId]
-  );
-
-  const selectSurfaceForSession = useCallback(
-    (sessionId: string, surface: SessionSurface) => {
-      setWorkbenchLayouts((current) => {
-        const previous = current[sessionId] ?? defaultWorkbenchLayout;
-        if (surface === "chat") {
-          return {
-            ...current,
-            [sessionId]: { ...previous, expanded: false, open: false },
-          };
-        }
-        const changingSurface = !previous.open || previous.surface !== surface;
-        const expanded = changingSurface
-          ? surface === "files" || surface === "changes"
-          : previous.expanded;
-        return {
-          ...current,
-          [sessionId]: { ...previous, expanded, open: true, surface },
-        };
-      });
-    },
-    []
+    [selectWorkspaceSession, workspace]
   );
   const selectSelectedSurface = useCallback(
     (surface: SessionSurface) => {
       if (selectedSessionId) {
-        selectSurfaceForSession(selectedSessionId, surface);
+        selectSurface(selectedSessionId, surface);
       }
     },
-    [selectSurfaceForSession, selectedSessionId]
+    [selectSurface, selectedSessionId]
   );
-  const closeWorkbench = useCallback((sessionId: string) => {
-    setWorkbenchLayouts((current) => {
-      const previous = current[sessionId] ?? defaultWorkbenchLayout;
-      return {
-        ...current,
-        [sessionId]: { ...previous, expanded: false, open: false },
-      };
-    });
-  }, []);
-  const toggleWorkbenchExpanded = useCallback((sessionId: string) => {
-    setWorkbenchLayouts((current) => {
-      const previous = current[sessionId] ?? defaultWorkbenchLayout;
-      return {
-        ...current,
-        [sessionId]: {
-          ...previous,
-          expanded: !previous.expanded,
-          open: true,
-        },
-      };
-    });
-  }, []);
 
   const createSession = useCallback(
     async (projectId: string) => {
@@ -333,48 +192,30 @@ export function WorkspaceShell() {
     async (sessionId: string) => {
       await host.archiveSession(sessionId);
       removeSession(sessionId);
-      closeSessionTab(sessionId);
-      setWorkbenchLayouts((current) => {
-        const { [sessionId]: _removed, ...remaining } = current;
-        return remaining;
-      });
+      removeUiSession(sessionId);
     },
-    [closeSessionTab, host, removeSession]
+    [host, removeSession, removeUiSession]
   );
 
-  const closeMobileSidebar = useCallback(() => {
-    setMobileSidebarOpen(false);
-  }, []);
   const refreshWorkspace = useCallback(() => {
     refresh().catch(() => undefined);
   }, [refresh]);
   const openSettings = useCallback(() => {
-    setSettingsPage("timeline");
-    setSettingsOpen(true);
-  }, []);
+    showSettings("timeline");
+  }, [showSettings]);
   const openConnectionSettings = useCallback(() => {
-    setSettingsPage("connections");
-    setSettingsOpen(true);
-  }, []);
-  const closeSettings = useCallback(() => {
-    setSettingsOpen(false);
-  }, []);
+    showSettings("connections");
+  }, [showSettings]);
 
   const sidebar = (
     <WorkspaceSidebar
-      {...(workspaceState.status === "error"
-        ? { errorMessage: workspaceState.message }
-        : {})}
       hostConnection={hostConnection}
       hostName={hostName}
-      loading={workspaceState.status === "loading"}
       onArchiveSession={archiveSession}
       onOpenSettings={openSettings}
       onRefresh={refreshWorkspace}
       onRenameSession={renameSession}
       onSelectSession={selectSession}
-      selectedSessionId={selectedSessionId}
-      workspaces={workspaces}
     />
   );
 
@@ -398,7 +239,7 @@ export function WorkspaceShell() {
             hostName={hostName}
             hostUrl={host.baseUrl}
             newSessionDisabled={
-              workspaceState.status !== "ready" ||
+              workspaceStatus !== "ready" ||
               hostConnection === "offline" ||
               projects.length === 0
             }
@@ -408,7 +249,7 @@ export function WorkspaceShell() {
             onSelectSurface={selectSelectedSurface}
             onSelectTab={selectSession}
             onToggleSidebar={toggleSidebar}
-            openTabs={openTabs}
+            openSessionIds={openSessionIds}
             projects={projects}
             providerHealthy={providerHealthy}
             providers={providerHealth}
@@ -418,49 +259,31 @@ export function WorkspaceShell() {
             services={servicesState.data}
             servicesLoading={servicesState.status === "loading"}
           />
-          {openTabs.length > 0 ? (
-            openTabs.map(({ project, session }) => (
+          {openSessionIds.length > 0 ? (
+            openSessionIds.map((sessionId) => (
               <View
                 className="min-h-0 flex-1"
-                key={session.id}
+                key={sessionId}
                 style={{
-                  display: session.id === selectedSessionId ? "flex" : "none",
+                  display: sessionId === selectedSessionId ? "flex" : "none",
                 }}
               >
-                <SessionCanvas
-                  active={session.id === selectedSessionId}
-                  errorMessage={
-                    workspaceState.status === "error"
-                      ? workspaceState.message
-                      : undefined
-                  }
+                <WorkspaceSessionCanvas
+                  active={sessionId === selectedSessionId}
+                  errorMessage={errorMessage}
                   hostName={hostName}
-                  loading={workspaceState.status === "loading"}
-                  onCloseWorkbench={closeWorkbench}
-                  onSessionChange={upsertSession}
-                  onToggleWorkbenchExpanded={toggleWorkbenchExpanded}
-                  project={project}
-                  session={session}
-                  workbench={layoutForSession(workbenchLayouts, session.id)}
+                  loading={workspaceStatus === "loading"}
+                  sessionId={sessionId}
                 />
               </View>
             ))
           ) : (
-            <SessionCanvas
+            <WorkspaceSessionCanvas
               active
-              errorMessage={
-                workspaceState.status === "error"
-                  ? workspaceState.message
-                  : undefined
-              }
+              errorMessage={errorMessage}
               hostName={hostName}
-              loading={workspaceState.status === "loading"}
-              onCloseWorkbench={closeWorkbench}
-              onSessionChange={upsertSession}
-              onToggleWorkbenchExpanded={toggleWorkbenchExpanded}
-              project={selectedProject}
-              session={selectedSession}
-              workbench={selectedWorkbench}
+              loading={workspaceStatus === "loading"}
+              sessionId={selectedSessionId}
             />
           )}
         </View>

@@ -41,11 +41,10 @@ import {
   useAppSettingsStore,
   useSettingsValue,
 } from "@/features/settings/settings-context";
+import type { SettingsPage } from "@/features/settings/settings-page";
 import { THEME } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { useVibePadHost } from "@/lib/vibepad-host-context";
-
-export type SettingsPage = "connections" | "timeline" | "voice";
 
 const settingsPages: readonly {
   readonly icon: IconName;

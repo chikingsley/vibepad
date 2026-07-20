@@ -1,28 +1,22 @@
+import {
+  LegendList,
+  type LegendListRenderItemProps,
+} from "@legendapp/list/react-native";
+import { useValue } from "@legendapp/state/react";
 import type { TriggerRef } from "@rn-primitives/popover";
+import type { SessionSummary } from "@vibepad/protocol/provider";
 import {
   type ComponentProps,
   type ComponentType,
   useCallback,
-  useEffect,
   useRef,
   useState,
 } from "react";
-import {
-  Platform,
-  Pressable,
-  type PressableProps,
-  ScrollView,
-  View,
-} from "react-native";
+import { Platform, Pressable, type PressableProps, View } from "react-native";
 import ReanimatedSwipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Button } from "@/components/ui/button";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
 import {
@@ -38,37 +32,19 @@ import {
   SessionStateIndicator,
 } from "@/features/workspace/components/status-indicators";
 import { cn } from "@/lib/utils";
-
-export interface WorkspaceSession {
-  readonly harnessId: import("@vibepad/protocol/provider").HarnessId;
-  readonly id: string;
-  readonly state: SessionIndicatorState;
-  readonly title: string;
-}
-
-export interface WorkspaceItem {
-  readonly connection: HostConnection;
-  readonly defaultExpanded?: boolean;
-  readonly harnessId: import("@vibepad/protocol/provider").HarnessId;
-  readonly host: string;
-  readonly id: string;
-  readonly name: string;
-  readonly path: string;
-  readonly sessions: readonly WorkspaceSession[];
-}
+import {
+  useVibePadWorkspaceStore,
+  useVibePadWorkspaceUiStore,
+} from "@/lib/vibepad-host-context";
 
 interface WorkspaceSidebarProps {
-  readonly errorMessage?: string;
   readonly hostConnection: HostConnection;
   readonly hostName: string;
-  readonly loading: boolean;
   readonly onArchiveSession: (sessionId: string) => Promise<void>;
   readonly onOpenSettings: () => void;
   readonly onRefresh: () => void;
   readonly onRenameSession: (sessionId: string, title: string) => Promise<void>;
   readonly onSelectSession: (sessionId: string) => void;
-  readonly selectedSessionId: string | undefined;
-  readonly workspaces: readonly WorkspaceItem[];
 }
 
 const stateLabel: Record<SessionIndicatorState, string> = {
@@ -94,6 +70,35 @@ const archiveActionLabel = (archiving: boolean, archiveFailed: boolean) => {
     return "Archiving…";
   }
   return archiveFailed ? "Retry" : "Archive";
+};
+
+const stateForSession = (session: SessionSummary): SessionIndicatorState => {
+  if (session.pendingInput) {
+    return session.pendingInput;
+  }
+  if (session.activity === "busy") {
+    return "working";
+  }
+  if (session.activity === "retry") {
+    return "retrying";
+  }
+  return "idle";
+};
+
+const aggregateState = (
+  sessions: readonly SessionSummary[]
+): SessionIndicatorState => {
+  const states = sessions.map(stateForSession);
+  if (states.includes("permission")) {
+    return "permission";
+  }
+  if (states.includes("question")) {
+    return "question";
+  }
+  if (states.includes("retrying")) {
+    return "retrying";
+  }
+  return states.includes("working") ? "working" : "idle";
 };
 
 function ArchiveSwipeAction({
@@ -136,44 +141,30 @@ function ArchiveSwipeAction({
   );
 }
 
-function aggregateState(
-  sessions: readonly WorkspaceSession[]
-): SessionIndicatorState {
-  if (sessions.some((session) => session.state === "permission")) {
-    return "permission";
-  }
-  if (sessions.some((session) => session.state === "question")) {
-    return "question";
-  }
-  if (sessions.some((session) => session.state === "retrying")) {
-    return "retrying";
-  }
-  if (sessions.some((session) => session.state === "working")) {
-    return "working";
-  }
-  return "idle";
-}
-
 function SessionRow({
   onArchiveSession,
   onRenameSession,
   onSelectSession,
-  selected,
-  session,
+  sessionId,
 }: {
   readonly onArchiveSession: (sessionId: string) => Promise<void>;
   readonly onRenameSession: (sessionId: string, title: string) => Promise<void>;
   readonly onSelectSession: (sessionId: string) => void;
-  readonly selected: boolean;
-  readonly session: WorkspaceSession;
+  readonly sessionId: string;
 }) {
+  const workspace = useVibePadWorkspaceStore();
+  const workspaceUi = useVibePadWorkspaceUiStore();
+  const session = useValue(() => workspace.session$(sessionId)?.get());
+  const selected = useValue(
+    () => workspaceUi.state$.selectedSessionId.get() === sessionId
+  );
   const actionsTriggerRef = useRef<TriggerRef>(null);
   const [archiveFailed, setArchiveFailed] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [swipeOpen, setSwipeOpen] = useState(false);
   const selectSession = useCallback(() => {
-    onSelectSession(session.id);
-  }, [onSelectSession, session.id]);
+    onSelectSession(sessionId);
+  }, [onSelectSession, sessionId]);
   const openActions = useCallback(() => {
     actionsTriggerRef.current?.open();
   }, []);
@@ -182,12 +173,12 @@ function SessionRow({
     actionsTriggerRef.current?.open();
   }, []);
   const renameSession = useCallback(
-    (title: string) => onRenameSession(session.id, title),
-    [onRenameSession, session.id]
+    (title: string) => onRenameSession(sessionId, title),
+    [onRenameSession, sessionId]
   );
   const archiveSession = useCallback(
-    () => onArchiveSession(session.id),
-    [onArchiveSession, session.id]
+    () => onArchiveSession(sessionId),
+    [onArchiveSession, sessionId]
   );
   const archiveFromSwipe = useCallback(
     async (close: () => void) => {
@@ -224,8 +215,8 @@ function SessionRow({
         archiving={archiving}
         close={methods.close}
         onArchive={archiveFromSwipe}
-        sessionId={session.id}
-        title={session.title}
+        sessionId={sessionId}
+        title={session?.title ?? "session"}
         visible={swipeOpen}
       />
     ),
@@ -233,187 +224,281 @@ function SessionRow({
       archiveFailed,
       archiveFromSwipe,
       archiving,
-      session.id,
-      session.title,
+      session?.title,
+      sessionId,
       swipeOpen,
     ]
   );
 
+  if (!session) {
+    return null;
+  }
+  const state = stateForSession(session);
+
   return (
-    <ReanimatedSwipeable
-      enableTrackpadTwoFingerGesture
-      friction={1.5}
-      onSwipeableWillClose={hideSwipeAction}
-      onSwipeableWillOpen={showSwipeAction}
-      overshootRight={false}
-      renderRightActions={renderRightActions}
-      rightThreshold={36}
-      testID={`session-${session.id}-swipeable`}
-    >
-      <View
-        className={cn(
-          "mb-0.5 h-9 flex-row items-center gap-1.5 rounded-md bg-card px-2 active:bg-accent/70",
-          selected && "bg-accent"
-        )}
-        testID={`session-${session.id}`}
+    <View className="ml-[31px] border-border border-l pl-2">
+      <ReanimatedSwipeable
+        enableTrackpadTwoFingerGesture
+        friction={1.5}
+        onSwipeableWillClose={hideSwipeAction}
+        onSwipeableWillOpen={showSwipeAction}
+        overshootRight={false}
+        renderRightActions={renderRightActions}
+        rightThreshold={36}
+        testID={`session-${session.id}-swipeable`}
       >
-        <ContextPressable
-          accessibilityLabel={`Open session ${session.title}, ${stateLabel[session.state]}`}
-          className="min-w-0 flex-1 flex-row items-center gap-2"
-          delayLongPress={320}
-          onLongPress={openActions}
-          onPress={selectSession}
-          {...(Platform.OS === "web"
-            ? { onContextMenu: openContextActions }
-            : {})}
-        >
-          <HarnessIcon
-            accessibilityLabel={harnessLabel(session.harnessId)}
-            className="text-muted-foreground"
-            harnessId={session.harnessId}
-            size={22}
-          />
-          <SessionTitle title={session.title} />
-        </ContextPressable>
         <View
-          className="size-7 shrink-0 items-center justify-center"
-          testID={`session-${session.id}-state`}
-        >
-          {session.state === "idle" ? null : (
-            <SessionStateIndicator state={session.state} />
+          className={cn(
+            "mb-0.5 h-9 flex-row items-center gap-1.5 rounded-md bg-card px-2 active:bg-accent/70",
+            selected && "bg-accent"
           )}
-          <View
-            accessibilityElementsHidden={
-              !(selected && session.state === "idle")
-            }
-            aria-hidden={!(selected && session.state === "idle")}
-            className={cn(
-              "absolute",
-              selected && session.state === "idle" ? "opacity-100" : "opacity-0"
-            )}
-            importantForAccessibility={
-              selected && session.state === "idle"
-                ? "auto"
-                : "no-hide-descendants"
-            }
-            style={{
-              pointerEvents:
-                selected && session.state === "idle" ? "auto" : "none",
-            }}
+          testID={`session-${session.id}`}
+        >
+          <ContextPressable
+            accessibilityLabel={`Open session ${session.title}, ${stateLabel[state]}`}
+            className="min-w-0 flex-1 flex-row items-center gap-2"
+            delayLongPress={320}
+            onLongPress={openActions}
+            onPress={selectSession}
+            {...(Platform.OS === "web"
+              ? { onContextMenu: openContextActions }
+              : {})}
           >
-            <SessionActionsMenu
-              onArchive={archiveSession}
-              onRename={renameSession}
-              selected={selected}
-              sessionId={session.id}
-              title={session.title}
-              triggerRef={actionsTriggerRef}
+            <HarnessIcon
+              accessibilityLabel={harnessLabel(session.harnessId)}
+              className="text-muted-foreground"
+              harnessId={session.harnessId}
+              size={22}
             />
+            <SessionTitle title={session.title} />
+          </ContextPressable>
+          <View
+            className="size-7 shrink-0 items-center justify-center"
+            testID={`session-${session.id}-state`}
+          >
+            {state === "idle" ? null : <SessionStateIndicator state={state} />}
+            <View
+              accessibilityElementsHidden={!(selected && state === "idle")}
+              aria-hidden={!(selected && state === "idle")}
+              className={cn(
+                "absolute",
+                selected && state === "idle" ? "opacity-100" : "opacity-0"
+              )}
+              importantForAccessibility={
+                selected && state === "idle" ? "auto" : "no-hide-descendants"
+              }
+              style={{
+                pointerEvents: selected && state === "idle" ? "auto" : "none",
+              }}
+            >
+              <SessionActionsMenu
+                onArchive={archiveSession}
+                onRename={renameSession}
+                selected={selected}
+                sessionId={session.id}
+                title={session.title}
+                triggerRef={actionsTriggerRef}
+              />
+            </View>
           </View>
         </View>
-      </View>
-    </ReanimatedSwipeable>
+      </ReanimatedSwipeable>
+    </View>
   );
 }
 
-function WorkspaceGroup({
-  onArchiveSession,
-  onRenameSession,
-  onSelectSession,
-  selectedSessionId,
-  workspace,
+function ProjectRow({
+  hostConnection,
+  hostName,
+  projectId,
 }: {
-  readonly onArchiveSession: (sessionId: string) => Promise<void>;
-  readonly onRenameSession: (sessionId: string, title: string) => Promise<void>;
-  readonly onSelectSession: (sessionId: string) => void;
-  readonly selectedSessionId: string | undefined;
-  readonly workspace: WorkspaceItem;
+  readonly hostConnection: HostConnection;
+  readonly hostName: string;
+  readonly projectId: string;
 }) {
-  const [open, setOpen] = useState(workspace.defaultExpanded ?? false);
-  const containsSelectedSession = workspace.sessions.some(
-    (session) => session.id === selectedSessionId
-  );
+  const workspace = useVibePadWorkspaceStore();
+  const workspaceUi = useVibePadWorkspaceUiStore();
+  const { open, project, sessions } = useValue(() => {
+    const projectRecord = workspace.project$(projectId)?.get();
+    const sessionIds = workspace.projectSessionIds$(projectId)?.get() ?? [];
+    return {
+      open: workspaceUi.state$.expandedProjects[projectId]?.get() ?? false,
+      project: projectRecord,
+      sessions: sessionIds.flatMap((sessionId) => {
+        const session = workspace.session$(sessionId)?.get();
+        return session ? [session] : [];
+      }),
+    };
+  });
+  const toggle = useCallback(() => {
+    workspaceUi.setProjectExpanded(projectId, !open);
+  }, [open, projectId, workspaceUi]);
 
-  useEffect(() => {
-    if (containsSelectedSession) {
-      setOpen(true);
-    }
-  }, [containsSelectedSession]);
-
-  const state = aggregateState(workspace.sessions);
+  if (!project) {
+    return null;
+  }
+  const state = aggregateState(sessions);
   const showAggregateState = !open && state !== "idle";
 
   return (
-    <Collapsible onOpenChange={setOpen} open={open}>
-      <CollapsibleTrigger asChild>
-        <Pressable
-          accessibilityLabel={`${open ? "Collapse" : "Expand"} ${workspace.name}`}
-          className="group flex-row items-center gap-2 rounded-lg px-2 py-2 active:bg-accent/70"
-          testID={`workspace-${workspace.id}-toggle`}
-        >
-          <Icon
-            className="text-muted-foreground"
-            name={open ? "chevron-down" : "chevron-right"}
-            size={14}
-          />
-          <Icon className="text-foreground" name="folder" size={15} />
-          <Text
-            className="min-w-0 flex-1 font-medium text-sm"
-            numberOfLines={1}
-          >
-            {workspace.name}
-          </Text>
-          <Text className="max-w-24 text-xs" numberOfLines={1} variant="muted">
-            {workspace.host}
-          </Text>
-          <View
-            className="w-4 shrink-0 items-center"
-            testID={
-              workspace.connection === "offline" || !showAggregateState
-                ? `workspace-${workspace.id}-connection`
-                : `workspace-${workspace.id}-state`
-            }
-          >
-            {workspace.connection === "offline" || !showAggregateState ? (
-              <ConnectionIndicator connection={workspace.connection} />
-            ) : (
-              <SessionStateIndicator state={state} />
-            )}
-          </View>
-        </Pressable>
-      </CollapsibleTrigger>
-      <CollapsibleContent>
-        <View className="ml-[31px] border-border border-l pl-2">
-          {workspace.sessions.map((session) => (
-            <SessionRow
-              key={session.id}
-              onArchiveSession={onArchiveSession}
-              onRenameSession={onRenameSession}
-              onSelectSession={onSelectSession}
-              selected={session.id === selectedSessionId}
-              session={session}
-            />
-          ))}
-        </View>
-      </CollapsibleContent>
-    </Collapsible>
+    <Pressable
+      accessibilityLabel={`${open ? "Collapse" : "Expand"} ${project.name}`}
+      className="flex-row items-center gap-2 rounded-lg px-2 py-2 active:bg-accent/70"
+      onPress={toggle}
+      testID={`workspace-${project.id}-toggle`}
+    >
+      <Icon
+        className="text-muted-foreground"
+        name={open ? "chevron-down" : "chevron-right"}
+        size={14}
+      />
+      <Icon className="text-foreground" name="folder" size={15} />
+      <Text className="min-w-0 flex-1 font-medium text-sm" numberOfLines={1}>
+        {project.name}
+      </Text>
+      <Text className="max-w-24 text-xs" numberOfLines={1} variant="muted">
+        {hostName}
+      </Text>
+      <View
+        className="w-4 shrink-0 items-center"
+        testID={
+          hostConnection === "offline" || !showAggregateState
+            ? `workspace-${project.id}-connection`
+            : `workspace-${project.id}-state`
+        }
+      >
+        {hostConnection === "offline" || !showAggregateState ? (
+          <ConnectionIndicator connection={hostConnection} />
+        ) : (
+          <SessionStateIndicator state={state} />
+        )}
+      </View>
+    </Pressable>
   );
 }
 
-export function WorkspaceSidebar({
+const projectPrefix = "project:";
+const sessionPrefix = "session:";
+const sidebarRowType = (rowId: string) =>
+  rowId.startsWith(projectPrefix) ? "project" : "session";
+const sidebarRowKey = (rowId: string) => rowId;
+
+function SidebarListFooter({
   errorMessage,
+  loading,
+  onRefresh,
+  rowCount,
+}: {
+  readonly errorMessage: string | undefined;
+  readonly loading: boolean;
+  readonly onRefresh: () => void;
+  readonly rowCount: number;
+}) {
+  if (loading) {
+    return (
+      <View className="px-2 py-6">
+        <Text className="text-xs" variant="muted">
+          Loading projects…
+        </Text>
+      </View>
+    );
+  }
+  if (errorMessage) {
+    return (
+      <View className="gap-3 rounded-lg border border-red-500/25 bg-red-500/5 px-3 py-3">
+        <Text className="text-red-600 text-xs" numberOfLines={3}>
+          {errorMessage}
+        </Text>
+        <Button onPress={onRefresh} size="sm" variant="outline">
+          <Text>Retry</Text>
+        </Button>
+      </View>
+    );
+  }
+  return rowCount === 0 ? (
+    <View className="px-2 py-6">
+      <Text className="text-xs" variant="muted">
+        No projects found.
+      </Text>
+    </View>
+  ) : null;
+}
+
+export function WorkspaceSidebar({
   hostConnection,
   hostName,
-  loading,
   onArchiveSession,
   onOpenSettings,
   onRenameSession,
   onSelectSession,
   onRefresh,
-  selectedSessionId,
-  workspaces,
 }: WorkspaceSidebarProps) {
   const insets = useSafeAreaInsets();
+  const workspace = useVibePadWorkspaceStore();
+  const workspaceUi = useVibePadWorkspaceUiStore();
+  const { errorMessage, loading, rows } = useValue(() => {
+    const status = workspace.state$.status.get();
+    const projectIds = workspace.state$.projectIds.get();
+    const rowIds: string[] = [];
+    for (const projectId of projectIds) {
+      rowIds.push(`${projectPrefix}${projectId}`);
+      if (workspaceUi.state$.expandedProjects[projectId]?.get()) {
+        const sessionIds =
+          workspace.state$.sessionIdsByProjectId[projectId]?.get() ?? [];
+        rowIds.push(
+          ...sessionIds.map((sessionId) => `${sessionPrefix}${sessionId}`)
+        );
+      }
+    }
+    return {
+      errorMessage:
+        status === "error" ? workspace.state$.errorMessage.get() : undefined,
+      loading: status === "loading",
+      rows: rowIds,
+    };
+  });
+  const renderRow = useCallback(
+    ({ item }: LegendListRenderItemProps<string>) =>
+      item.startsWith(projectPrefix) ? (
+        <ProjectRow
+          hostConnection={hostConnection}
+          hostName={hostName}
+          projectId={item.slice(projectPrefix.length)}
+        />
+      ) : (
+        <SessionRow
+          onArchiveSession={onArchiveSession}
+          onRenameSession={onRenameSession}
+          onSelectSession={onSelectSession}
+          sessionId={item.slice(sessionPrefix.length)}
+        />
+      ),
+    [
+      hostConnection,
+      hostName,
+      onArchiveSession,
+      onRenameSession,
+      onSelectSession,
+    ]
+  );
+  const listHeader = (
+    <View className="px-2 pt-2 pb-1">
+      <Text
+        className="font-medium text-[11px] uppercase tracking-wider"
+        variant="muted"
+      >
+        Workspaces
+      </Text>
+    </View>
+  );
+  const listFooter = (
+    <SidebarListFooter
+      errorMessage={errorMessage}
+      loading={loading}
+      onRefresh={onRefresh}
+      rowCount={rows.length}
+    />
+  );
 
   return (
     <View className="h-full bg-card" testID="workspace-sidebar">
@@ -439,53 +524,23 @@ export function WorkspaceSidebar({
         </Pressable>
       </View>
 
-      <ScrollView
-        className="flex-1 px-2"
-        contentContainerClassName="gap-1 pb-4"
-      >
-        <View className="px-2 pt-2 pb-1">
-          <Text
-            className="font-medium text-[11px] uppercase tracking-wider"
-            variant="muted"
-          >
-            Workspaces
-          </Text>
-        </View>
-        {workspaces.map((workspace) => (
-          <WorkspaceGroup
-            key={workspace.id}
-            onArchiveSession={onArchiveSession}
-            onRenameSession={onRenameSession}
-            onSelectSession={onSelectSession}
-            selectedSessionId={selectedSessionId}
-            workspace={workspace}
-          />
-        ))}
-        {loading ? (
-          <View className="px-2 py-6">
-            <Text className="text-xs" variant="muted">
-              Loading projects…
-            </Text>
-          </View>
-        ) : null}
-        {errorMessage ? (
-          <View className="gap-3 rounded-lg border border-red-500/25 bg-red-500/5 px-3 py-3">
-            <Text className="text-red-600 text-xs" numberOfLines={3}>
-              {errorMessage}
-            </Text>
-            <Button onPress={onRefresh} size="sm" variant="outline">
-              <Text>Retry</Text>
-            </Button>
-          </View>
-        ) : null}
-        {!(loading || errorMessage) && workspaces.length === 0 ? (
-          <View className="px-2 py-6">
-            <Text className="text-xs" variant="muted">
-              No projects found.
-            </Text>
-          </View>
-        ) : null}
-      </ScrollView>
+      <LegendList
+        contentContainerStyle={{
+          gap: 4,
+          paddingBottom: 16,
+          paddingHorizontal: 8,
+        }}
+        data={rows}
+        dataKey="workspace-sidebar"
+        estimatedItemSize={36}
+        getItemType={sidebarRowType}
+        keyExtractor={sidebarRowKey}
+        ListFooterComponent={listFooter}
+        ListHeaderComponent={listHeader}
+        recycleItems={false}
+        renderItem={renderRow}
+        style={{ flex: 1 }}
+      />
 
       <View
         className="border-border border-t p-2"

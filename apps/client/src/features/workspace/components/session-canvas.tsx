@@ -37,7 +37,7 @@ import { DictationButton } from "@/features/voice/components/dictation-button";
 import { DictationRecordingSurface } from "@/features/voice/components/dictation-recording-surface";
 import { useSessionDictation } from "@/features/voice/use-session-dictation";
 import { SessionWorkbench } from "@/features/workspace/components/session-workbench";
-import type { WorkbenchSurface } from "@/features/workspace/components/session-workbench-controls";
+import type { SessionWorkbenchLayout } from "@/features/workspace/state/workspace-ui-store";
 import {
   useProviderCatalog,
   useSessionInteractions,
@@ -81,12 +81,6 @@ const insertTranscript = (
   const cursor = before.length + inserted.length;
   return { selection: { end: cursor, start: cursor }, value } as const;
 };
-
-export interface SessionWorkbenchLayout {
-  readonly expanded: boolean;
-  readonly open: boolean;
-  readonly surface: WorkbenchSurface;
-}
 
 function SessionContent({
   errorMessage,

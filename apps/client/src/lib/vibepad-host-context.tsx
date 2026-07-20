@@ -10,6 +10,10 @@ import {
   type WorkspaceStore,
 } from "@/features/workspace/state/workspace-store";
 import {
+  createWorkspaceUiStore,
+  type WorkspaceUiStore,
+} from "@/features/workspace/state/workspace-ui-store";
+import {
   VibePadHostClient,
   type VibePadHostConnection,
 } from "@/lib/vibepad-host";
@@ -17,6 +21,7 @@ import {
 interface VibePadHostRuntime {
   readonly client: VibePadHostClient;
   readonly workspace: WorkspaceStore;
+  readonly workspaceUi: WorkspaceUiStore;
 }
 
 const VibePadHostContext = createContext<VibePadHostRuntime | undefined>(
@@ -32,7 +37,11 @@ export function VibePadHostProvider({
   const { baseUrl, hostId } = connection;
   const runtime = useMemo(() => {
     const client = new VibePadHostClient({ baseUrl, hostId });
-    return { client, workspace: createWorkspaceStore(client) };
+    return {
+      client,
+      workspace: createWorkspaceStore(client),
+      workspaceUi: createWorkspaceUiStore(),
+    };
   }, [baseUrl, hostId]);
   return (
     <VibePadHostContext.Provider value={runtime}>
@@ -52,3 +61,6 @@ const useVibePadHostRuntime = () => {
 export const useVibePadHost = () => useVibePadHostRuntime().client;
 
 export const useVibePadWorkspaceStore = () => useVibePadHostRuntime().workspace;
+
+export const useVibePadWorkspaceUiStore = () =>
+  useVibePadHostRuntime().workspaceUi;

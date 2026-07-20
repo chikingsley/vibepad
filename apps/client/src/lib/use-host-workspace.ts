@@ -1,4 +1,3 @@
-import { useValue } from "@legendapp/state/react";
 import type { ProviderCatalog } from "@vibepad/protocol/catalog";
 import type { PendingInteraction } from "@vibepad/protocol/interactions";
 import type {
@@ -113,9 +112,8 @@ const loadedTimelineState = (
   return { data, sessionId, status: "ready" };
 };
 
-export function useHostWorkspace() {
+export function useWorkspaceLifecycle() {
   const store = useVibePadWorkspaceStore();
-  const state = useValue(store.readView);
 
   useEffect(() => {
     store.refresh().catch(() => undefined);
@@ -125,7 +123,6 @@ export function useHostWorkspace() {
   return {
     refresh: store.refresh,
     removeSession: store.removeSession,
-    state,
     upsertSession: store.upsertSession,
   };
 }

@@ -1,9 +1,11 @@
-import type {
-  ProjectSummary,
-  SessionSummary,
-} from "@vibepad/protocol/provider";
+import {
+  LegendList,
+  type LegendListRenderItemProps,
+} from "@legendapp/list/react-native";
+import { useValue } from "@legendapp/state/react";
+import type { SessionSummary } from "@vibepad/protocol/provider";
 import { useCallback } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { Pressable, View } from "react-native";
 
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -15,11 +17,10 @@ import {
 import { SessionTitle } from "@/features/workspace/components/session-title";
 import { SessionStateIndicator } from "@/features/workspace/components/status-indicators";
 import { cn } from "@/lib/utils";
-
-export interface SessionTabItem {
-  readonly project: ProjectSummary;
-  readonly session: SessionSummary;
-}
+import {
+  useVibePadWorkspaceStore,
+  useVibePadWorkspaceUiStore,
+} from "@/lib/vibepad-host-context";
 
 const stateForSession = (session: SessionSummary) => {
   if (session.pendingInput) {
@@ -35,22 +36,36 @@ const stateForSession = (session: SessionSummary) => {
 };
 
 function SessionTab({
-  item,
   onClose,
   onSelect,
-  selected,
+  sessionId,
 }: {
-  readonly item: SessionTabItem;
   readonly onClose: (sessionId: string) => void;
   readonly onSelect: (sessionId: string) => void;
-  readonly selected: boolean;
+  readonly sessionId: string;
 }) {
+  const workspace = useVibePadWorkspaceStore();
+  const workspaceUi = useVibePadWorkspaceUiStore();
+  const { project, selected, session } = useValue(() => {
+    const sessionRecord = workspace.session$(sessionId)?.get();
+    return {
+      project: sessionRecord
+        ? workspace.project$(sessionRecord.projectId)?.get()
+        : undefined,
+      selected: workspaceUi.state$.selectedSessionId.get() === sessionId,
+      session: sessionRecord,
+    };
+  });
   const select = useCallback(() => {
-    onSelect(item.session.id);
-  }, [item.session.id, onSelect]);
+    onSelect(sessionId);
+  }, [onSelect, sessionId]);
   const close = useCallback(() => {
-    onClose(item.session.id);
-  }, [item.session.id, onClose]);
+    onClose(sessionId);
+  }, [onClose, sessionId]);
+
+  if (!(project && session)) {
+    return null;
+  }
 
   return (
     <View
@@ -60,28 +75,28 @@ function SessionTab({
       )}
     >
       <Pressable
-        accessibilityLabel={`Open ${item.session.title} in ${item.project.name}`}
+        accessibilityLabel={`Open ${session.title} in ${project.name}`}
         className="min-w-0 flex-1 flex-row items-center gap-2"
         onPress={select}
-        testID={`top-tab-${item.session.id}`}
+        testID={`top-tab-${session.id}`}
       >
         <HarnessIcon
-          accessibilityLabel={harnessLabel(item.session.harnessId)}
+          accessibilityLabel={harnessLabel(session.harnessId)}
           className={selected ? "text-foreground" : "text-muted-foreground"}
-          harnessId={item.session.harnessId}
+          harnessId={session.harnessId}
           size={14}
         />
         <View className="min-w-0 flex-1">
-          <SessionTitle title={item.session.title} />
+          <SessionTitle title={session.title} />
           <Text className="text-[9px]" numberOfLines={1} variant="muted">
-            {item.project.name}
+            {project.name}
           </Text>
         </View>
       </Pressable>
-      <SessionStateIndicator state={stateForSession(item.session)} />
+      <SessionStateIndicator state={stateForSession(session)} />
       {selected ? (
         <Button
-          accessibilityLabel={`Close ${item.session.title} tab`}
+          accessibilityLabel={`Close ${session.title} tab`}
           className="-mr-1 size-6 rounded-md"
           onPress={close}
           size="icon"
@@ -95,35 +110,42 @@ function SessionTab({
   );
 }
 
+const sessionIdKey = (sessionId: string) => sessionId;
+const sessionIdsEqual = (left: string, right: string) => left === right;
+
 export function SessionTabStrip({
-  items,
   onClose,
   onSelect,
-  selectedSessionId,
+  sessionIds,
 }: {
-  readonly items: readonly SessionTabItem[];
   readonly onClose: (sessionId: string) => void;
   readonly onSelect: (sessionId: string) => void;
-  readonly selectedSessionId: string | undefined;
+  readonly sessionIds: readonly string[];
 }) {
+  const renderTab = useCallback(
+    ({ item }: LegendListRenderItemProps<string>) => (
+      <SessionTab onClose={onClose} onSelect={onSelect} sessionId={item} />
+    ),
+    [onClose, onSelect]
+  );
+
   return (
-    <ScrollView
-      className="min-w-0 flex-1"
-      contentContainerClassName="flex-row items-center gap-1 px-1"
+    <LegendList
+      contentContainerStyle={{
+        alignItems: "center",
+        gap: 4,
+        paddingHorizontal: 4,
+      }}
+      data={sessionIds}
+      dataKey="session-tabs"
+      estimatedItemSize={384}
       horizontal
-      keyboardShouldPersistTaps="handled"
+      itemsAreEqual={sessionIdsEqual}
+      keyExtractor={sessionIdKey}
+      recycleItems
+      renderItem={renderTab}
       showsHorizontalScrollIndicator={false}
-      testID="session-tab-strip"
-    >
-      {items.map((item) => (
-        <SessionTab
-          item={item}
-          key={item.session.id}
-          onClose={onClose}
-          onSelect={onSelect}
-          selected={item.session.id === selectedSessionId}
-        />
-      ))}
-    </ScrollView>
+      style={{ flex: 1, minWidth: 0 }}
+    />
   );
 }

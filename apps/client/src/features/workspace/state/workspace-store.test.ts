@@ -58,6 +58,9 @@ describe("Legend workspace store", () => {
       status: "ready",
     });
     expect(store.state$.sessionIds.peek()).toEqual(["session-a", "session-b"]);
+    expect(
+      store.state$.sessionIdsByProjectId["codex:/workspace"]?.peek()
+    ).toEqual(["session-a", "session-b"]);
   });
 
   it("hydrates one session without notifying an unrelated session", async () => {
@@ -67,6 +70,8 @@ describe("Legend workspace store", () => {
     });
     await store.refresh();
     let hydratedNotifications = 0;
+    let projectListNotifications = 0;
+    let sessionListNotifications = 0;
     let unrelatedNotifications = 0;
     const hydrated$ = store.session$("session-a");
     const unrelated$ = store.session$("session-b");
@@ -79,6 +84,16 @@ describe("Legend workspace store", () => {
     const disposeUnrelated = unrelated$.onChange(() => {
       unrelatedNotifications += 1;
     });
+    const projectSessionIds$ = store.projectSessionIds$("codex:/workspace");
+    if (!projectSessionIds$) {
+      throw new Error("Expected the project session index");
+    }
+    const disposeProjectList = projectSessionIds$.onChange(() => {
+      projectListNotifications += 1;
+    });
+    const disposeSessionList = store.state$.sessionIds.onChange(() => {
+      sessionListNotifications += 1;
+    });
 
     store.upsertSession(
       session("session-a", {
@@ -89,8 +104,28 @@ describe("Legend workspace store", () => {
 
     expect(hydrated$.controls.status.peek()).toBe("ready");
     expect(hydratedNotifications).toBe(1);
+    expect(projectListNotifications).toBe(0);
+    expect(sessionListNotifications).toBe(0);
     expect(unrelatedNotifications).toBe(0);
     disposeHydrated();
+    disposeProjectList();
+    disposeSessionList();
     disposeUnrelated();
+  });
+
+  it("updates project indexes when sessions are added and removed", async () => {
+    const store = createWorkspaceStore({
+      loadWorkspace: async () => snapshot([session("session-a")]),
+    });
+    await store.refresh();
+
+    store.upsertSession(session("session-b"));
+    store.removeSession("session-a");
+
+    expect(store.state$.sessionIds.peek()).toEqual(["session-b"]);
+    expect(
+      store.state$.sessionIdsByProjectId["codex:/workspace"]?.peek()
+    ).toEqual(["session-b"]);
+    expect(store.session$("session-a")).toBeUndefined();
   });
 });

@@ -104,13 +104,11 @@ export const defaultVibePadHostConnection: VibePadHostConnection = {
 
 export class VibePadHostClient {
   readonly #baseUrl: string;
-  readonly #credential: ReturnType<typeof hostCredentialStore.read>;
   readonly #hostId: string;
 
   constructor(connection = defaultVibePadHostConnection) {
     this.#baseUrl = connection.baseUrl.replace(trailingSlash, "");
     this.#hostId = connection.hostId;
-    this.#credential = hostCredentialStore.read(connection.hostId);
   }
 
   get baseUrl() {
@@ -127,7 +125,7 @@ export class VibePadHostClient {
   }> {
     const url = new URL(voiceRealtimePath, `${this.#baseUrl}/`);
     url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
-    const credential = await this.#credential;
+    const credential = await hostCredentialStore.read(this.#hostId);
     return {
       protocols:
         credential?.kind === "bearer"
@@ -469,7 +467,7 @@ export class VibePadHostClient {
 
   async #authorizationHeaders(): Promise<Headers> {
     const headers = new Headers();
-    const credential = await this.#credential;
+    const credential = await hostCredentialStore.read(this.#hostId);
     if (credential?.kind === "bearer") {
       headers.set("Authorization", `Bearer ${credential.token}`);
     }

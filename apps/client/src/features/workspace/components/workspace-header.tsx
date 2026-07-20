@@ -9,10 +9,7 @@ import {
   NewSessionControl,
   type NewSessionProject,
 } from "@/features/workspace/components/new-session-control";
-import {
-  type SessionTabItem,
-  SessionTabStrip,
-} from "@/features/workspace/components/session-tab-strip";
+import { SessionTabStrip } from "@/features/workspace/components/session-tab-strip";
 import {
   type SessionSurface,
   SessionWorkbenchControls,
@@ -31,7 +28,7 @@ export function WorkspaceHeader({
   onSelectSurface,
   onSelectTab,
   onToggleSidebar,
-  openTabs,
+  openSessionIds,
   providerHealthy,
   providers,
   projects,
@@ -51,7 +48,7 @@ export function WorkspaceHeader({
   readonly onSelectSurface: (surface: SessionSurface) => void;
   readonly onSelectTab: (sessionId: string) => void;
   readonly onToggleSidebar: () => void;
-  readonly openTabs: readonly SessionTabItem[];
+  readonly openSessionIds: readonly string[];
   readonly providerHealthy: boolean;
   readonly providers: HostHealthResponse["providers"];
   readonly projects: readonly NewSessionProject[];
@@ -80,10 +77,9 @@ export function WorkspaceHeader({
       />
       <View className="mx-0.5 h-5 w-px shrink-0 bg-border" />
       <SessionTabStrip
-        items={openTabs}
         onClose={onCloseTab}
         onSelect={onSelectTab}
-        selectedSessionId={selectedSessionId}
+        sessionIds={openSessionIds}
       />
       {selectedSessionId ? (
         <SessionWorkbenchControls
