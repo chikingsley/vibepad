@@ -11,7 +11,7 @@ import type {
   ModelSummary,
   ProviderCatalog,
 } from "@vibepad/protocol/catalog";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { Platform, Pressable, View } from "react-native";
 
 import { Button } from "@/components/ui/button";
@@ -371,24 +371,33 @@ function AgentControl({
   readonly onSelect: (agentId: string) => Promise<void>;
 }) {
   const triggerRef = useRef<TriggerRef>(null);
-  const [error, setError] = useState<string | undefined>();
+  const state$ = useObservable({
+    error: undefined as string | undefined,
+    selecting: false,
+  });
+  const { error, selecting } = useValue(state$);
   const agents =
     catalog?.agents.filter(
       (agent) => !agent.hidden && agent.mode !== "subagent"
     ) ?? [];
   const select = useCallback(
     async (agent: AgentSummary) => {
-      setError(undefined);
+      if (state$.selecting.peek()) {
+        return;
+      }
+      state$.assign({ error: undefined, selecting: true });
       try {
         await onSelect(agent.id);
         triggerRef.current?.close();
       } catch (reason) {
-        setError(
+        state$.error.set(
           reason instanceof Error ? reason.message : "Unable to switch agent"
         );
+      } finally {
+        state$.selecting.set(false);
       }
     },
-    [onSelect]
+    [onSelect, state$]
   );
 
   return (
@@ -397,7 +406,7 @@ function AgentControl({
         <Button
           accessibilityLabel={`Choose ${controlLabel.toLowerCase()}`}
           className="h-8 flex-row gap-1 px-2"
-          disabled={disabled}
+          disabled={disabled || selecting}
           testID="agent-selector"
           variant="ghost"
         >
@@ -425,17 +434,19 @@ function AgentControl({
         sideOffset={8}
         testID="agent-selector-menu"
       >
-        <Text className="px-2 pt-1 pb-1 font-semibold text-xs">
-          {controlLabel}
-        </Text>
-        {agents.map((agent) => (
-          <AgentOption
-            agent={agent}
-            key={agent.id}
-            onSelect={select}
-            selected={agent.id === current}
-          />
-        ))}
+        <View pointerEvents={selecting ? "none" : "auto"}>
+          <Text className="px-2 pt-1 pb-1 font-semibold text-xs">
+            {controlLabel}
+          </Text>
+          {agents.map((agent) => (
+            <AgentOption
+              agent={agent}
+              key={agent.id}
+              onSelect={select}
+              selected={agent.id === current}
+            />
+          ))}
+        </View>
         {error ? (
           <Text className="px-2 text-red-600 text-xs">{error}</Text>
         ) : null}

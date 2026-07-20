@@ -1,7 +1,8 @@
+import { useObservable, useValue } from "@legendapp/state/react";
 import type { TriggerRef } from "@rn-primitives/popover";
 import type { ModelReference } from "@vibepad/protocol/catalog";
-import { useCallback, useRef, useState } from "react";
-import { Pressable } from "react-native";
+import { useCallback, useRef } from "react";
+import { Pressable, View } from "react-native";
 
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -54,29 +55,31 @@ export function ReasoningEffortControl({
   readonly variants: readonly string[];
 }) {
   const triggerRef = useRef<TriggerRef>(null);
-  const [error, setError] = useState<string | undefined>();
-  const [selecting, setSelecting] = useState(false);
+  const state$ = useObservable({
+    error: undefined as string | undefined,
+    selecting: false,
+  });
+  const { error, selecting } = useValue(state$);
   const select = useCallback(
     async (variant: string) => {
-      if (!current) {
+      if (!current || state$.selecting.peek()) {
         return;
       }
-      setError(undefined);
-      setSelecting(true);
+      state$.assign({ error: undefined, selecting: true });
       try {
         await onSelect({ ...current, variant });
         triggerRef.current?.close();
       } catch (reason) {
-        setError(
+        state$.error.set(
           reason instanceof Error
             ? reason.message
             : "Unable to switch reasoning effort"
         );
       } finally {
-        setSelecting(false);
+        state$.selecting.set(false);
       }
     },
-    [current, onSelect]
+    [current, onSelect, state$]
   );
 
   if (!(current && variants.length > 0)) {
@@ -110,20 +113,22 @@ export function ReasoningEffortControl({
         sideOffset={8}
         testID="reasoning-effort-menu"
       >
-        <Text className="px-2 pt-1 pb-1 font-semibold text-xs">
-          Reasoning effort
-        </Text>
-        {variants.map((variant) => {
-          const selected = variant === current.variant;
-          return (
-            <ReasoningEffortOption
-              key={variant}
-              onSelect={select}
-              selected={selected}
-              variant={variant}
-            />
-          );
-        })}
+        <View pointerEvents={selecting ? "none" : "auto"}>
+          <Text className="px-2 pt-1 pb-1 font-semibold text-xs">
+            Reasoning effort
+          </Text>
+          {variants.map((variant) => {
+            const selected = variant === current.variant;
+            return (
+              <ReasoningEffortOption
+                key={variant}
+                onSelect={select}
+                selected={selected}
+                variant={variant}
+              />
+            );
+          })}
+        </View>
         {error ? (
           <Text className="px-2 text-red-600 text-xs">{error}</Text>
         ) : null}
