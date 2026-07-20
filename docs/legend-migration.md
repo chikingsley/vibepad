@@ -44,6 +44,20 @@ This ledger records the measured migration from React-owned application state an
 | Drawing hot path      | Reanimated shared values and Skia or gesture state                           | React receives only completed normalized strokes or selections                                         | Review store receives completed cues                                                     |
 | Ephemeral leaf input  | Component-local state or Legend reactive input when measurement proves value | State stays at the leaf                                                                                | No persistence unless promoted into a domain store                                       |
 
+### Retained React state audit
+
+The client retains 15 `useState` fields after the measured migrations. None owns durable product data, provider state, a shared form, or a growing collection.
+
+| Boundary                | Retained state                                   | Reason                                                                                                                                  |
+| ----------------------- | ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Timeline scroller       | Tail detachment and one opening plan             | These values coordinate one mounted `LegendList` with refs, layout completion, and imperative scroll commands.                          |
+| Workspace session row   | Swipe visibility and archive feedback            | These values belong to one mounted gesture row; sidebar recycling remains disabled while the swipeable owns local native gesture state. |
+| Session canvas          | Measured canvas width                            | React Native layout determines the two-pane presentation on the next render; identical measurements are rejected.                       |
+| Native feedback overlay | Measured viewport                                | Completed stored paths need the current layout to denormalize coordinates; active strokes remain on Reanimated and Skia.                |
+| Preview frame           | Web iframe reload generation                     | The integer is an explicit React remount key invoked through an imperative frame handle.                                                |
+| Status popover          | Open glyph and selected bounded tab              | Two ephemeral values belong entirely to one mounted popover and have no cross-component or persistence semantics.                       |
+| Design fixtures         | Attachment option, draft, billing, email, notice | Isolated demonstration routes intentionally exercise ordinary controlled React Native inputs and stay outside the product graph.        |
+
 ## List contract
 
 Legend List is used for collections that can grow, recycle, page, or affect mount cost. Bounded button groups and nested code-output panes retain simpler primitives when virtualization provides no useful windowing.
@@ -83,6 +97,7 @@ React 19 reset safety is explicit while [Legend List issue 502](https://github.c
 - [x] Bind host-pairing inputs to a local Legend form, isolate validation and operation leaves, and reject duplicate pair or revoke operations.
 - [x] Bind session-title editing to a local Legend form, isolate rename and archive operations, and keep action-menu resets explicit.
 - [x] Convert justified growing collections according to the list contract and audit every recycled row. The workspace tree, session tabs, file tree, file tabs, change list, patch rows, provider models, Voice models, browser tabs, new-session project picker, and timeline recycled-row state are complete.
+- [x] Audit every retained React state field and document why local ownership is the smaller, more accurate boundary.
 - [ ] Extract domain components until transport/store files and visual components have one clear responsibility; record exceptions rather than chasing an arbitrary line limit.
 - [ ] Add lightweight shell motion through the smallest compatible motion primitive while preserving Reanimated and Skia for native drawing and gesture work.
 - [ ] Validate web, landscape simulator or device, real host session navigation, timeline paging, session switching, browser review, and cleanup after live fixtures.
