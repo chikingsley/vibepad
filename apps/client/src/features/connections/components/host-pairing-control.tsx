@@ -1,6 +1,9 @@
+import type { Observable } from "@legendapp/state";
+import { useObservable, useValue } from "@legendapp/state/react";
+import { $TextInput } from "@legendapp/state/react-native";
 import { useColorScheme } from "nativewind";
-import { useCallback, useState } from "react";
-import { Platform, TextInput, View } from "react-native";
+import { useCallback } from "react";
+import { Platform, View } from "react-native";
 
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -35,34 +38,141 @@ const normalizedHostUrl = (value: string) => {
   return url.toString().replace(trailingSlash, "");
 };
 
+interface PairingState {
+  code: string;
+  deviceName: string;
+  errorMessage: string | undefined;
+  hostUrl: string;
+  open: boolean;
+  pairing: boolean;
+}
+
+function PairingFields({
+  state$,
+  theme,
+}: {
+  readonly state$: Observable<PairingState>;
+  readonly theme: (typeof THEME)[keyof typeof THEME];
+}) {
+  return (
+    <>
+      <View className="gap-3 sm:flex-row">
+        <View className="min-w-0 flex-1 gap-1.5">
+          <Text className="font-medium text-xs">Host URL</Text>
+          <$TextInput
+            $value={state$.hostUrl}
+            autoCapitalize="none"
+            autoCorrect={false}
+            className="h-10 rounded-lg border border-border bg-background px-3 text-foreground text-sm outline-none"
+            keyboardType="url"
+            placeholder="http://100.x.y.z:4100"
+            placeholderTextColor={theme.mutedForeground}
+            style={{ color: theme.foreground }}
+            testID="host-pairing-url"
+          />
+        </View>
+        <View className="min-w-48 gap-1.5">
+          <Text className="font-medium text-xs">Pairing code</Text>
+          <$TextInput
+            $value={state$.code}
+            autoCapitalize="characters"
+            autoCorrect={false}
+            className="h-10 rounded-lg border border-border bg-background px-3 font-mono text-foreground text-sm outline-none"
+            placeholder="XXXX-XXXX"
+            placeholderTextColor={theme.mutedForeground}
+            style={{ color: theme.foreground }}
+            testID="host-pairing-code"
+          />
+        </View>
+      </View>
+      <View className="gap-1.5">
+        <Text className="font-medium text-xs">Device name</Text>
+        <$TextInput
+          $value={state$.deviceName}
+          autoCorrect={false}
+          className="h-10 rounded-lg border border-border bg-background px-3 text-foreground text-sm outline-none"
+          placeholder="VibePad on iPad"
+          placeholderTextColor={theme.mutedForeground}
+          style={{ color: theme.foreground }}
+          testID="host-pairing-device-name"
+        />
+      </View>
+    </>
+  );
+}
+
+function PairingError({
+  state$,
+}: {
+  readonly state$: Observable<PairingState>;
+}) {
+  const errorMessage = useValue(state$.errorMessage);
+  return errorMessage ? (
+    <Text className="text-red-600 text-xs">{errorMessage}</Text>
+  ) : null;
+}
+
+function PairingSubmit({
+  onPress,
+  state$,
+}: {
+  readonly onPress: () => void;
+  readonly state$: Observable<PairingState>;
+}) {
+  const code = useValue(state$.code);
+  const deviceName = useValue(state$.deviceName);
+  const hostUrl = useValue(state$.hostUrl);
+  const pairing = useValue(state$.pairing);
+
+  return (
+    <Button
+      className="self-end"
+      disabled={
+        pairing ||
+        hostUrl.trim().length === 0 ||
+        code.trim().length < 8 ||
+        deviceName.trim().length === 0
+      }
+      onPress={onPress}
+      size="sm"
+      testID="host-pairing-submit"
+    >
+      <Text>{pairing ? "Pairing…" : "Pair and use host"}</Text>
+    </Button>
+  );
+}
+
 export function HostPairingControl() {
   const host = useVibePadHost();
   const workspace = useVibePadWorkspaceStore();
   const { update } = useAppSettingsStore();
   const { colorScheme } = useColorScheme();
   const theme = THEME[colorScheme === "dark" ? "dark" : "light"];
-  const [code, setCode] = useState("");
-  const [deviceName, setDeviceName] = useState(defaultDeviceName);
-  const [errorMessage, setErrorMessage] = useState<string | undefined>();
-  const [hostUrl, setHostUrl] = useState("");
-  const [open, setOpen] = useState(false);
-  const [pairing, setPairing] = useState(false);
+  const state$ = useObservable<PairingState>({
+    code: "",
+    deviceName: defaultDeviceName,
+    errorMessage: undefined,
+    hostUrl: "",
+    open: false,
+    pairing: false,
+  });
+  const open = useValue(state$.open);
 
   const toggleOpen = useCallback(() => {
-    setOpen((current) => !current);
-    setErrorMessage(undefined);
-  }, []);
+    state$.open.set((current) => !current);
+    state$.errorMessage.set(undefined);
+  }, [state$]);
   const pair = useCallback(async () => {
-    if (pairing) {
+    if (state$.pairing.peek()) {
       return;
     }
-    setPairing(true);
-    setErrorMessage(undefined);
+    state$.pairing.set(true);
+    state$.errorMessage.set(undefined);
     try {
-      const url = normalizedHostUrl(hostUrl);
+      const url = normalizedHostUrl(state$.hostUrl.peek());
       const paired = await host.pair(url, {
-        code: code.trim(),
-        deviceName: deviceName.trim(),
+        code: state$.code.peek().trim(),
+        deviceName: state$.deviceName.peek().trim(),
       });
       update((current) => ({
         ...current,
@@ -76,19 +186,19 @@ export function HostPairingControl() {
           ],
         },
       }));
-      setCode("");
-      setOpen(false);
+      state$.code.set("");
+      state$.open.set(false);
       if (paired.hostId === host.hostId && url === host.baseUrl) {
         await workspace.refresh();
       }
     } catch (error) {
-      setErrorMessage(
+      state$.errorMessage.set(
         error instanceof Error ? error.message : "Unable to pair this host"
       );
     } finally {
-      setPairing(false);
+      state$.pairing.set(false);
     }
-  }, [code, deviceName, host, hostUrl, pairing, update, workspace]);
+  }, [host, state$, update, workspace]);
 
   return (
     <View className="gap-3">
@@ -116,67 +226,9 @@ export function HostPairingControl() {
               and stored separately from preferences.
             </Text>
           </View>
-          <View className="gap-3 sm:flex-row">
-            <View className="min-w-0 flex-1 gap-1.5">
-              <Text className="font-medium text-xs">Host URL</Text>
-              <TextInput
-                autoCapitalize="none"
-                autoCorrect={false}
-                className="h-10 rounded-lg border border-border bg-background px-3 text-foreground text-sm outline-none"
-                keyboardType="url"
-                onChangeText={setHostUrl}
-                placeholder="http://100.x.y.z:4100"
-                placeholderTextColor={theme.mutedForeground}
-                style={{ color: theme.foreground }}
-                testID="host-pairing-url"
-                value={hostUrl}
-              />
-            </View>
-            <View className="min-w-48 gap-1.5">
-              <Text className="font-medium text-xs">Pairing code</Text>
-              <TextInput
-                autoCapitalize="characters"
-                autoCorrect={false}
-                className="h-10 rounded-lg border border-border bg-background px-3 font-mono text-foreground text-sm outline-none"
-                onChangeText={setCode}
-                placeholder="XXXX-XXXX"
-                placeholderTextColor={theme.mutedForeground}
-                style={{ color: theme.foreground }}
-                testID="host-pairing-code"
-                value={code}
-              />
-            </View>
-          </View>
-          <View className="gap-1.5">
-            <Text className="font-medium text-xs">Device name</Text>
-            <TextInput
-              autoCorrect={false}
-              className="h-10 rounded-lg border border-border bg-background px-3 text-foreground text-sm outline-none"
-              onChangeText={setDeviceName}
-              placeholder="VibePad on iPad"
-              placeholderTextColor={theme.mutedForeground}
-              style={{ color: theme.foreground }}
-              testID="host-pairing-device-name"
-              value={deviceName}
-            />
-          </View>
-          {errorMessage ? (
-            <Text className="text-red-600 text-xs">{errorMessage}</Text>
-          ) : null}
-          <Button
-            className="self-end"
-            disabled={
-              pairing ||
-              hostUrl.trim().length === 0 ||
-              code.trim().length < 8 ||
-              deviceName.trim().length === 0
-            }
-            onPress={pair}
-            size="sm"
-            testID="host-pairing-submit"
-          >
-            <Text>{pairing ? "Pairing…" : "Pair and use host"}</Text>
-          </Button>
+          <PairingFields state$={state$} theme={theme} />
+          <PairingError state$={state$} />
+          <PairingSubmit onPress={pair} state$={state$} />
         </View>
       ) : null}
     </View>
@@ -186,16 +238,21 @@ export function HostPairingControl() {
 export function RevokeCurrentHostControl() {
   const host = useVibePadHost();
   const { update } = useAppSettingsStore();
-  const [errorMessage, setErrorMessage] = useState<string | undefined>();
-  const [revoking, setRevoking] = useState(false);
+  const operation$ = useObservable({
+    errorMessage: undefined as string | undefined,
+    revoking: false,
+  });
+  const { errorMessage, revoking } = useValue(operation$);
   const isPaired = useSettingsValue((state$) =>
     state$.settings.connections.hosts
       .get()
       .some((candidate) => candidate.id === host.hostId)
   );
   const revoke = useCallback(async () => {
-    setRevoking(true);
-    setErrorMessage(undefined);
+    if (operation$.revoking.peek()) {
+      return;
+    }
+    operation$.assign({ errorMessage: undefined, revoking: true });
     try {
       await host.revoke();
       update((current) => ({
@@ -211,13 +268,13 @@ export function RevokeCurrentHostControl() {
         },
       }));
     } catch (error) {
-      setErrorMessage(
+      operation$.errorMessage.set(
         error instanceof Error ? error.message : "Unable to revoke this device"
       );
     } finally {
-      setRevoking(false);
+      operation$.revoking.set(false);
     }
-  }, [host, update]);
+  }, [host, operation$, update]);
 
   if (!isPaired) {
     return null;
