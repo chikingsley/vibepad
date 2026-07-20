@@ -1,3 +1,4 @@
+import { useValue } from "@legendapp/state/react";
 import type { ProjectSummary } from "@vibepad/protocol/provider";
 import { useCallback } from "react";
 import { View } from "react-native";
@@ -8,7 +9,12 @@ import { Text } from "@/components/ui/text";
 import { ChangesSurface } from "@/features/changes/components/changes-surface";
 import { FilesSurface } from "@/features/files/components/files-surface";
 import { PreviewSurface } from "@/features/preview/components/preview-surface";
+import { emptyPreviewReviewDraft } from "@/features/preview/preview-review";
 import type { WorkbenchSurface } from "@/features/workspace/components/session-workbench-controls";
+import {
+  useVibePadPreviewStore,
+  useVibePadSessionComposerStore,
+} from "@/lib/vibepad-host-context";
 
 const titleForSurface = {
   changes: "Changes",
@@ -25,30 +31,78 @@ const iconForSurface = {
   "browser" | "folder" | "git-branch"
 >;
 
+function PreviewWorkbenchSurface({
+  expanded,
+  hostName,
+  onClose,
+  onSendReview,
+  onToggleExpanded,
+  sessionId,
+  showReviewTray,
+}: {
+  readonly expanded: boolean;
+  readonly hostName: string;
+  readonly onClose: () => void;
+  readonly onSendReview: () => void;
+  readonly onToggleExpanded: () => void;
+  readonly sessionId: string;
+  readonly showReviewTray: boolean;
+}) {
+  const composer = useVibePadSessionComposerStore();
+  const preview = useVibePadPreviewStore();
+  const state = useValue(() => {
+    const composer$ = composer.state$.bySessionId[sessionId];
+    const review$ = preview.state$.bySessionId[sessionId]?.review;
+    return {
+      cueCount:
+        review$?.cues.get().length ?? emptyPreviewReviewDraft.cues.length,
+      draftHasText: (composer$?.draft.get() ?? "").trim().length > 0,
+      pendingSelectionCount:
+        review$?.pendingSelectionCount.get() ??
+        emptyPreviewReviewDraft.pendingSelectionCount,
+      sendError: composer$?.sendError.get(),
+      sending: composer$?.sending.get() ?? false,
+    };
+  });
+  const canSendReview =
+    !state.sending &&
+    state.pendingSelectionCount === 0 &&
+    (state.draftHasText || state.cueCount > 0);
+
+  return (
+    <PreviewSurface
+      canSendReview={canSendReview}
+      errorMessage={state.sendError}
+      expanded={expanded}
+      hostName={hostName}
+      onClose={onClose}
+      onSendReview={onSendReview}
+      onToggleExpanded={onToggleExpanded}
+      sending={state.sending}
+      sessionId={sessionId}
+      showReviewTray={showReviewTray}
+    />
+  );
+}
+
 export function SessionWorkbench({
-  canSendReview,
   expanded,
   hostName,
   onClose,
   onSendReview,
   onToggleExpanded,
   project,
-  sendError,
   sessionId,
-  sending,
   showPreviewReviewTray,
   surface,
 }: {
-  readonly canSendReview: boolean;
   readonly expanded: boolean;
   readonly hostName: string;
   readonly onClose: () => void;
   readonly onSendReview: () => void;
   readonly onToggleExpanded: () => void;
   readonly project: ProjectSummary;
-  readonly sendError: string | undefined;
   readonly sessionId: string;
-  readonly sending: boolean;
   readonly showPreviewReviewTray: boolean;
   readonly surface: WorkbenchSurface;
 }) {
@@ -107,15 +161,12 @@ export function SessionWorkbench({
 
       {surface === "preview" ? (
         <View className="min-h-0 flex-1">
-          <PreviewSurface
-            canSendReview={canSendReview}
-            errorMessage={sendError}
+          <PreviewWorkbenchSurface
             expanded={expanded}
             hostName={hostName}
             onClose={close}
             onSendReview={onSendReview}
             onToggleExpanded={toggleExpanded}
-            sending={sending}
             sessionId={sessionId}
             showReviewTray={showPreviewReviewTray}
           />
