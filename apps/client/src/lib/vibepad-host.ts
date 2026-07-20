@@ -7,6 +7,22 @@ import {
   revokeHostPath,
   revokeHostResponseSchema,
 } from "@vibepad/protocol/auth";
+import {
+  type BrowserState,
+  type BrowserTarget,
+  type BrowserTargetActionRequest,
+  type BrowserViewSession,
+  browserPath,
+  browserStateResponseSchema,
+  browserTargetActionPath,
+  browserTargetActionResponseSchema,
+  browserTargetPath,
+  browserTargetResponseSchema,
+  browserTargetsPath,
+  browserViewSessionResponseSchema,
+  browserViewSessionsPath,
+  closeBrowserTargetResponseSchema,
+} from "@vibepad/protocol/browser";
 import type { ProviderManifest } from "@vibepad/protocol/capabilities";
 import type {
   ModelReference,
@@ -67,6 +83,7 @@ import { Platform } from "react-native";
 
 import { getClientInstallationMetadata } from "@/features/connections/client-installation-profile";
 import { hostCredentialStore } from "@/features/connections/host-credential-store";
+import { VibePadHostTransport } from "./vibepad-host-transport";
 
 const trailingSlash = /\/$/;
 const defaultBaseUrl =
@@ -97,35 +114,40 @@ export interface PairVibePadHostInput {
   readonly deviceName: string;
 }
 
+export interface BrowserViewConnection extends BrowserViewSession {
+  readonly url: string;
+}
+
 export const defaultVibePadHostConnection: VibePadHostConnection = {
   baseUrl: defaultBaseUrl,
   hostId: defaultHostId,
 };
 
 export class VibePadHostClient {
-  readonly #baseUrl: string;
-  readonly #hostId: string;
+  readonly #transport: VibePadHostTransport;
 
   constructor(connection = defaultVibePadHostConnection) {
-    this.#baseUrl = connection.baseUrl.replace(trailingSlash, "");
-    this.#hostId = connection.hostId;
+    this.#transport = new VibePadHostTransport(
+      connection.baseUrl.replace(trailingSlash, ""),
+      connection.hostId
+    );
   }
 
   get baseUrl() {
-    return this.#baseUrl;
+    return this.#transport.baseUrl;
   }
 
   get hostId() {
-    return this.#hostId;
+    return this.#transport.hostId;
   }
 
   async voiceRealtimeConnection(): Promise<{
     readonly protocols: readonly string[];
     readonly url: string;
   }> {
-    const url = new URL(voiceRealtimePath, `${this.#baseUrl}/`);
+    const url = new URL(voiceRealtimePath, `${this.#transport.baseUrl}/`);
     url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
-    const credential = await hostCredentialStore.read(this.#hostId);
+    const credential = await hostCredentialStore.read(this.#transport.hostId);
     return {
       protocols:
         credential?.kind === "bearer"
@@ -166,7 +188,7 @@ export class VibePadHostClient {
   async revoke(): Promise<void> {
     const response = await this.#write("DELETE", revokeHostPath);
     revokeHostResponseSchema.parse(response);
-    await hostCredentialStore.delete(this.#hostId);
+    await hostCredentialStore.delete(this.#transport.hostId);
   }
 
   async loadWorkspace(signal?: AbortSignal): Promise<WorkspaceSnapshot> {
@@ -183,6 +205,41 @@ export class VibePadHostClient {
       providers: providerListResponseSchema.parse(providers).data,
       sessions: sessionListResponseSchema.parse(sessions).data,
     };
+  }
+
+  async loadBrowser(signal?: AbortSignal): Promise<BrowserState> {
+    const response = await this.#get(browserPath, signal);
+    return browserStateResponseSchema.parse(response).data;
+  }
+
+  async createBrowserViewSession(): Promise<BrowserViewConnection> {
+    const response = await this.#post(browserViewSessionsPath, {});
+    const session = browserViewSessionResponseSchema.parse(response).data;
+    return {
+      ...session,
+      url: new URL(session.path, `${this.#transport.baseUrl}/`).toString(),
+    };
+  }
+
+  async createBrowserTarget(url: string): Promise<BrowserTarget> {
+    const response = await this.#post(browserTargetsPath, { url });
+    return browserTargetResponseSchema.parse(response).data;
+  }
+
+  async performBrowserTargetAction(
+    targetId: string,
+    action: BrowserTargetActionRequest
+  ): Promise<void> {
+    const response = await this.#post(
+      browserTargetActionPath(targetId),
+      action
+    );
+    browserTargetActionResponseSchema.parse(response);
+  }
+
+  async closeBrowserTarget(targetId: string): Promise<void> {
+    const response = await this.#write("DELETE", browserTargetPath(targetId));
+    closeBrowserTargetResponseSchema.parse(response);
   }
 
   async listServices(
@@ -385,8 +442,8 @@ export class VibePadHostClient {
       ? `?after=${encodeURIComponent(afterCursor)}`
       : "";
     const response = await streamingFetch(
-      `${this.#baseUrl}/v1/sessions/${encodeURIComponent(sessionId)}/events${after}`,
-      { headers: await this.#authorizationHeaders(), signal }
+      `${this.#transport.baseUrl}/v1/sessions/${encodeURIComponent(sessionId)}/events${after}`,
+      { headers: await this.#transport.authorizationHeaders(), signal }
     );
     if (!response.ok) {
       const message = await response.text();
@@ -422,55 +479,19 @@ export class VibePadHostClient {
     }
   }
 
-  async #get(path: string, signal?: AbortSignal): Promise<unknown> {
-    const response = await fetch(
-      `${this.#baseUrl}${path}`,
-      signal
-        ? { headers: await this.#authorizationHeaders(), signal }
-        : { headers: await this.#authorizationHeaders() }
-    );
-    if (!response.ok) {
-      const message = await response.text();
-      throw new Error(
-        `VibePad host ${response.status}: ${message || response.statusText}`
-      );
-    }
-    return response.json() as Promise<unknown>;
+  #get(path: string, signal?: AbortSignal): Promise<unknown> {
+    return this.#transport.get(path, signal);
   }
 
   #post(path: string, body: unknown): Promise<unknown> {
-    return this.#write("POST", path, body);
+    return this.#transport.post(path, body);
   }
 
-  async #write(
+  #write(
     method: "DELETE" | "PATCH" | "POST",
     path: string,
     body?: unknown
   ): Promise<unknown> {
-    const headers = await this.#authorizationHeaders();
-    if (body !== undefined) {
-      headers.set("Content-Type", "application/json");
-    }
-    const response = await fetch(`${this.#baseUrl}${path}`, {
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-      headers,
-      method,
-    });
-    if (!response.ok) {
-      const message = await response.text();
-      throw new Error(
-        `VibePad host ${response.status}: ${message || response.statusText}`
-      );
-    }
-    return response.json() as Promise<unknown>;
-  }
-
-  async #authorizationHeaders(): Promise<Headers> {
-    const headers = new Headers();
-    const credential = await hostCredentialStore.read(this.#hostId);
-    if (credential?.kind === "bearer") {
-      headers.set("Authorization", `Bearer ${credential.token}`);
-    }
-    return headers;
+    return this.#transport.write(method, path, body);
   }
 }

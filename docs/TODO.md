@@ -141,15 +141,16 @@ The detailed shared, OpenCode, and Codex surface inventory is maintained in [`pr
 
 ### Universal preview surface
 
-- [ ] Define the preview URL, lifecycle state, logs, and metadata contract.
+- [ ] Define the ordinary project-preview URL, lifecycle state, logs, ownership, and metadata contract separately from the persistent browser runtime.
 - [x] Render browser previews with a web frame on web.
 - [x] Render remote URLs with `react-native-webview` on iOS and Android.
 - [x] Add reload, back, forward, and open-external controls.
-- [x] Disable back and forward until the current browser target reports usable history, and keep native WebView navigation state authoritative.
+- [x] Disable back and forward until the active host browser target reports usable CDP history.
 - [x] Remove the redundant Preview title strip and keep navigation, external, expand, and close controls in one browser toolbar.
 - [ ] Add viewport and connection-state controls.
-- [x] Add Select and Draw modes over the same preview: preserve normalized selection points, DOM metadata when hit-testing is available, and vector strokes with cue-relative timestamps.
-- [x] Keep coordinate-only selection as the explicit cross-origin fallback and use DOM hit-testing for same-origin web content and injected native WebView content.
+- [x] Add Select and Draw modes over the same preview: preserve normalized selection points and vector strokes with cue-relative timestamps.
+- [x] Prove the richer DOM-anchor payload against the direct component fixture while retaining coordinate-only selection for the remote Kasm surface.
+- [ ] Resolve Kasm selections against the exact active target through broker-side CDP hit testing before claiming DOM anchoring for the shared browser path.
 - [x] Send a timecoded selection/stroke/note bundle to a real OpenCode session and clean up the tagged test session afterward.
 - [x] Preserve preview feedback when switching Chat/Preview and when switching between open session work contexts.
 - [x] Put timestamped review captures in the existing chat composer in split view and show the same draft in a floating Cancel/Send tray only when Preview hides chat.
@@ -157,23 +158,26 @@ The detailed shared, OpenCode, and Codex surface inventory is maintained in [`pr
 - [ ] Add screenshot attachments without flattening or discarding the vector and DOM feedback payload.
 - [x] Select the timestamped capture strip from `/design/attachments` and keep one shared review draft, composer, and attachment primitive.
 - [x] Use `/design/preview-fixture` as a real interactive component playground instead of recursively previewing VibePad inside itself; make Select snap to semantic controls and explicit test/component boundaries.
-- [x] Add session-local browser tabs with independent URL, history, loading state, and mounted native/web page state; convert native new-window requests into another VibePad tab.
-- [x] Keep native preview browsing out of incognito mode with cookies, shared cookie storage, DOM storage, and cache explicitly enabled.
-- [x] Make browser-tab close target-only: it must not stop a dev server, browser profile, host process, or harness session, and closing the last page only hides Preview.
-- [ ] Define the host browser-broker contract for profile create/list/select/clear/isolate, target open/list/focus/close, navigation, input, screenshot/stream, downloads, and crash recovery.
-- [ ] Move page targets and authenticated profiles to the host preview broker so a named persistent profile can retain cookies, local storage, IndexedDB, service workers, cache, logins, and history across devices.
-- [ ] Back each named profile with a real host Chrome/Chromium user-data directory, keep disposable cache separate, and enforce one broker-owned process lock per active profile.
-- [ ] Keep raw CDP/browser-control ports private behind the host API, authenticate the local control seam, and recover targets after a browser or host restart.
-- [ ] Stream and control the broker's exact page target in VibePad; never imply that loading the same URL in a second WebView shares the browser session.
+- [x] Add host-profile browser targets with independent URL and history, and keep their tab strip subordinate to the selected harness-session work context.
+- [x] Render the broker's exact persistent surface through the web iframe and native WebView instead of creating an on-device browsing profile.
+- [x] Make browser-tab close target-only: it must not stop a dev server, browser profile, host process, Kasm stack, or harness session.
+- [x] Define the first authenticated browser-broker contract for target list/create/focus/close, navigation, and a short-lived live surface.
+- [ ] Extend the broker contract with profile create/list/select/clear/isolate, screenshots, downloads, explicit crash reporting, and project-preview ownership.
+- [x] Move page targets and the default authenticated profile to the host broker so cookies, local storage, IndexedDB, service workers, cache, logins, and history belong to one shared browser.
+- [x] Back the default profile with a real VibePad-only Chrome user-data directory, keep disposable cache separate, and enforce one broker-owned process lock.
+- [x] Keep raw CDP and KasmVNC ports on loopback, authenticate the remote host API, and journal restorable HTTP/HTTPS targets across browser restarts.
+- [x] Stream and control the broker's exact page target in VibePad; never imply that loading the same URL in a second WebView shares the browser session.
 - [x] Pin Agent Browser 0.32.2 in the blank-host installer, install a compatible Chrome for Testing, and pass a real headless launch doctor on both GMK and Hojo without changing global packages.
-- [ ] Expose broker-backed browser tools to VibePad-launched harnesses without requiring a separate manual install; GMK's cookie/local-storage restore and dashboard checks pass, while a fresh full-profile restart currently loses its daemon connection and remains an acceptance blocker.
+- [ ] Prove that each VibePad-launched Codex and OpenCode harness discovers and prefers the installed VibePad Agent Browser configuration without a manual tool install.
 - [ ] Route VibePad-launched harnesses to the selected broker profile through the installed browser MCP/tool configuration while leaving independently launched harnesses opt-in.
 - [ ] Add a human-visible first-login flow, persistent profile selection, and explicit clear/isolate operations without exposing credentials to agents.
-- [ ] Support remote hosts without a physical display in headless mode and keep a headed or virtual-display fallback for incompatible sites; GMK proves the headless and dashboard path, while Xvfb is absent and the headed fallback remains unproved.
+- [x] Run the human-visible Kasm Chrome surface on headless GMK through its dedicated virtual display.
+- [ ] Prove the equivalent isolated browser install and visible fallback on supported macOS hosts.
 - [ ] Represent profile and target ownership as host/control-plane resources so concurrent agents coordinate leases with the human and one another.
-- [ ] Prove that human interaction and agent navigation operate on the same browser target instead of showing two diverging mirrored sessions.
-- [ ] Prove cookie/login, tab, download, and history persistence across app, host, and browser restarts, plus explicit profile clearing and isolation.
-- [ ] Prove Fast Refresh while the preview remains open.
+- [x] Prove that human interaction through KasmVNC and Agent Browser navigation through the private CDP endpoint operate on the same target and profile.
+- [x] Prove cookie, local-storage, and tab persistence through a full isolated-browser stop/start, then remove the exact test state.
+- [ ] Prove real login, download, and navigation-history persistence plus explicit profile clearing and isolation.
+- [x] Prove Fast Refresh and host-service restart while Preview remains open and reconnect the live surface without restarting the independent browser stack.
 
 ### Voice and review capture
 

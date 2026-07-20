@@ -75,7 +75,6 @@ export function createProjectResourcesStore(
   });
   const catalogRequests = new Map<string, PendingRequest>();
   const serviceRequests = new Map<string, PendingRequest>();
-  let active = true;
 
   const loadCatalog = async (projectId: string, refresh = false) => {
     const current =
@@ -96,7 +95,6 @@ export function createProjectResourcesStore(
     try {
       const data = await host.loadCatalog(projectId, request.controller.signal);
       if (
-        active &&
         !request.controller.signal.aborted &&
         catalogRequests.get(projectId) === request
       ) {
@@ -106,7 +104,6 @@ export function createProjectResourcesStore(
       }
     } catch (error) {
       if (
-        active &&
         !request.controller.signal.aborted &&
         catalogRequests.get(projectId) === request
       ) {
@@ -147,7 +144,6 @@ export function createProjectResourcesStore(
         request.controller.signal
       );
       if (
-        active &&
         !request.controller.signal.aborted &&
         serviceRequests.get(projectId) === request
       ) {
@@ -157,7 +153,6 @@ export function createProjectResourcesStore(
       }
     } catch (error) {
       if (
-        active &&
         !request.controller.signal.aborted &&
         serviceRequests.get(projectId) === request
       ) {
@@ -178,12 +173,25 @@ export function createProjectResourcesStore(
 
   return {
     cancelPending: () => {
-      active = false;
-      for (const { controller } of catalogRequests.values()) {
+      for (const [projectId, { controller }] of catalogRequests) {
         controller.abort();
+        if (
+          state$.catalogsByProjectId[projectId]?.peek().status === "loading"
+        ) {
+          state$.catalogsByProjectId.assign({
+            [projectId]: idleProviderCatalogState,
+          });
+        }
       }
-      for (const { controller } of serviceRequests.values()) {
+      for (const [projectId, { controller }] of serviceRequests) {
         controller.abort();
+        if (
+          state$.servicesByProjectId[projectId]?.peek().status === "loading"
+        ) {
+          state$.servicesByProjectId.assign({
+            [projectId]: idleProjectServicesState,
+          });
+        }
       }
       catalogRequests.clear();
       serviceRequests.clear();

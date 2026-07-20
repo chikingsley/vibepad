@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 
+import { VibePadBrowserRuntime } from "./browser-runtime";
 import { serviceLabel, systemdUnitName } from "./service-files";
 import { HostServiceManager } from "./service-manager";
 
@@ -101,6 +102,22 @@ const streamLogs = () => {
   });
 };
 
+const installedBrowserOptions = async () => {
+  try {
+    const browser = await new VibePadBrowserRuntime().status();
+    return browser.healthy
+      ? {
+          agentBrowserConfig: browser.agentBrowserConfig,
+          browserCdpUrl: browser.cdpUrl,
+          browserEnabled: true,
+          browserSurfaceUrl: browser.surfaceUrl,
+        }
+      : { browserEnabled: false };
+  } catch {
+    return { browserEnabled: false };
+  }
+};
+
 const main = async () => {
   const [command, ...args] = process.argv.slice(2);
   const manager = new HostServiceManager();
@@ -113,7 +130,10 @@ const main = async () => {
     return;
   }
   if (command === "install") {
-    const result = await manager.install(parseInstallOptions(args));
+    const result = await manager.install({
+      ...parseInstallOptions(args),
+      ...(await installedBrowserOptions()),
+    });
     console.info(JSON.stringify(result, null, 2));
     if (!result.healthy && result.started) {
       throw new Error(

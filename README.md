@@ -32,13 +32,22 @@ bun run check
 
 The blank-host installer keeps provider credentials in their normal Codex and OpenCode stores and installs version-matched host tools under VibePad's own application-data directory. It does not replace global Homebrew, Bun, or npm packages. Tailscale must already be installed, connected, and reporting an IPv4 address.
 
-From a checkout, install Bun if needed, install the selected managed tools, verify provider-owned authentication, download Chrome for Agent Browser, and install the user service with:
+From a checkout, install Bun if needed, install the selected managed tools, verify provider-owned authentication, install Agent Browser plus VibePad's isolated Kasm browser, and install the user service with:
 
 ```sh
 ./scripts/install-host.sh --yes --project-root "$HOME/GitHub"
 ```
 
 Without `--yes`, an interactive terminal asks before installing Bun or any managed tools. Use `--without-codex`, `--without-opencode`, or `--without-browser` to omit a component. The source/bootstrap layer also supports `--install-dir`, `--repo-url`, `--ref`, and `--source`; run `./scripts/install-host.sh --help` for the complete surface.
+
+The browser option requires a running Docker engine and Compose plugin. It creates a dedicated `vibepad-browser` Compose project with VibePad-only profile, cache, download, and runtime paths. It does not reuse or modify a personal Kasm stack. Its explicit lifecycle commands are:
+
+```sh
+bun run host:browser -- install
+bun run host:browser -- status
+bun run host:browser -- stop
+bun run host:browser -- start
+```
 
 Once Tailscale is connected, an existing checkout can also inspect and install the lower-level host service directly:
 

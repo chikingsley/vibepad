@@ -19,6 +19,7 @@ const AuthenticatedWebSocket = WebSocket as unknown as BunWebSocketConstructor;
 
 export interface VoiceRealtimeSocketData {
   closed: boolean;
+  kind: "voice";
   pending: (string | Uint8Array<ArrayBuffer>)[];
   pendingBytes: number;
   principal: HostAuthPrincipal | undefined;
@@ -170,6 +171,7 @@ export class VoiceRealtimeBridge {
     const upgraded = server.upgrade(request, {
       data: {
         closed: false,
+        kind: "voice",
         pending: [],
         pendingBytes: 0,
         principal: options.principal,

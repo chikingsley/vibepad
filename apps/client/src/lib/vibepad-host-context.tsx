@@ -22,6 +22,10 @@ import {
   type InteractionResponseStore,
 } from "@/features/interactions/state/interaction-response-store";
 import {
+  type BrowserStore,
+  createBrowserStore,
+} from "@/features/preview/state/browser-store";
+import {
   createPreviewStore,
   type PreviewStore,
 } from "@/features/preview/state/preview-store";
@@ -55,6 +59,7 @@ import {
 } from "@/lib/vibepad-host";
 
 interface VibePadHostRuntime {
+  readonly browser: BrowserStore;
   readonly client: VibePadHostClient;
   readonly fileNavigation: FileNavigationStore;
   readonly interactionResponses: InteractionResponseStore;
@@ -84,6 +89,7 @@ export function VibePadHostProvider({
     const client = new VibePadHostClient({ baseUrl, hostId });
     const workspace = createWorkspaceStore(client);
     return {
+      browser: createBrowserStore(client),
       client,
       fileNavigation: createFileNavigationStore(),
       interactionResponses: createInteractionResponseStore(),
@@ -103,6 +109,7 @@ export function VibePadHostProvider({
   }, [baseUrl, hostId]);
   useEffect(
     () => () => {
+      runtime.browser.cancelPending();
       runtime.projectFiles.cancelPending();
       runtime.projectResources.cancelPending();
       runtime.sessionRuntime.cancelPending();
@@ -127,6 +134,8 @@ const useVibePadHostRuntime = () => {
 };
 
 export const useVibePadHost = () => useVibePadHostRuntime().client;
+
+export const useVibePadBrowserStore = () => useVibePadHostRuntime().browser;
 
 export const useVibePadFileNavigationStore = () =>
   useVibePadHostRuntime().fileNavigation;

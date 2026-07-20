@@ -1,6 +1,8 @@
 import { Database } from "bun:sqlite";
+import { fileURLToPath } from "node:url";
 import { pairHostResponseSchema } from "@vibepad/protocol/auth";
 import { OpenCodeAdapter } from "@vibepad/provider-opencode/adapter";
+import { spawn } from "bun";
 
 import { HostAuthService } from "./host-auth";
 import { createRequestHandler } from "./http";
@@ -15,7 +17,24 @@ const hostAuth = new HostAuthService({
   hostId: "hochi",
   hostName: "Hochi",
 });
+const lockFixturePath = fileURLToPath(
+  new URL("./host-auth-lock.fixture.ts", import.meta.url)
+);
+const lockHolder = spawn(["bun", lockFixturePath, databasePath], {
+  stdout: "pipe",
+});
+const lockOutput = lockHolder.stdout.getReader();
+const { value: lockReady } = await lockOutput.read();
+lockOutput.releaseLock();
+if (new TextDecoder().decode(lockReady).trim() !== "locked") {
+  throw new Error("host-auth lock fixture did not acquire its write lock");
+}
+const pairingStartedAt = performance.now();
 const pairing = hostAuth.createPairingCode();
+const concurrentWriterWaitMs = performance.now() - pairingStartedAt;
+if ((await lockHolder.exited) !== 0) {
+  throw new Error("host-auth lock fixture failed");
+}
 const handler = createRequestHandler(
   new OpenCodeAdapter("http://127.0.0.1:1"),
   "Hochi",
@@ -157,6 +176,7 @@ console.log(
     afterRevocation: afterRevocation.status,
     authenticated: authenticated.status,
     browserLoopback: browserLoopback.status,
+    concurrentWriterWaited: concurrentWriterWaitMs >= 100,
     hostId: paired.hostId,
     loopback: loopback.status,
     metadataPersisted:

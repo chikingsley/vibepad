@@ -36,7 +36,6 @@ export function createSessionRuntimeStore(
   const interactionRequests = new Map<string, number>();
   const loadedOlder = new Set<string>();
   const olderControllers = new Map<string, AbortController>();
-  let active = true;
 
   const ensureSession = (sessionId: string) => {
     if (state$.bySessionId.peek()[sessionId] === undefined) {
@@ -64,7 +63,7 @@ export function createSessionRuntimeStore(
         sessionId,
         interactionSignal
       );
-      if (active && interactionRequests.get(sessionId) === revision) {
+      if (interactionRequests.get(sessionId) === revision) {
         batch(() => {
           session$.interactions.set(interactions);
           session$.interactionsError.set(undefined);
@@ -72,7 +71,7 @@ export function createSessionRuntimeStore(
         });
       }
     } catch (error) {
-      if (active && interactionRequests.get(sessionId) === revision) {
+      if (interactionRequests.get(sessionId) === revision) {
         batch(() => {
           session$.interactions.set([]);
           session$.interactionsError.set(runtimeErrorMessage(error));
@@ -104,7 +103,10 @@ export function createSessionRuntimeStore(
         controller.signal,
         timeline.olderCursor
       );
-      if (!(active && !controller.signal.aborted)) {
+      if (
+        controller.signal.aborted ||
+        olderControllers.get(sessionId) !== controller
+      ) {
         return;
       }
       const current = session$.timeline.peek();
@@ -113,15 +115,16 @@ export function createSessionRuntimeStore(
         session$.timeline.set(prependOlderTimelinePage(current, older));
       }
     } catch (error) {
-      if (active && !controller.signal.aborted) {
+      if (
+        !controller.signal.aborted &&
+        olderControllers.get(sessionId) === controller
+      ) {
         session$.olderLoadError.set(runtimeErrorMessage(error));
       }
     } finally {
       if (olderControllers.get(sessionId) === controller) {
         olderControllers.delete(sessionId);
-        if (active) {
-          session$.loadingOlder.set(false);
-        }
+        session$.loadingOlder.set(false);
       }
     }
   };
@@ -132,7 +135,7 @@ export function createSessionRuntimeStore(
     let activation: SessionActivation;
     const transport = createSessionActivation({
       host,
-      isCurrent: () => active && activations.get(sessionId) === activation,
+      isCurrent: () => activations.get(sessionId) === activation,
       onSessionReady,
       preserveLoadedHistory: () => loadedOlder.has(sessionId),
       refreshInteractions: (showLoading) =>
@@ -155,12 +158,12 @@ export function createSessionRuntimeStore(
   return {
     activateSession,
     cancelPending: () => {
-      active = false;
       for (const activation of [...activations.values()]) {
         activation.stop();
       }
-      for (const controller of olderControllers.values()) {
+      for (const [sessionId, controller] of olderControllers) {
         controller.abort();
+        state$.bySessionId[sessionId]?.loadingOlder.set(false);
       }
       activations.clear();
       interactionRequests.clear();

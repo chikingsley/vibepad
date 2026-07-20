@@ -169,6 +169,7 @@ export function SessionWorkbench({
         entering={FadeIn.duration(140).reduceMotion(ReduceMotion.System)}
         exiting={FadeOut.duration(100).reduceMotion(ReduceMotion.System)}
         key={surface}
+        style={{ flex: 1, minHeight: 0 }}
       >
         {surface === "preview" ? (
           <PreviewWorkbenchSurface

@@ -67,7 +67,6 @@ export function createProjectFilesStore(
   const changeRequests = new Map<string, PendingRequest>();
   const contentRequests = new Map<string, PendingRequest>();
   const directoryRequests = new Map<string, PendingRequest>();
-  let active = true;
   let nextRevision = 0;
 
   const beginRequest = (requests: Map<string, PendingRequest>, key: string) => {
@@ -85,10 +84,7 @@ export function createProjectFilesStore(
     requests: Map<string, PendingRequest>,
     key: string,
     request: PendingRequest
-  ) =>
-    active &&
-    !request.controller.signal.aborted &&
-    requests.get(key) === request;
+  ) => !request.controller.signal.aborted && requests.get(key) === request;
 
   const finishRequest = (
     requests: Map<string, PendingRequest>,
@@ -231,17 +227,37 @@ export function createProjectFilesStore(
 
   return {
     cancelPending: () => {
-      active = false;
-      for (const requests of [
-        changeRequests,
-        contentRequests,
-        directoryRequests,
-      ]) {
-        for (const { controller } of requests.values()) {
-          controller.abort();
+      for (const [projectId, { controller }] of changeRequests) {
+        controller.abort();
+        const current = state$.changesByProjectId[projectId]?.peek();
+        if (current?.status === "loading") {
+          state$.changesByProjectId.assign({
+            [projectId]: { data: current.data, status: "idle" },
+          });
         }
-        requests.clear();
       }
+      for (const [key, { controller }] of contentRequests) {
+        controller.abort();
+        const [projectId, path] = JSON.parse(key) as [string, string];
+        const project$ = state$.contentsByProjectId[projectId];
+        if (project$?.[path]?.peek().status === "loading") {
+          project$.assign({ [path]: idleFileContentState });
+        }
+      }
+      for (const [key, { controller }] of directoryRequests) {
+        controller.abort();
+        const [projectId, path] = JSON.parse(key) as [string, string];
+        const project$ = state$.directoriesByProjectId[projectId];
+        const current = project$?.[path]?.peek();
+        if (project$ && current?.status === "loading") {
+          project$.assign({
+            [path]: { data: current.data, status: "idle" },
+          });
+        }
+      }
+      changeRequests.clear();
+      contentRequests.clear();
+      directoryRequests.clear();
     },
     loadChanges,
     loadContent,

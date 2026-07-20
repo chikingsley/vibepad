@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     "./auth": "./src/auth.ts",
+    "./browser": "./src/browser.ts",
     "./capabilities": "./src/capabilities.ts",
     "./catalog": "./src/catalog.ts",
     "./events": "./src/events.ts",

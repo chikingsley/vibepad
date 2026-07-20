@@ -11,6 +11,9 @@ const defaultStateDirectory =
 
 const hostConfigSchema = z.object({
   agentBrowserExecutable: z.string().min(1).optional(),
+  browserCdpUrl: z.url().optional(),
+  browserEnabled: z.boolean(),
+  browserSurfaceUrl: z.url().optional(),
   codexEnabled: z.boolean(),
   codexExecutable: z.string().min(1),
   codexProjectRoots: z.array(z.string().min(1)),
@@ -40,6 +43,9 @@ export const loadHostConfig = () => {
     OPENCODE_SERVER_PASSWORD,
     OPENCODE_SERVER_USERNAME,
     VIBEPAD_CODEX_ENABLED,
+    VIBEPAD_BROWSER_CDP_URL,
+    VIBEPAD_BROWSER_ENABLED,
+    VIBEPAD_BROWSER_SURFACE_URL,
     VIBEPAD_CODEX_PROJECT_ROOTS,
     VIBEPAD_HOST_ID,
     VIBEPAD_HOST_NAME,
@@ -54,6 +60,9 @@ export const loadHostConfig = () => {
 
   return hostConfigSchema.parse({
     agentBrowserExecutable: AGENT_BROWSER_BIN,
+    browserCdpUrl: VIBEPAD_BROWSER_CDP_URL,
+    browserEnabled: VIBEPAD_BROWSER_ENABLED === "1",
+    browserSurfaceUrl: VIBEPAD_BROWSER_SURFACE_URL,
     codexEnabled: VIBEPAD_CODEX_ENABLED !== "0",
     codexExecutable: CODEX_BIN ?? "codex",
     codexProjectRoots: (VIBEPAD_CODEX_PROJECT_ROOTS ?? defaultCodexProjectRoot)

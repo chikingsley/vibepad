@@ -40,7 +40,6 @@ export function createSettingsStore(storage: SettingsStorage): SettingsStore {
     persistenceState: "loading",
     settings: createDefaultAppSettings(),
   });
-  let active = true;
   let loadRevision = 0;
   let writeRevision = 0;
   let writeQueue = Promise.resolve();
@@ -53,7 +52,7 @@ export function createSettingsStore(storage: SettingsStorage): SettingsStore {
     }
     try {
       const stored = await storage.readSettings();
-      if (active && loadRevision === revision && writeRevision === 0) {
+      if (loadRevision === revision && writeRevision === 0) {
         batch(() => {
           state$.errorMessage.set(undefined);
           state$.settings.set(stored);
@@ -61,7 +60,7 @@ export function createSettingsStore(storage: SettingsStorage): SettingsStore {
         });
       }
     } catch (error) {
-      if (active && loadRevision === revision && writeRevision === 0) {
+      if (loadRevision === revision && writeRevision === 0) {
         batch(() => {
           state$.errorMessage.set(errorMessage(error));
           state$.persistenceState.set("error");
@@ -82,12 +81,12 @@ export function createSettingsStore(storage: SettingsStorage): SettingsStore {
       .then(() => storage.writeSettings(next));
     writeQueue
       .then(() => {
-        if (active && writeRevision === revision) {
+        if (writeRevision === revision) {
           state$.persistenceState.set("ready");
         }
       })
       .catch((error: unknown) => {
-        if (active && writeRevision === revision) {
+        if (writeRevision === revision) {
           batch(() => {
             state$.errorMessage.set(errorMessage(error));
             state$.persistenceState.set("error");
@@ -108,7 +107,6 @@ export function createSettingsStore(storage: SettingsStorage): SettingsStore {
 
   return {
     cancelPending: () => {
-      active = false;
       loadRevision += 1;
     },
     load,

@@ -14,6 +14,8 @@ const pairingAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const pairingCodeCharacters = 8;
 const pairingCodeMaxFailedAttempts = 5;
 const pairingCodeTtlMs = 10 * 60 * 1000;
+const databaseBusyTimeoutMs = 5000;
+const lastSeenWriteIntervalMs = 60 * 1000;
 const bearerPrefix = "vp_";
 
 interface PairingCodeRow {
@@ -34,6 +36,7 @@ interface PairedDeviceRow {
   readonly device_model: string | null;
   readonly device_name: string;
   readonly installation_id: string | null;
+  readonly last_seen_at: string;
   readonly os_version: string | null;
   readonly platform: string | null;
 }
@@ -103,6 +106,7 @@ export class HostAuthService {
     });
     this.#hostId = options.hostId;
     this.#hostName = options.hostName;
+    this.#database.exec(`PRAGMA busy_timeout = ${databaseBusyTimeoutMs}`);
     this.#database.exec("PRAGMA foreign_keys = ON");
     this.#database.exec("PRAGMA journal_mode = WAL");
     this.#database.exec("PRAGMA synchronous = FULL");
@@ -165,6 +169,7 @@ export class HostAuthService {
           paired_device_metadata.client_version,
           paired_device_metadata.device_model,
           paired_device_metadata.installation_id,
+          paired_devices.last_seen_at,
           paired_device_metadata.os_version,
           paired_device_metadata.platform
         FROM paired_devices
@@ -177,13 +182,19 @@ export class HostAuthService {
     if (!row) {
       return;
     }
-    this.#database
-      .query<unknown, [string, string]>(`
-        UPDATE paired_devices
-        SET last_seen_at = ?
-        WHERE device_id = ?
-      `)
-      .run(new Date().toISOString(), row.device_id);
+    const now = new Date();
+    if (
+      Date.parse(row.last_seen_at) <=
+      now.getTime() - lastSeenWriteIntervalMs
+    ) {
+      this.#database
+        .query<unknown, [string, string]>(`
+          UPDATE paired_devices
+          SET last_seen_at = ?
+          WHERE device_id = ?
+        `)
+        .run(now.toISOString(), row.device_id);
+    }
     return {
       clientMetadata: {
         appId: row.app_id ?? "studio.peacockery.vibepad",

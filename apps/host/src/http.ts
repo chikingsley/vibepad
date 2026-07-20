@@ -18,6 +18,8 @@ import {
   voiceCleanupPath,
   voiceCleanupRequestSchema,
 } from "@vibepad/protocol/voice";
+import { ZodError } from "zod";
+import { type BrowserService, BrowserServiceError } from "./browser-service";
 import {
   type HostAuthController,
   HostAuthError,
@@ -67,6 +69,18 @@ const json = (value: unknown, status = 200) =>
     headers: corsHeaders,
     status,
   });
+
+const withCors = (response: Response) => {
+  const headers = new Headers(response.headers);
+  for (const [name, value] of Object.entries(corsHeaders)) {
+    headers.set(name, value);
+  }
+  return new Response(response.body, {
+    headers,
+    status: response.status,
+    statusText: response.statusText,
+  });
+};
 
 const hostHealth = async (
   adapter: HarnessAdapter | ProviderRouter,
@@ -406,7 +420,8 @@ const handleHostAuthRequest = async (
   request: Request,
   url: URL,
   server?: RequestTimeoutController,
-  hostAuth?: HostAuthController
+  hostAuth?: HostAuthController,
+  browser?: BrowserService
 ): Promise<Response | undefined> => {
   if (request.method === "POST" && url.pathname === pairHostPath) {
     if (!hostAuth) {
@@ -423,13 +438,16 @@ const handleHostAuthRequest = async (
     );
   }
   if (request.method === "DELETE" && url.pathname === revokeHostPath) {
-    if (!hostAuth?.revokeAuthorization(request.headers.get("authorization"))) {
+    const authorization = request.headers.get("authorization");
+    const principal = hostAuth?.authenticateAuthorization(authorization);
+    if (!(principal && hostAuth?.revokeAuthorization(authorization))) {
       throw new HostAuthError(
         "unauthorized",
         "A valid paired-device credential is required",
         401
       );
     }
+    browser?.revokeDevice(principal.deviceId);
     return json({ revoked: true });
   }
 };
@@ -477,14 +495,19 @@ const routeRequest = async (
   request: Request,
   server?: RequestTimeoutController,
   voiceHttp?: VoiceHttpService,
-  hostAuth?: HostAuthController
+  hostAuth?: HostAuthController,
+  browser?: BrowserService
 ) => {
   const url = new URL(request.url);
+  if (browser?.isViewAssetRequest(url.pathname)) {
+    return browser.handleViewAsset(request, url);
+  }
   const hostAuthResponse = await handleHostAuthRequest(
     request,
     url,
     server,
-    hostAuth
+    hostAuth,
+    browser
   );
   if (hostAuthResponse) {
     return hostAuthResponse;
@@ -492,6 +515,14 @@ const routeRequest = async (
   const authorization = authorizeRemoteRequest(request, url, server, hostAuth);
   if (authorization instanceof Response) {
     return authorization;
+  }
+  const browserResponse = await browser?.handleAuthorizedHttp(
+    request,
+    url,
+    authorization
+  );
+  if (browserResponse) {
+    return withCors(browserResponse);
   }
   const voiceResponse = await handleVoiceHttp(
     request,
@@ -543,6 +574,19 @@ const requestErrorResponse = (error: unknown) => {
   if (error instanceof VoiceServiceError) {
     return json({ error: error.code, message: error.message }, error.status);
   }
+  if (error instanceof BrowserServiceError) {
+    return json({ error: error.code, message: error.message }, error.status);
+  }
+  if (error instanceof ZodError) {
+    return json(
+      {
+        error: "invalid_request",
+        issues: error.issues,
+        message: "Request validation failed",
+      },
+      400
+    );
+  }
   const message = error instanceof Error ? error.message : "Unknown host error";
   return json({ error: "upstream_unavailable", message }, 503);
 };
@@ -552,7 +596,8 @@ export const createRequestHandler =
     adapter: HarnessAdapter,
     hostName: string,
     voiceHttp?: VoiceHttpService,
-    hostAuth?: HostAuthController
+    hostAuth?: HostAuthController,
+    browser?: BrowserService
   ) =>
   async (request: Request, server?: RequestTimeoutController) => {
     if (request.method === "OPTIONS") {
@@ -566,7 +611,8 @@ export const createRequestHandler =
         request,
         server,
         voiceHttp,
-        hostAuth
+        hostAuth,
+        browser
       );
     } catch (error) {
       return requestErrorResponse(error);

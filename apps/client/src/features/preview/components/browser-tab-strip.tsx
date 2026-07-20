@@ -128,13 +128,13 @@ export function BrowserTabStrip({
         <Icon className="text-muted-foreground" name="plus" size={13} />
       </Button>
       <View
-        accessibilityLabel="Persistent on-device WebView data"
+        accessibilityLabel="Persistent VibePad host browser"
         className="mx-1.5 mb-1 hidden h-6 flex-row items-center gap-1.5 rounded-md bg-background/80 px-2 sm:flex"
         testID="browser-profile-status"
       >
         <Icon className="text-muted-foreground" name="browser" size={10} />
         <Text className="text-[9px]" variant="muted">
-          On-device
+          VibePad host
         </Text>
       </View>
     </View>

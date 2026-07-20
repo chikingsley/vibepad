@@ -52,6 +52,7 @@ describe("VibePad Browser runtime", () => {
     const agentBrowser = JSON.parse(
       renderAgentBrowserConfig(paths, configuration)
     ) as Record<string, unknown>;
+    const surfaceProxy = await readFile(paths.proxyConfig, "utf8");
 
     expect(paths.profileDirectory).toBe(
       join(home, ".local/share/vibepad/browser/profiles/default")
@@ -65,6 +66,9 @@ describe("VibePad Browser runtime", () => {
       namespace: "vibepad",
       session: "vibepad-live",
     });
+    expect(surfaceProxy).toContain(
+      "proxy_set_header Origin https://127.0.0.1:6901;"
+    );
   });
 
   it("installs private runtime files without changing global browser config", async () => {

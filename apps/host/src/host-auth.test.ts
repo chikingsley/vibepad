@@ -23,6 +23,7 @@ it("pairs, authenticates, revokes, and preserves loopback access through a real 
       afterRevocation: 401,
       authenticated: 200,
       browserLoopback: 401,
+      concurrentWriterWaited: true,
       hostId: "hochi",
       loopback: 200,
       metadataPersisted: true,

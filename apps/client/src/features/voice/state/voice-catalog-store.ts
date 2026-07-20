@@ -31,8 +31,10 @@ const catalogErrorMessage = (error: unknown) =>
 export function createVoiceCatalogStore(
   host: VoiceCatalogHost
 ): VoiceCatalogStore {
-  const state$ = observable<VoiceCatalogState>(idleVoiceCatalogState);
-  let active = true;
+  const state$ = observable<VoiceCatalogState>({
+    ...idleVoiceCatalogState,
+    models: [],
+  });
   let controller: AbortController | undefined;
   let revision = 0;
 
@@ -55,19 +57,11 @@ export function createVoiceCatalogStore(
       const models = await host.loadVoiceCleanupModels(
         requestController.signal
       );
-      if (
-        active &&
-        !requestController.signal.aborted &&
-        revision === requestRevision
-      ) {
+      if (!requestController.signal.aborted && revision === requestRevision) {
         state$.set({ errorMessage: undefined, models, status: "ready" });
       }
     } catch (error) {
-      if (
-        active &&
-        !requestController.signal.aborted &&
-        revision === requestRevision
-      ) {
+      if (!requestController.signal.aborted && revision === requestRevision) {
         state$.set({
           errorMessage: catalogErrorMessage(error),
           models: current.models,
@@ -79,9 +73,11 @@ export function createVoiceCatalogStore(
 
   return {
     cancelPending: () => {
-      active = false;
       revision += 1;
       controller?.abort();
+      if (state$.status.peek() === "loading") {
+        state$.status.set("idle");
+      }
     },
     load,
     state$,

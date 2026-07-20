@@ -1,25 +1,21 @@
 import { useValue } from "@legendapp/state/react";
-import { useCallback, useEffect, useMemo, useRef } from "react";
-import { Linking, Platform, View } from "react-native";
+import type { BrowserTarget } from "@vibepad/protocol/browser";
+import { useCallback, useEffect, useMemo } from "react";
+import { Linking, View } from "react-native";
+
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
 import { BrowserTabStrip } from "@/features/preview/components/browser-tab-strip";
+import { BrowserViewFrame } from "@/features/preview/components/browser-view-frame";
 import { FeedbackOverlay } from "@/features/preview/components/feedback-overlay";
-import {
-  PreviewFrame,
-  type PreviewFrameHandle,
-} from "@/features/preview/components/preview-frame";
 import { PreviewInteractionBar } from "@/features/preview/components/preview-interaction-bar";
 import { PreviewNavigationBar } from "@/features/preview/components/preview-navigation-bar";
 import { PreviewReviewTray } from "@/features/preview/components/preview-review-tray";
 import {
   browserTabTitle,
   type PreviewBrowserTab,
-  type PreviewBrowserTabOwner,
-  type PreviewNavigationState,
 } from "@/features/preview/preview-browser-tab";
-import type { DomSelectionResult } from "@/features/preview/preview-dom-selection";
 import type {
   FeedbackPoint,
   FeedbackSelectionPoint,
@@ -30,17 +26,15 @@ import type {
   PreviewSelectionCue,
   PreviewStrokeCue,
 } from "@/features/preview/preview-review";
+import {
+  type HostBrowserState,
+  idleHostBrowserState,
+} from "@/features/preview/state/browser-store";
 import { idlePreviewSession } from "@/features/preview/state/preview-store";
-import { useVibePadPreviewStore } from "@/lib/vibepad-host-context";
-
-interface PendingSelection {
-  readonly offsetMs: number;
-  readonly point: FeedbackPoint;
-  readonly target: {
-    readonly tabId: string;
-    readonly url: string;
-  };
-}
+import {
+  useVibePadBrowserStore,
+  useVibePadPreviewStore,
+} from "@/lib/vibepad-host-context";
 
 interface PreviewSurfaceProps {
   readonly canSendReview: boolean;
@@ -56,6 +50,7 @@ interface PreviewSurfaceProps {
 }
 
 const httpUrlPattern = /^https?:\/\//i;
+const browserRefreshIntervalMs = 1500;
 
 const ensureUrl = (value: string) => {
   const trimmed = value.trim();
@@ -65,20 +60,34 @@ const ensureUrl = (value: string) => {
   return httpUrlPattern.test(trimmed) ? trimmed : `http://${trimmed}`;
 };
 
-const defaultPreviewUrl = (hostName: string) => {
-  const { location } = globalThis as typeof globalThis & {
-    readonly location?: { readonly origin?: string };
-  };
-  if (Platform.OS === "web" && location?.origin) {
-    return new URL("/design/preview-fixture", location.origin).toString();
-  }
-  return `http://${hostName}:8081/design/preview-fixture`;
-};
+const previewTabFor = (
+  target: BrowserTarget,
+  active: boolean,
+  canGoBack: boolean,
+  canGoForward: boolean
+): PreviewBrowserTab => ({
+  draftUrl: target.url,
+  id: target.id,
+  loading: false,
+  navigation: {
+    canGoBack: active && canGoBack,
+    canGoForward: active && canGoForward,
+    url: target.url,
+  },
+  owner: "agent",
+  sourceUrl: target.url,
+  title: target.title || browserTabTitle(target.url),
+});
 
-const newBrowserTabUrl = () =>
-  Platform.OS === "web"
-    ? "https://www.google.com/webhp?igu=1"
-    : "https://www.google.com";
+const browserStatusMessage = (state: HostBrowserState, hostName: string) => {
+  if (state.errorMessage) {
+    return state.errorMessage;
+  }
+  if (state.available) {
+    return `VibePad Browser on ${hostName} is not ready`;
+  }
+  return `VibePad Browser is not installed on ${hostName}`;
+};
 
 export function PreviewSurface({
   canSendReview,
@@ -92,109 +101,73 @@ export function PreviewSurface({
   sessionId,
   showReviewTray,
 }: PreviewSurfaceProps) {
+  const browser = useVibePadBrowserStore();
   const preview = useVibePadPreviewStore();
-  const initialUrl = useMemo(() => defaultPreviewUrl(hostName), [hostName]);
-  const frameRefs = useRef(new Map<string, PreviewFrameHandle>());
-  const frameRefCallbacks = useRef(
-    new Map<string, (handle: PreviewFrameHandle | null) => void>()
-  );
-  const pendingSelections = useRef(new Map<string, PendingSelection>());
-  const { activeTabId, mode, review, tabs } = useValue(
+  const browserState = useValue(() => browser.state$.get());
+  const { mode, review } = useValue(
     () => preview.state$.bySessionId[sessionId]?.get() ?? idlePreviewSession
   );
-  const activeTab = tabs.find((tab) => tab.id === activeTabId);
+  const {
+    activeTargetId,
+    canGoBack,
+    canGoForward,
+    draftUrl,
+    healthy,
+    status,
+    targetIds,
+    targetsById,
+    viewUrl,
+  } = browserState ?? idleHostBrowserState;
+  const tabs = useMemo(
+    () =>
+      targetIds.flatMap((targetId) => {
+        const target = targetsById[targetId];
+        return target
+          ? [
+              previewTabFor(
+                target,
+                targetId === activeTargetId,
+                canGoBack,
+                canGoForward
+              ),
+            ]
+          : [];
+      }),
+    [activeTargetId, canGoBack, canGoForward, targetIds, targetsById]
+  );
+  const activeTab = tabs.find((tab) => tab.id === activeTargetId);
 
   useEffect(() => {
-    preview.ensureSession(sessionId, initialUrl);
-  }, [initialUrl, preview, sessionId]);
-
-  const updateTab = useCallback(
-    (tabId: string, update: (tab: PreviewBrowserTab) => PreviewBrowserTab) => {
-      preview.updateTab(sessionId, tabId, update);
-    },
-    [preview, sessionId]
-  );
-
-  const refForTab = useCallback((tabId: string) => {
-    const existing = frameRefCallbacks.current.get(tabId);
-    if (existing) {
-      return existing;
-    }
-    const callback = (handle: PreviewFrameHandle | null) => {
-      if (handle) {
-        frameRefs.current.set(tabId, handle);
-      } else {
-        frameRefs.current.delete(tabId);
-      }
+    browser.load().catch(() => undefined);
+    const interval = setInterval(() => {
+      browser.load(true).catch(() => undefined);
+    }, browserRefreshIntervalMs);
+    return () => {
+      clearInterval(interval);
     };
-    frameRefCallbacks.current.set(tabId, callback);
-    return callback;
-  }, []);
+  }, [browser]);
 
-  const openBrowserTab = useCallback(
-    (url: string, owner: PreviewBrowserTabOwner) => {
-      preview.openTab(sessionId, url, owner);
-    },
-    [preview, sessionId]
-  );
+  useEffect(() => {
+    preview.ensureSession(
+      sessionId,
+      activeTab?.navigation.url ?? "about:blank"
+    );
+  }, [activeTab?.navigation.url, preview, sessionId]);
+
   const openNewTab = useCallback(() => {
-    openBrowserTab(newBrowserTabUrl(), "user");
-  }, [openBrowserTab]);
-  const openPageTab = useCallback(
-    (url: string) => {
-      openBrowserTab(url, "page");
-    },
-    [openBrowserTab]
-  );
+    browser.openTarget("https://www.google.com").catch(() => undefined);
+  }, [browser]);
   const selectTab = useCallback(
-    (tabId: string) => {
-      preview.selectTab(sessionId, tabId);
+    (targetId: string) => {
+      browser.selectTarget(targetId).catch(() => undefined);
     },
-    [preview, sessionId]
+    [browser]
   );
   const closeTab = useCallback(
-    (tabId: string) => {
-      if (!tabs.some((tab) => tab.id === tabId)) {
-        return;
-      }
-      frameRefs.current.delete(tabId);
-      frameRefCallbacks.current.delete(tabId);
-
-      let removedPendingSelection = false;
-      for (const [requestId, pending] of pendingSelections.current) {
-        if (pending.target.tabId === tabId) {
-          pendingSelections.current.delete(requestId);
-          removedPendingSelection = true;
-        }
-      }
-      if (removedPendingSelection) {
-        preview.updateReview(sessionId, (current) => ({
-          ...current,
-          pendingSelectionCount: pendingSelections.current.size,
-        }));
-      }
-
-      if (preview.closeTab(sessionId, tabId) === 0) {
-        onClose();
-      }
+    (targetId: string) => {
+      browser.closeTarget(targetId).catch(() => undefined);
     },
-    [onClose, preview, sessionId, tabs]
-  );
-
-  useEffect(() => {
-    if (review.reviewing) {
-      return;
-    }
-    pendingSelections.current.clear();
-  }, [review.reviewing]);
-
-  useEffect(
-    () => () => {
-      const pendingCount = pendingSelections.current.size;
-      pendingSelections.current.clear();
-      preview.clearPendingSelections(sessionId, pendingCount);
-    },
-    [preview, sessionId]
+    [browser]
   );
 
   const addStroke = useCallback(
@@ -234,94 +207,40 @@ export function PreviewSurface({
       if (!identity) {
         return;
       }
-      const requestId = identity.id;
-      pendingSelections.current.set(requestId, {
+      const cue: PreviewSelectionCue = {
+        id: identity.id,
+        kind: "selection",
         offsetMs: identity.offsetMs,
         point,
         target: {
           tabId: activeTab.id,
           url: activeTab.navigation.url,
         },
-      });
-      preview.updateReview(sessionId, (current) => ({
-        ...current,
-        pendingSelectionCount: pendingSelections.current.size,
-      }));
-      frameRefs.current
-        .get(activeTab.id)
-        ?.selectAt({ requestId, x: point.x, y: point.y });
-    },
-    [activeTab, preview, sessionId]
-  );
-
-  const receiveDomSelection = useCallback(
-    (result: DomSelectionResult) => {
-      const pending = pendingSelections.current.get(result.requestId);
-      if (!pending) {
-        return;
-      }
-      pendingSelections.current.delete(result.requestId);
-      const cue: PreviewSelectionCue = {
-        ...(result.anchor ? { anchor: result.anchor } : {}),
-        id: result.requestId,
-        kind: "selection",
-        offsetMs: pending.offsetMs,
-        point: pending.point,
-        ...(result.reason ? { reason: result.reason } : {}),
-        target: pending.target,
       };
       preview.updateReview(sessionId, (current) => ({
         ...current,
         cues: [...current.cues, cue],
-        pendingSelectionCount: pendingSelections.current.size,
+        reviewing: true,
       }));
     },
-    [preview, sessionId]
+    [activeTab, preview, sessionId]
   );
 
-  const loadDraftUrl = useCallback(() => {
-    if (!activeTab) {
-      return;
-    }
-    const nextUrl = ensureUrl(activeTab.draftUrl);
-    if (!nextUrl) {
-      return;
-    }
-    updateTab(activeTab.id, (tab) => ({
-      ...tab,
-      draftUrl: nextUrl,
-      loading: true,
-      navigation: {
-        canGoBack: false,
-        canGoForward: false,
-        url: nextUrl,
-      },
-      sourceUrl: nextUrl,
-      title: browserTabTitle(nextUrl),
-    }));
-  }, [activeTab, updateTab]);
-
   const submitDraftUrl = useCallback(() => {
-    loadDraftUrl();
-  }, [loadDraftUrl]);
-
+    const url = ensureUrl(draftUrl);
+    if (url) {
+      browser.act({ action: "navigate", url }).catch(() => undefined);
+    }
+  }, [browser, draftUrl]);
   const goBack = useCallback(() => {
-    if (activeTab) {
-      frameRefs.current.get(activeTab.id)?.goBack();
-    }
-  }, [activeTab]);
+    browser.act({ action: "back" }).catch(() => undefined);
+  }, [browser]);
   const goForward = useCallback(() => {
-    if (activeTab) {
-      frameRefs.current.get(activeTab.id)?.goForward();
-    }
-  }, [activeTab]);
+    browser.act({ action: "forward" }).catch(() => undefined);
+  }, [browser]);
   const reload = useCallback(() => {
-    if (!activeTab) {
-      return;
-    }
-    updateTab(activeTab.id, (tab) => ({ ...tab, loading: true }));
-    frameRefs.current.get(activeTab.id)?.reload();
-  }, [activeTab, updateTab]);
+    browser.act({ action: "reload" }).catch(() => undefined);
+  }, [browser]);
   const openExternal = useCallback(() => {
     if (activeTab) {
       Linking.openURL(activeTab.navigation.url).catch(() => undefined);
@@ -329,35 +248,17 @@ export function PreviewSurface({
   }, [activeTab]);
   const changeDraftUrl = useCallback(
     (value: string) => {
-      if (activeTab) {
-        updateTab(activeTab.id, (tab) => ({ ...tab, draftUrl: value }));
-      }
+      browser.setDraftUrl(value);
     },
-    [activeTab, updateTab]
+    [browser]
   );
-  const receiveNavigationState = useCallback(
-    (tabId: string, nextNavigation: PreviewNavigationState) => {
-      updateTab(tabId, (tab) => ({
-        ...tab,
-        draftUrl: nextNavigation.url,
-        navigation: nextNavigation,
-        title: browserTabTitle(nextNavigation.url),
-      }));
-    },
-    [updateTab]
-  );
-  const receiveLoadingState = useCallback(
-    (tabId: string, loading: boolean) => {
-      updateTab(tabId, (tab) => ({ ...tab, loading }));
-    },
-    [updateTab]
-  );
+  const reconnectBrowser = useCallback(() => {
+    browser.load(true).catch(() => undefined);
+  }, [browser]);
 
   const cancelReview = useCallback(() => {
-    pendingSelections.current.clear();
     preview.clearReview(sessionId);
   }, [preview, sessionId]);
-
   const removeCue = useCallback(
     (cueId: string) => {
       preview.removeCue(sessionId, cueId);
@@ -374,16 +275,16 @@ export function PreviewSurface({
   const strokes = useMemo<readonly FeedbackStroke[]>(
     () =>
       review.cues.flatMap((cue) =>
-        cue.kind === "stroke" && cue.target.tabId === activeTabId
+        cue.kind === "stroke" && cue.target.tabId === activeTargetId
           ? [{ id: cue.id, points: cue.points }]
           : []
       ),
-    [activeTabId, review.cues]
+    [activeTargetId, review.cues]
   );
   const selections = useMemo<readonly FeedbackSelectionPoint[]>(
     () =>
       review.cues.flatMap((cue) =>
-        cue.kind === "selection" && cue.target.tabId === activeTabId
+        cue.kind === "selection" && cue.target.tabId === activeTargetId
           ? [
               {
                 id: cue.id,
@@ -394,13 +295,15 @@ export function PreviewSurface({
             ]
           : []
       ),
-    [activeTabId, review.cues]
+    [activeTargetId, review.cues]
   );
+
+  const browserMessage = browserStatusMessage(browserState, hostName);
 
   return (
     <View className="flex-1 bg-background" testID="preview-surface">
       <BrowserTabStrip
-        activeTabId={activeTabId}
+        activeTabId={activeTargetId}
         onClose={closeTab}
         onNewTab={openNewTab}
         onSelect={selectTab}
@@ -408,12 +311,12 @@ export function PreviewSurface({
         tabs={tabs}
       />
       <PreviewNavigationBar
-        canGoBack={activeTab?.navigation.canGoBack ?? false}
-        canGoForward={activeTab?.navigation.canGoForward ?? false}
-        draftUrl={activeTab?.draftUrl ?? ""}
+        canGoBack={canGoBack}
+        canGoForward={canGoForward}
+        draftUrl={draftUrl}
         expanded={expanded}
         hasActiveTab={Boolean(activeTab)}
-        loading={activeTab?.loading ?? false}
+        loading={status === "loading"}
         onBack={goBack}
         onClose={onClose}
         onDraftUrlChange={changeDraftUrl}
@@ -426,25 +329,23 @@ export function PreviewSurface({
 
       <PreviewInteractionBar mode={mode} onSelectMode={selectMode} />
 
-      <View className="relative flex-1 overflow-hidden bg-white">
-        {tabs.map((tab) => (
-          <View
-            className="absolute inset-0"
-            key={tab.id}
-            style={{ display: tab.id === activeTabId ? "flex" : "none" }}
-          >
-            <PreviewFrame
-              onDomSelection={receiveDomSelection}
-              onLoadingChange={receiveLoadingState}
-              onNavigationStateChange={receiveNavigationState}
-              onOpenWindow={openPageTab}
-              ref={refForTab(tab.id)}
-              tabId={tab.id}
-              url={tab.sourceUrl}
-            />
+      <View className="relative flex-1 overflow-hidden bg-black">
+        {healthy && viewUrl ? (
+          <BrowserViewFrame url={viewUrl} />
+        ) : (
+          <View className="flex-1 items-center justify-center gap-3 bg-muted/20">
+            <Text className="max-w-md text-center text-sm" variant="muted">
+              {browserMessage}
+            </Text>
+            {browserState.available ? (
+              <Button onPress={reconnectBrowser} size="sm" variant="outline">
+                <Icon name="rotate-ccw" size={13} />
+                <Text>Reconnect</Text>
+              </Button>
+            ) : null}
           </View>
-        ))}
-        {activeTab ? (
+        )}
+        {activeTab && healthy && viewUrl ? (
           <FeedbackOverlay
             mode={mode}
             onSelect={selectPoint}
@@ -452,17 +353,7 @@ export function PreviewSurface({
             selections={selections}
             strokes={strokes}
           />
-        ) : (
-          <View className="flex-1 items-center justify-center gap-3 bg-muted/20">
-            <Text className="text-sm" variant="muted">
-              No open browser tabs
-            </Text>
-            <Button onPress={openNewTab} size="sm" variant="outline">
-              <Icon name="plus" size={13} />
-              <Text>Open tab</Text>
-            </Button>
-          </View>
-        )}
+        ) : null}
         {showReviewTray && review.cues.length > 0 ? (
           <PreviewReviewTray
             canSend={canSendReview}

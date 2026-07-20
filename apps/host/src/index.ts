@@ -1,8 +1,18 @@
 import type { HarnessAdapter } from "@vibepad/protocol/provider";
 import { CodexAdapter } from "@vibepad/provider-codex/adapter";
 import { OpenCodeAdapter } from "@vibepad/provider-opencode/adapter";
-import { serve } from "bun";
+import {
+  type Server,
+  type ServerWebSocket,
+  serve,
+  type WebSocketHandler,
+} from "bun";
 
+import { BrowserService } from "./browser-service";
+import {
+  BrowserViewBridge,
+  type BrowserViewSocketData,
+} from "./browser-view-bridge";
 import { loadHostConfig } from "./config";
 import { bearerFromWebSocketProtocol, HostAuthService } from "./host-auth";
 import { isTrustedLocalRequest } from "./host-auth-contract";
@@ -84,19 +94,66 @@ const voiceHttp = new VoiceHttpService({
   baseUrl: config.voiceBaseUrl,
   credentials: voiceCredentials,
 });
+const browser = new BrowserService({
+  ...(config.browserCdpUrl ? { cdpUrl: config.browserCdpUrl } : {}),
+  enabled: config.browserEnabled,
+  ...(config.browserSurfaceUrl ? { surfaceUrl: config.browserSurfaceUrl } : {}),
+});
 const requestHandler = createRequestHandler(
   providers,
   config.hostName,
   voiceHttp,
-  hostAuth
+  hostAuth,
+  browser
 );
 const voiceRealtime = new VoiceRealtimeBridge({
   baseUrl: config.voiceBaseUrl,
   credentials: voiceCredentials,
 });
-const server = serve<VoiceRealtimeSocketData>({
+const browserView = new BrowserViewBridge(browser);
+type HostSocketData = BrowserViewSocketData | VoiceRealtimeSocketData;
+const asBrowserSocket = (socket: ServerWebSocket<HostSocketData>) =>
+  socket as unknown as ServerWebSocket<BrowserViewSocketData>;
+const asVoiceSocket = (socket: ServerWebSocket<HostSocketData>) =>
+  socket as unknown as ServerWebSocket<VoiceRealtimeSocketData>;
+const hostWebSocket: WebSocketHandler<HostSocketData> = {
+  close(socket, code, reason) {
+    if (socket.data.kind === "browser") {
+      browserView.websocket.close?.(asBrowserSocket(socket), code, reason);
+      return;
+    }
+    voiceRealtime.websocket.close?.(asVoiceSocket(socket), code, reason);
+  },
+  idleTimeout: 0,
+  maxPayloadLength: 16 * 1024 * 1024,
+  message(socket, message) {
+    if (socket.data.kind === "browser") {
+      browserView.websocket.message?.(asBrowserSocket(socket), message);
+      return;
+    }
+    const byteLength =
+      typeof message === "string"
+        ? new TextEncoder().encode(message).byteLength
+        : message.byteLength;
+    if (byteLength > 512 * 1024) {
+      socket.close(1009, "Voice message is too large");
+      return;
+    }
+    voiceRealtime.websocket.message?.(asVoiceSocket(socket), message);
+  },
+  open(socket) {
+    if (socket.data.kind === "browser") {
+      browserView.websocket.open?.(asBrowserSocket(socket));
+      return;
+    }
+    voiceRealtime.websocket.open?.(asVoiceSocket(socket));
+  },
+  perMessageDeflate: false,
+};
+const server = serve<HostSocketData>({
   fetch(request, bunServer) {
-    if (new URL(request.url).pathname === "/v1/voice/realtime") {
+    const { pathname } = new URL(request.url);
+    if (pathname === "/v1/voice/realtime") {
       const remoteAddress = bunServer.requestIP(request)?.address;
       if (
         !isTrustedLocalRequest(remoteAddress, request.headers.get("origin"))
@@ -123,18 +180,31 @@ const server = serve<VoiceRealtimeSocketData>({
             { status: 401 }
           );
         }
-        return voiceRealtime.handleUpgrade(request, bunServer, {
-          acceptedProtocol: credential.protocol,
-          principal,
-        });
+        return voiceRealtime.handleUpgrade(
+          request,
+          bunServer as unknown as Server<VoiceRealtimeSocketData>,
+          {
+            acceptedProtocol: credential.protocol,
+            principal,
+          }
+        );
       }
-      return voiceRealtime.handleUpgrade(request, bunServer);
+      return voiceRealtime.handleUpgrade(
+        request,
+        bunServer as unknown as Server<VoiceRealtimeSocketData>
+      );
+    }
+    if (browser.isSocketRequest(pathname)) {
+      return browserView.handleUpgrade(
+        request,
+        bunServer as unknown as Server<BrowserViewSocketData>
+      );
     }
     return requestHandler(request, bunServer);
   },
   hostname: config.hostname,
   port: config.port,
-  websocket: voiceRealtime.websocket,
+  websocket: hostWebSocket,
 });
 
 console.info(`VibePad host listening at ${server.url}`);
@@ -148,7 +218,7 @@ const shutdown = async () => {
     return;
   }
   shuttingDown = true;
-  server.stop();
+  server.stop(true);
   try {
     await providers.dispose();
   } finally {
@@ -168,9 +238,15 @@ const shutdown = async () => {
   }
 };
 
-process.once("SIGINT", () => {
-  shutdown().catch(() => undefined);
-});
-process.once("SIGTERM", () => {
-  shutdown().catch(() => undefined);
-});
+const shutdownAndExit = () => {
+  shutdown().then(
+    () => process.exit(0),
+    (error: unknown) => {
+      console.error("VibePad host shutdown failed", error);
+      process.exit(1);
+    }
+  );
+};
+
+process.once("SIGINT", shutdownAndExit);
+process.once("SIGTERM", shutdownAndExit);
