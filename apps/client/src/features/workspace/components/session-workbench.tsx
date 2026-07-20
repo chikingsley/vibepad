@@ -2,6 +2,11 @@ import { useValue } from "@legendapp/state/react";
 import type { ProjectSummary } from "@vibepad/protocol/provider";
 import { useCallback } from "react";
 import { View } from "react-native";
+import Animated, {
+  FadeIn,
+  FadeOut,
+  ReduceMotion,
+} from "react-native-reanimated";
 
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -159,8 +164,13 @@ export function SessionWorkbench({
         </View>
       )}
 
-      {surface === "preview" ? (
-        <View className="min-h-0 flex-1">
+      <Animated.View
+        className="min-h-0 flex-1"
+        entering={FadeIn.duration(140).reduceMotion(ReduceMotion.System)}
+        exiting={FadeOut.duration(100).reduceMotion(ReduceMotion.System)}
+        key={surface}
+      >
+        {surface === "preview" ? (
           <PreviewWorkbenchSurface
             expanded={expanded}
             hostName={hostName}
@@ -170,23 +180,19 @@ export function SessionWorkbench({
             sessionId={sessionId}
             showReviewTray={showPreviewReviewTray}
           />
-        </View>
-      ) : null}
-      {surface === "files" ? (
-        <View className="min-h-0 flex-1">
+        ) : null}
+        {surface === "files" ? (
           <FilesSurface
             active
             projectId={project.id}
             projectName={project.name}
             sessionId={sessionId}
           />
-        </View>
-      ) : null}
-      {surface === "changes" ? (
-        <View className="min-h-0 flex-1">
+        ) : null}
+        {surface === "changes" ? (
           <ChangesSurface active projectId={project.id} sessionId={sessionId} />
-        </View>
-      ) : null}
+        ) : null}
+      </Animated.View>
     </View>
   );
 }

@@ -4,6 +4,12 @@ import type {
 } from "@vibepad/protocol/provider";
 import { useCallback, useMemo, useState } from "react";
 import { type LayoutChangeEvent, View, type ViewStyle } from "react-native";
+import Animated, {
+  FadeInRight,
+  FadeOutRight,
+  LinearTransition,
+  ReduceMotion,
+} from "react-native-reanimated";
 
 import { Text } from "@/components/ui/text";
 import { SessionComposerDock } from "@/features/composer/components/session-composer-dock";
@@ -225,7 +231,14 @@ export function SessionCanvas({
       </View>
 
       {active && session && project && workbench.open ? (
-        <View className="min-h-0 min-w-0 flex-1 border-border border-l">
+        <Animated.View
+          className="min-h-0 min-w-0 flex-1 border-border border-l"
+          entering={FadeInRight.duration(180).reduceMotion(ReduceMotion.System)}
+          exiting={FadeOutRight.duration(140).reduceMotion(ReduceMotion.System)}
+          layout={LinearTransition.duration(180).reduceMotion(
+            ReduceMotion.System
+          )}
+        >
           <SessionWorkbench
             expanded={workbench.expanded && split}
             hostName={hostName}
@@ -237,7 +250,7 @@ export function SessionCanvas({
             showPreviewReviewTray={hideChat}
             surface={workbench.surface}
           />
-        </View>
+        </Animated.View>
       ) : null}
     </View>
   );
