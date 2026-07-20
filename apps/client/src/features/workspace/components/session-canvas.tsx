@@ -17,6 +17,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Text } from "@/components/ui/text";
 import { SessionComposer } from "@/features/composer/components/session-composer";
+import {
+  type DraftSelection,
+  idleSessionComposer,
+} from "@/features/composer/state/session-composer-store";
 import { SessionInteractions } from "@/features/interactions/components/session-interactions";
 import { ProviderControls } from "@/features/models/components/provider-controls";
 import { ReviewCaptureStrip } from "@/features/preview/components/review-capture-strip";
@@ -47,17 +51,13 @@ import {
 import {
   useVibePadHost,
   useVibePadPreviewStore,
+  useVibePadSessionComposerStore,
 } from "@/lib/vibepad-host-context";
 
 const splitWorkbenchBreakpoint = 820;
 const endsWithWhitespace = /\s$/u;
 const startsWithClosingPunctuation = /^[,.;:!?)]/u;
 const startsWithWhitespace = /^\s/u;
-
-interface DraftSelection {
-  readonly end: number;
-  readonly start: number;
-}
 
 const insertTranscript = (
   draft: string,
@@ -321,6 +321,7 @@ export function SessionCanvas({
   readonly workbench: SessionWorkbenchLayout;
 }) {
   const host = useVibePadHost();
+  const composer = useVibePadSessionComposerStore();
   const preview = useVibePadPreviewStore();
   const voiceCleanup = useSettingsValue((state$) =>
     state$.settings.voice.cleanup.get()
@@ -329,20 +330,28 @@ export function SessionCanvas({
     state$.settings.voice.showInterimTranscript.get()
   );
   const [canvasWidth, setCanvasWidth] = useState(0);
-  const [draft, setDraft] = useState("");
-  const [draftSelection, setDraftSelection] = useState<DraftSelection>({
-    end: 0,
-    start: 0,
-  });
+  useEffect(() => {
+    if (session) {
+      composer.ensureSession(session.id);
+    }
+  }, [composer, session]);
+  const composerState = useValue(
+    () =>
+      (session ? composer.state$.bySessionId[session.id]?.get() : undefined) ??
+      idleSessionComposer
+  );
+  const {
+    draft,
+    selection: draftSelection,
+    sendError,
+    sending,
+  } = composerState;
   const previewReview = useValue(
     () =>
       (session
         ? preview.state$.bySessionId[session.id]?.review.get()
         : undefined) ?? emptyPreviewReviewDraft
   );
-  const [sendError, setSendError] = useState<string | undefined>();
-  const [interrupting, setInterrupting] = useState(false);
-  const [sending, setSending] = useState(false);
   const timeline = useSessionTimeline(session?.id, active);
   const catalogState = useProviderCatalog(project?.id);
   const interactions = useSessionInteractions(session?.id, active);
@@ -379,22 +388,21 @@ export function SessionCanvas({
       if (!(session && text)) {
         return;
       }
-      setSending(true);
-      setSendError(undefined);
+      if (!composer.beginSend(session.id)) {
+        return;
+      }
       try {
         await host.sendTurn(session.id, text);
-        setDraft("");
-        setDraftSelection({ end: 0, start: 0 });
+        composer.completeSend(session.id, draftValue);
         preview.clearReview(session.id);
       } catch (error) {
-        setSendError(
+        composer.failSend(
+          session.id,
           error instanceof Error ? error.message : "Unable to send this turn"
         );
-      } finally {
-        setSending(false);
       }
     },
-    [host, hostName, preview, previewReview.cues, session]
+    [composer, host, hostName, preview, previewReview.cues, session]
   );
   const send = useCallback(async () => {
     await sendDraft(draft);
@@ -417,16 +425,19 @@ export function SessionCanvas({
         }
       }
       const next = insertTranscript(draft, draftSelection, editableTranscript);
-      setDraft(next.value);
-      setDraftSelection(next.selection);
+      if (!session) {
+        return;
+      }
+      composer.setDraft(session.id, next.value);
+      composer.setSelection(session.id, next.selection);
       if (sendAfterInsert) {
         await sendDraft(next.value);
       }
       if (cleanupWarning) {
-        setSendError(cleanupWarning);
+        composer.setError(session.id, cleanupWarning);
       }
     },
-    [draft, draftSelection, host, sendDraft, voiceCleanup]
+    [composer, draft, draftSelection, host, sendDraft, session, voiceCleanup]
   );
   const {
     cancel: cancelDictationRequest,
@@ -456,8 +467,6 @@ export function SessionCanvas({
     }
     previousSessionId.current = session?.id;
     cancelDictation();
-    setDraft("");
-    setDraftSelection({ end: 0, start: 0 });
   }, [cancelDictation, session?.id]);
   const removeReviewCue = useCallback(
     (cueId: string) => {
@@ -468,23 +477,21 @@ export function SessionCanvas({
     [preview, session]
   );
   const interrupt = useCallback(async () => {
-    if (!(session && !interrupting)) {
+    if (!(session && composer.beginInterrupt(session.id))) {
       return;
     }
-    setInterrupting(true);
-    setSendError(undefined);
     try {
       await host.interruptTurn(session.id);
       timeline.markTurnStopped();
       await interactions.refresh(false);
+      composer.completeInterrupt(session.id);
     } catch (error) {
-      setSendError(
+      composer.failInterrupt(
+        session.id,
         error instanceof Error ? error.message : "Unable to stop this turn"
       );
-    } finally {
-      setInterrupting(false);
     }
-  }, [host, interactions, interrupting, session, timeline]);
+  }, [composer, host, interactions, session, timeline]);
   const selectModel = useCallback(
     async (model: ModelReference) => {
       if (!session) {
@@ -513,6 +520,22 @@ export function SessionCanvas({
       onToggleWorkbenchExpanded(session.id);
     }
   }, [onToggleWorkbenchExpanded, session]);
+  const changeDraft = useCallback(
+    (value: string) => {
+      if (session) {
+        composer.setDraft(session.id, value);
+      }
+    },
+    [composer, session]
+  );
+  const changeDraftSelection = useCallback(
+    (selection: DraftSelection) => {
+      if (session) {
+        composer.setSelection(session.id, selection);
+      }
+    },
+    [composer, session]
+  );
 
   return (
     <View
@@ -555,8 +578,8 @@ export function SessionCanvas({
           }
           interactions={interactions}
           loading={loading}
-          onDraftChange={setDraft}
-          onDraftSelectionChange={setDraftSelection}
+          onDraftChange={changeDraft}
+          onDraftSelectionChange={changeDraftSelection}
           onInterrupt={interrupt}
           onRemoveReviewCue={removeReviewCue}
           onSend={send}

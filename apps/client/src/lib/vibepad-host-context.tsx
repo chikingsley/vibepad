@@ -6,6 +6,10 @@ import {
   useMemo,
 } from "react";
 import {
+  createSessionComposerStore,
+  type SessionComposerStore,
+} from "@/features/composer/state/session-composer-store";
+import {
   createFileNavigationStore,
   type FileNavigationStore,
 } from "@/features/files/state/file-navigation-store";
@@ -52,6 +56,7 @@ interface VibePadHostRuntime {
   readonly preview: PreviewStore;
   readonly projectFiles: ProjectFilesStore;
   readonly projectResources: ProjectResourcesStore;
+  readonly sessionComposer: SessionComposerStore;
   readonly sessionRuntime: SessionRuntimeStore;
   readonly timelineDisclosure: TimelineDisclosureStore;
   readonly voiceCatalog: VoiceCatalogStore;
@@ -79,6 +84,7 @@ export function VibePadHostProvider({
       preview: createPreviewStore(),
       projectFiles: createProjectFilesStore(client),
       projectResources: createProjectResourcesStore(client),
+      sessionComposer: createSessionComposerStore(),
       sessionRuntime: createSessionRuntimeStore(
         client,
         workspace.upsertSession
@@ -129,6 +135,9 @@ export const useVibePadPreviewStore = () => useVibePadHostRuntime().preview;
 
 export const useVibePadSessionRuntimeStore = () =>
   useVibePadHostRuntime().sessionRuntime;
+
+export const useVibePadSessionComposerStore = () =>
+  useVibePadHostRuntime().sessionComposer;
 
 export const useVibePadTimelineDisclosureStore = () =>
   useVibePadHostRuntime().timelineDisclosure;
