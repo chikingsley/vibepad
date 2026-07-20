@@ -11,9 +11,14 @@ import {
 } from "./service-files";
 
 const configuration: HostServiceConfiguration = {
+  agentBrowserConfig:
+    "/home/simon/.local/share/vibepad/browser/runtime/agent-browser.json",
   agentBrowserExecutable:
     "/home/simon/.local/share/vibepad/tools/node_modules/.bin/agent-browser",
   bindAddress: "100.121.185.11",
+  browserCdpUrl: "http://127.0.0.1:19223",
+  browserEnabled: true,
+  browserSurfaceUrl: "http://127.0.0.1:16901",
   bunExecutable: "/home/simon/.bun/bin/bun",
   codexEnabled: true,
   codexExecutable:
@@ -46,6 +51,10 @@ describe("VibePad Host service files", () => {
     expect(rendered).toContain("PEACOCKERY_VOICE_API_KEY='protected'");
     expect(rendered).toContain("VIBEPAD_PORT='4100'");
     expect(rendered).toContain("VIBEPAD_OPENCODE_MANAGED='1'");
+    expect(rendered).toContain("VIBEPAD_BROWSER_ENABLED='1'");
+    expect(rendered).toContain(
+      "AGENT_BROWSER_CONFIG='/home/simon/.local/share/vibepad/browser/runtime/agent-browser.json'"
+    );
     expect(rendered).toContain("OPENCODE_SERVER_PASSWORD='managed-secret'");
     expect(rendered).not.toContain("VIBEPAD_PORT='9999'");
     expect(readHostEnvironmentValue(rendered, "VIBEPAD_HOSTNAME")).toBe(

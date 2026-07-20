@@ -6,8 +6,12 @@ export const serviceLabel = "studio.peacockery.vibepad.host";
 export const systemdUnitName = "vibepad-host.service";
 
 export interface HostServiceConfiguration {
+  readonly agentBrowserConfig?: string;
   readonly agentBrowserExecutable?: string;
   readonly bindAddress: string;
+  readonly browserCdpUrl?: string;
+  readonly browserEnabled: boolean;
+  readonly browserSurfaceUrl?: string;
   readonly bunExecutable: string;
   readonly codexEnabled: boolean;
   readonly codexExecutable?: string;
@@ -39,6 +43,7 @@ export interface HostServicePaths {
 
 const managedEnvironmentKeys = new Set([
   "AGENT_BROWSER_BIN",
+  "AGENT_BROWSER_CONFIG",
   "CODEX_BIN",
   "OPENCODE_BASE_URL",
   "OPENCODE_BIN",
@@ -50,6 +55,9 @@ const managedEnvironmentKeys = new Set([
   "VIBEPAD_HOSTNAME",
   "VIBEPAD_HOST_ID",
   "VIBEPAD_HOST_NAME",
+  "VIBEPAD_BROWSER_CDP_URL",
+  "VIBEPAD_BROWSER_ENABLED",
+  "VIBEPAD_BROWSER_SURFACE_URL",
   "VIBEPAD_OPENCODE_ENABLED",
   "VIBEPAD_OPENCODE_MANAGED",
   "VIBEPAD_PORT",
@@ -146,6 +154,15 @@ export const renderHostEnvironment = (
     .filter((line, index, lines) => line || index < lines.length - 1);
   const managed = [
     `PATH=${shellQuote(configuration.path)}`,
+    `VIBEPAD_BROWSER_ENABLED=${shellQuote(configuration.browserEnabled ? "1" : "0")}`,
+    ...(configuration.browserCdpUrl
+      ? [`VIBEPAD_BROWSER_CDP_URL=${shellQuote(configuration.browserCdpUrl)}`]
+      : []),
+    ...(configuration.browserSurfaceUrl
+      ? [
+          `VIBEPAD_BROWSER_SURFACE_URL=${shellQuote(configuration.browserSurfaceUrl)}`,
+        ]
+      : []),
     `VIBEPAD_CODEX_ENABLED=${shellQuote(configuration.codexEnabled ? "1" : "0")}`,
     ...(configuration.codexExecutable
       ? [`CODEX_BIN=${shellQuote(configuration.codexExecutable)}`]
@@ -172,6 +189,9 @@ export const renderHostEnvironment = (
       ? [
           `AGENT_BROWSER_BIN=${shellQuote(configuration.agentBrowserExecutable)}`,
         ]
+      : []),
+    ...(configuration.agentBrowserConfig
+      ? [`AGENT_BROWSER_CONFIG=${shellQuote(configuration.agentBrowserConfig)}`]
       : []),
   ];
   return [...preserved, ...managed, ""].join("\n");

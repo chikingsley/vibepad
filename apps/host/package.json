@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "browser": "bun src/browser-cli.ts",
     "bootstrap": "bun src/bootstrap-cli.ts",
     "dev": "bun --watch src/index.ts",
     "service": "bun src/service-cli.ts",

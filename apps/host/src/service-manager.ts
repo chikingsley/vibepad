@@ -37,9 +37,13 @@ const repoRoot = resolve(import.meta.dir, "../../..");
 const serviceHostNamePattern = /^[A-Za-z0-9._-]+$/u;
 
 export interface InstallHostServiceOptions {
+  readonly agentBrowserConfig?: string;
   readonly agentBrowserExecutable?: string;
   readonly allowPublicBind?: boolean;
   readonly bindAddress?: string;
+  readonly browserCdpUrl?: string;
+  readonly browserEnabled?: boolean;
+  readonly browserSurfaceUrl?: string;
   readonly codexEnabled?: boolean;
   readonly codexExecutable?: string;
   readonly hostName?: string;
@@ -316,10 +320,20 @@ const createServiceConfiguration = (input: {
   readonly port: number;
   readonly projectRoots: readonly string[];
 }): HostServiceConfiguration => ({
+  ...(input.options.agentBrowserConfig
+    ? { agentBrowserConfig: input.options.agentBrowserConfig }
+    : {}),
   ...(input.options.agentBrowserExecutable
     ? { agentBrowserExecutable: input.options.agentBrowserExecutable }
     : {}),
   bindAddress: input.bindAddress,
+  ...(input.options.browserCdpUrl
+    ? { browserCdpUrl: input.options.browserCdpUrl }
+    : {}),
+  browserEnabled: input.options.browserEnabled ?? false,
+  ...(input.options.browserSurfaceUrl
+    ? { browserSurfaceUrl: input.options.browserSurfaceUrl }
+    : {}),
   bunExecutable: input.bunExecutable,
   ...input.harnesses,
   environmentFile: input.paths.environmentFile,

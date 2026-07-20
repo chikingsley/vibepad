@@ -2,8 +2,15 @@ import { stdin, stdout } from "node:process";
 import { createInterface } from "node:readline/promises";
 
 import {
+  type BrowserRuntimeStatus,
+  defaultBrowserCdpPort,
+  defaultBrowserSurfacePort,
+  VibePadBrowserRuntime,
+} from "./browser-runtime";
+import {
   authenticateProvider,
   installManagedToolchain,
+  type ManagedToolchain,
   type ManagedToolSelection,
   managedToolchainReady,
   managedToolVersions,
@@ -20,9 +27,9 @@ Options:
   --yes                       Consent to all selected managed-tool installs
   --without-codex             Do not install or enable Codex
   --without-opencode          Do not install or enable OpenCode
-  --without-browser           Do not install Agent Browser and Chrome
-  --skip-browser-download     Install Agent Browser without downloading Chrome
-  --browser-system-deps       Let Agent Browser install Linux system dependencies
+  --without-browser           Do not install Agent Browser or VibePad Browser
+  --browser-cdp-port <port>   Loopback CDP port (default 19223)
+  --browser-surface-port <port> Loopback KasmVNC port (default 16901)
   --allow-unauthenticated     Install providers before their provider-owned login
   --bind <address>            Override automatic Tailscale IPv4 binding
   --allow-public-bind         Permit an explicit 0.0.0.0 binding
@@ -39,9 +46,9 @@ interface BootstrapOptions {
   readonly allowPublicBind?: boolean;
   readonly allowUnauthenticated?: boolean;
   readonly bindAddress?: string;
-  readonly browserSystemDependencies?: boolean;
+  readonly browserCdpPort?: number;
+  readonly browserSurfacePort?: number;
   readonly hostName?: string;
-  readonly installBrowser: boolean;
   readonly port?: number;
   readonly projectRoots?: string[];
   readonly selection: ManagedToolSelection;
@@ -62,12 +69,12 @@ const requiredValue = (
 };
 
 interface BootstrapParserState {
-  installBrowser: boolean;
   readonly options: {
     allowPublicBind?: boolean;
     allowUnauthenticated?: boolean;
     bindAddress?: string;
-    browserSystemDependencies?: boolean;
+    browserCdpPort?: number;
+    browserSurfacePort?: number;
     hostName?: string;
     port?: number;
     start?: boolean;
@@ -94,12 +101,6 @@ const applyFlag = (argument: string, state: BootstrapParserState) => {
       return true;
     case "--without-browser":
       state.selection.agentBrowser = false;
-      return true;
-    case "--skip-browser-download":
-      state.installBrowser = false;
-      return true;
-    case "--browser-system-deps":
-      state.options.browserSystemDependencies = true;
       return true;
     case "--allow-unauthenticated":
       state.options.allowUnauthenticated = true;
@@ -137,6 +138,16 @@ const applyValue = (
     state.options.port = Number(requiredValue(args, index, argument));
     return true;
   }
+  if (argument === "--browser-cdp-port") {
+    state.options.browserCdpPort = Number(requiredValue(args, index, argument));
+    return true;
+  }
+  if (argument === "--browser-surface-port") {
+    state.options.browserSurfacePort = Number(
+      requiredValue(args, index, argument)
+    );
+    return true;
+  }
   if (argument === "--project-root") {
     state.projectRoots.push(requiredValue(args, index, argument));
     return true;
@@ -146,7 +157,6 @@ const applyValue = (
 
 const parseOptions = (args: readonly string[]): BootstrapOptions => {
   const state: BootstrapParserState = {
-    installBrowser: true,
     options: {},
     projectRoots: [],
     selection: { agentBrowser: true, codex: true, openCode: true },
@@ -167,7 +177,6 @@ const parseOptions = (args: readonly string[]): BootstrapOptions => {
   }
   return {
     ...state.options,
-    installBrowser: state.installBrowser,
     ...(state.projectRoots.length > 0
       ? { projectRoots: state.projectRoots }
       : {}),
@@ -228,6 +237,64 @@ const verifyProviderAuthentication = async (
   return status;
 };
 
+const installBrowserRuntime = (
+  options: BootstrapOptions,
+  toolchain: ManagedToolchain
+) => {
+  if (!toolchain.agentBrowser) {
+    return;
+  }
+  return new VibePadBrowserRuntime({
+    cdpPort: options.browserCdpPort ?? defaultBrowserCdpPort,
+    surfacePort: options.browserSurfacePort ?? defaultBrowserSurfacePort,
+  }).install({ start: options.start ?? true });
+};
+
+const verifyProviderAuthentications = (
+  options: BootstrapOptions,
+  toolchain: ManagedToolchain
+) =>
+  Promise.all([
+    ...(toolchain.codex
+      ? [verifyProviderAuthentication("codex", toolchain.codex, options)]
+      : []),
+    ...(toolchain.openCode
+      ? [verifyProviderAuthentication("opencode", toolchain.openCode, options)]
+      : []),
+  ]);
+
+const installHostService = (
+  manager: HostServiceManager,
+  options: BootstrapOptions,
+  toolchain: ManagedToolchain,
+  browser: BrowserRuntimeStatus | undefined
+) =>
+  manager.install({
+    ...(browser ? { agentBrowserConfig: browser.agentBrowserConfig } : {}),
+    ...(toolchain.agentBrowser
+      ? { agentBrowserExecutable: toolchain.agentBrowser }
+      : {}),
+    ...(options.allowPublicBind ? { allowPublicBind: true } : {}),
+    ...(options.bindAddress ? { bindAddress: options.bindAddress } : {}),
+    ...(browser
+      ? {
+          browserCdpUrl: browser.cdpUrl,
+          browserEnabled: true,
+          browserSurfaceUrl: browser.surfaceUrl,
+        }
+      : { browserEnabled: false }),
+    codexEnabled: options.selection.codex,
+    ...(toolchain.codex ? { codexExecutable: toolchain.codex } : {}),
+    ...(options.hostName ? { hostName: options.hostName } : {}),
+    openCodeEnabled: options.selection.openCode,
+    ...(toolchain.openCode ? { openCodeExecutable: toolchain.openCode } : {}),
+    openCodeManaged: options.selection.openCode,
+    ...(options.port === undefined ? {} : { port: options.port }),
+    ...(options.projectRoots ? { projectRoots: options.projectRoots } : {}),
+    skipDependencies: true,
+    start: options.start ?? true,
+  });
+
 const main = async () => {
   const options = parseOptions(process.argv.slice(2));
   const manager = new HostServiceManager({ bunExecutable: process.execPath });
@@ -242,38 +309,21 @@ const main = async () => {
     }
   }
   const toolchain = await installManagedToolchain({
-    ...(options.browserSystemDependencies
-      ? { browserSystemDependencies: true }
-      : {}),
     bunExecutable: process.execPath,
-    installBrowser: options.installBrowser,
+    installBrowser: false,
     selection: options.selection,
   });
-  const authentication = await Promise.all([
-    ...(toolchain.codex
-      ? [verifyProviderAuthentication("codex", toolchain.codex, options)]
-      : []),
-    ...(toolchain.openCode
-      ? [verifyProviderAuthentication("opencode", toolchain.openCode, options)]
-      : []),
-  ]);
-  const service = await manager.install({
-    ...(toolchain.agentBrowser
-      ? { agentBrowserExecutable: toolchain.agentBrowser }
-      : {}),
-    ...(options.allowPublicBind ? { allowPublicBind: true } : {}),
-    ...(options.bindAddress ? { bindAddress: options.bindAddress } : {}),
-    codexEnabled: options.selection.codex,
-    ...(toolchain.codex ? { codexExecutable: toolchain.codex } : {}),
-    ...(options.hostName ? { hostName: options.hostName } : {}),
-    openCodeEnabled: options.selection.openCode,
-    ...(toolchain.openCode ? { openCodeExecutable: toolchain.openCode } : {}),
-    openCodeManaged: options.selection.openCode,
-    ...(options.port === undefined ? {} : { port: options.port }),
-    ...(options.projectRoots ? { projectRoots: options.projectRoots } : {}),
-    skipDependencies: true,
-    start: options.start ?? true,
-  });
+  const browser = await installBrowserRuntime(options, toolchain);
+  const authentication = await verifyProviderAuthentications(
+    options,
+    toolchain
+  );
+  const service = await installHostService(
+    manager,
+    options,
+    toolchain,
+    browser
+  );
   if (service.started && !service.healthy) {
     throw new Error(
       `VibePad Host did not become healthy at ${service.healthUrl}`
@@ -291,6 +341,7 @@ const main = async () => {
           identity: before.identity,
           systemTools: before.tools,
         },
+        browser,
         managedTools: toolchain,
         pairing,
         service,
