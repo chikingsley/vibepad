@@ -334,13 +334,9 @@ export function SessionCanvas({
   const [sendError, setSendError] = useState<string | undefined>();
   const [interrupting, setInterrupting] = useState(false);
   const [sending, setSending] = useState(false);
-  const timeline = useSessionTimeline(session?.id, active, onSessionChange);
+  const timeline = useSessionTimeline(session?.id, active);
   const catalogState = useProviderCatalog(project?.id);
-  const interactions = useSessionInteractions(
-    session?.id,
-    timeline.interactionRevision,
-    active
-  );
+  const interactions = useSessionInteractions(session?.id, active);
   const canSend = Boolean(
     session &&
       !sending &&

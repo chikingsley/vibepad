@@ -6,6 +6,10 @@ import {
   useMemo,
 } from "react";
 import {
+  createSessionRuntimeStore,
+  type SessionRuntimeStore,
+} from "@/features/timeline/state/session-runtime-store";
+import {
   createProjectResourcesStore,
   type ProjectResourcesStore,
 } from "@/features/workspace/state/project-resources-store";
@@ -25,6 +29,7 @@ import {
 interface VibePadHostRuntime {
   readonly client: VibePadHostClient;
   readonly projectResources: ProjectResourcesStore;
+  readonly sessionRuntime: SessionRuntimeStore;
   readonly workspace: WorkspaceStore;
   readonly workspaceUi: WorkspaceUiStore;
 }
@@ -42,16 +47,23 @@ export function VibePadHostProvider({
   const { baseUrl, hostId } = connection;
   const runtime = useMemo(() => {
     const client = new VibePadHostClient({ baseUrl, hostId });
+    const workspace = createWorkspaceStore(client);
     return {
       client,
       projectResources: createProjectResourcesStore(client),
-      workspace: createWorkspaceStore(client),
+      sessionRuntime: createSessionRuntimeStore(
+        client,
+        workspace.upsertSession
+      ),
+      workspace,
       workspaceUi: createWorkspaceUiStore(),
     };
   }, [baseUrl, hostId]);
   useEffect(
     () => () => {
       runtime.projectResources.cancelPending();
+      runtime.sessionRuntime.cancelPending();
+      runtime.workspace.cancelPending();
     },
     [runtime]
   );
@@ -74,6 +86,9 @@ export const useVibePadHost = () => useVibePadHostRuntime().client;
 
 export const useVibePadProjectResourcesStore = () =>
   useVibePadHostRuntime().projectResources;
+
+export const useVibePadSessionRuntimeStore = () =>
+  useVibePadHostRuntime().sessionRuntime;
 
 export const useVibePadWorkspaceStore = () => useVibePadHostRuntime().workspace;
 

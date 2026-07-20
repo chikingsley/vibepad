@@ -10,7 +10,10 @@ import {
   useSettingsValue,
 } from "@/features/settings/settings-context";
 import { THEME } from "@/lib/theme";
-import { useVibePadHost } from "@/lib/vibepad-host-context";
+import {
+  useVibePadHost,
+  useVibePadWorkspaceStore,
+} from "@/lib/vibepad-host-context";
 
 const trailingSlash = /\/$/u;
 const defaultDeviceName =
@@ -34,6 +37,7 @@ const normalizedHostUrl = (value: string) => {
 
 export function HostPairingControl() {
   const host = useVibePadHost();
+  const workspace = useVibePadWorkspaceStore();
   const { update } = useAppSettingsStore();
   const { colorScheme } = useColorScheme();
   const theme = THEME[colorScheme === "dark" ? "dark" : "light"];
@@ -72,6 +76,11 @@ export function HostPairingControl() {
           ],
         },
       }));
+      setCode("");
+      setOpen(false);
+      if (paired.hostId === host.hostId && url === host.baseUrl) {
+        await workspace.refresh();
+      }
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Unable to pair this host"
@@ -79,7 +88,7 @@ export function HostPairingControl() {
     } finally {
       setPairing(false);
     }
-  }, [code, deviceName, host, hostUrl, pairing, update]);
+  }, [code, deviceName, host, hostUrl, pairing, update, workspace]);
 
   return (
     <View className="gap-3">
