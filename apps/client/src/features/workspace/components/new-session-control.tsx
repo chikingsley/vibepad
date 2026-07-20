@@ -1,8 +1,12 @@
+import {
+  LegendList,
+  type LegendListRenderItemProps,
+} from "@legendapp/list/react-native";
 import type { TriggerRef } from "@rn-primitives/popover";
 import type { HarnessId } from "@vibepad/protocol/provider";
 import { useColorScheme } from "nativewind";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { ScrollView, TextInput, View } from "react-native";
+import { Platform, TextInput, View } from "react-native";
 
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -31,6 +35,8 @@ interface NewSessionControlProps {
   readonly projects: readonly NewSessionProject[];
   readonly selectedProjectId: string | undefined;
 }
+
+const projectKey = (project: NewSessionProject) => project.id;
 
 function ProjectOption({
   creating,
@@ -143,6 +149,26 @@ export function NewSessionControl({
     },
     [creatingProjectId, onCreate]
   );
+  const renderProject = useCallback(
+    ({ item }: LegendListRenderItemProps<NewSessionProject>) => (
+      <ProjectOption
+        creating={creatingProjectId === item.id}
+        disabled={Boolean(creatingProjectId)}
+        onCreate={createSession}
+        project={item}
+        selected={item.id === selectedProjectId}
+      />
+    ),
+    [createSession, creatingProjectId, selectedProjectId]
+  );
+  const emptyProjects = useMemo(
+    () => (
+      <Text className="px-3 py-6 text-center text-xs" variant="muted">
+        No matching workspaces.
+      </Text>
+    ),
+    []
+  );
 
   return (
     <Popover>
@@ -187,31 +213,22 @@ export function NewSessionControl({
             value={query}
           />
         </View>
-        <ScrollView
-          className="max-h-80"
-          contentContainerClassName="gap-1"
-          keyboardShouldPersistTaps="handled"
+        <LegendList
+          contentContainerStyle={{ gap: 4 }}
+          data={visibleProjects}
+          dataKey={`new-session-projects:${query.trim().toLocaleLowerCase()}`}
+          estimatedItemSize={56}
+          extraData={`${creatingProjectId ?? "idle"}:${selectedProjectId ?? "none"}`}
+          keyExtractor={projectKey}
+          ListEmptyComponent={emptyProjects}
+          recycleItems
+          renderItem={renderProject}
+          style={{ maxHeight: 320 }}
           testID="new-session-project-list"
-        >
-          {visibleProjects.map((project) => {
-            const creating = creatingProjectId === project.id;
-            return (
-              <ProjectOption
-                creating={creating}
-                disabled={Boolean(creatingProjectId)}
-                key={project.id}
-                onCreate={createSession}
-                project={project}
-                selected={project.id === selectedProjectId}
-              />
-            );
-          })}
-          {visibleProjects.length === 0 ? (
-            <Text className="px-3 py-6 text-center text-xs" variant="muted">
-              No matching workspaces.
-            </Text>
-          ) : null}
-        </ScrollView>
+          {...(Platform.OS === "web"
+            ? {}
+            : { keyboardShouldPersistTaps: "handled" as const })}
+        />
         {errorMessage ? (
           <Text className="px-1 text-red-600 text-xs">{errorMessage}</Text>
         ) : null}
