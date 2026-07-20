@@ -4,7 +4,7 @@ import type {
 } from "@vibepad/protocol/settings";
 import { appSettingsSchemaVersion } from "@vibepad/protocol/settings";
 import { useColorScheme } from "nativewind";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect } from "react";
 import {
   Pressable,
   ScrollView,
@@ -502,17 +502,18 @@ function ConnectionSettings({
 export function SettingsDialog({
   hostName,
   hostUrl,
-  initialPage = "timeline",
   onClose,
+  onSelectPage,
+  page,
 }: {
   readonly hostName: string;
   readonly hostUrl: string;
-  readonly initialPage?: SettingsPage;
   readonly onClose: () => void;
+  readonly onSelectPage: (page: SettingsPage) => void;
+  readonly page: SettingsPage;
 }) {
   const { width } = useWindowDimensions();
   const compact = width < 720;
-  const [page, setPage] = useState<SettingsPage>(initialPage);
   const { reset } = useAppSettingsStore();
   const { errorMessage, persistenceState } = useSettingsValue((state$) => ({
     errorMessage: state$.errorMessage.get(),
@@ -579,7 +580,7 @@ export function SettingsDialog({
         >
           <SettingsNavigation
             compact={compact}
-            onSelect={setPage}
+            onSelect={onSelectPage}
             selected={page}
           />
           <ScrollView

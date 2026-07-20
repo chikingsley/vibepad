@@ -85,4 +85,25 @@ describe("Legend workspace UI store", () => {
     expect(store.state$.desktopSidebarOpen.peek()).toBe(false);
     expect(store.state$.mobileSidebarOpen.peek()).toBe(true);
   });
+
+  it("changes the settings page without notifying its open state", () => {
+    const store = createWorkspaceUiStore();
+    store.showSettings("timeline");
+    let openNotifications = 0;
+    let pageNotifications = 0;
+    const disposeOpen = store.state$.settingsOpen.onChange(() => {
+      openNotifications += 1;
+    });
+    const disposePage = store.state$.settingsPage.onChange(() => {
+      pageNotifications += 1;
+    });
+
+    store.showSettings("voice");
+
+    expect(store.state$.settingsPage.peek()).toBe("voice");
+    expect(pageNotifications).toBe(1);
+    expect(openNotifications).toBe(0);
+    disposeOpen();
+    disposePage();
+  });
 });

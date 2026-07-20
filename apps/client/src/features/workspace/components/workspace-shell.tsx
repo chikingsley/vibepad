@@ -315,8 +315,9 @@ export function WorkspaceShell() {
         <SettingsDialog
           hostName={hostName}
           hostUrl={host.baseUrl}
-          initialPage={settingsPage}
           onClose={closeSettings}
+          onSelectPage={showSettings}
+          page={settingsPage}
         />
       ) : null}
     </SafeAreaView>
