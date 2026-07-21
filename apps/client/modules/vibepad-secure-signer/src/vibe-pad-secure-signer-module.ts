@@ -1,8 +1,8 @@
-import { type NativeModule, requireNativeModule } from "expo";
+import { requireOptionalNativeModule } from "expo";
 
 import type { SecureSignerPublicKey } from "./vibe-pad-secure-signer.types";
 
-interface SecureSignerNativeModule extends NativeModule {
+interface SecureSignerNativeModule {
   readonly deleteKeyAsync: (alias: string) => Promise<void>;
   readonly getOrCreateKeyAsync: (
     alias: string
@@ -10,6 +10,13 @@ interface SecureSignerNativeModule extends NativeModule {
   readonly signAsync: (alias: string, signingInput: string) => Promise<string>;
 }
 
-export default requireNativeModule<SecureSignerNativeModule>(
+const unavailable = () =>
+  new Error("Device-bound VibePad signing is unavailable in this build");
+
+export default requireOptionalNativeModule<SecureSignerNativeModule>(
   "VibePadSecureSigner"
-);
+) ?? {
+  deleteKeyAsync: () => Promise.reject(unavailable()),
+  getOrCreateKeyAsync: () => Promise.reject(unavailable()),
+  signAsync: () => Promise.reject(unavailable()),
+};

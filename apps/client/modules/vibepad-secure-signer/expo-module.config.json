@@ -1,6 +1,7 @@
 {
   "platforms": ["apple"],
   "apple": {
-    "modules": ["VibePadSecureSignerModule"]
+    "modules": ["VibePadSecureSignerModule"],
+    "podspecPath": "ios/VibePadSecureSigner.podspec"
   }
 }

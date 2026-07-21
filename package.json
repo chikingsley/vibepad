@@ -7,7 +7,8 @@
     "packages/*"
   ],
   "scripts": {
-    "check": "bun run lint && bun run typecheck && bun run test",
+    "check": "bun run check:native && bun run lint && bun run typecheck && bun run test",
+    "check:native": "bun run scripts/check-native-modules.ts",
     "dev": "bun run --filter @vibepad/client start",
     "dev:host": "bun run --filter @vibepad/host dev",
     "fix": "ultracite fix",

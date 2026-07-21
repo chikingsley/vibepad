@@ -8,6 +8,8 @@ dist/
 web-build/
 android/
 ios/
+!apps/client/modules/vibepad-secure-signer/ios/
+!apps/client/modules/vibepad-secure-signer/ios/**
 *.jks
 *.p8
 *.p12
