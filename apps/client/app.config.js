@@ -19,6 +19,10 @@ module.exports = {
       "com.apple.developer.devicecheck.appattest-environment":
         appAttestEnvironment,
     },
+    infoPlist: {
+      ...appJson.expo.ios.infoPlist,
+      ITSAppUsesNonExemptEncryption: false,
+    },
   },
   owner: "peacockery-studio",
 };
