@@ -1,9 +1,14 @@
 const appJson = require("./app.json");
 
-const appAttestEnvironment =
-  process.env.VIBEPAD_APP_ATTEST_ENVIRONMENT === "production"
-    ? "production"
-    : "development";
+const appAttestEnvironment = process.env.VIBEPAD_APP_ATTEST_ENVIRONMENT;
+const appAttestEntitlements =
+  appAttestEnvironment === "development" ||
+  appAttestEnvironment === "production"
+    ? {
+        "com.apple.developer.devicecheck.appattest-environment":
+          appAttestEnvironment,
+      }
+    : {};
 
 module.exports = {
   ...appJson.expo,
@@ -16,8 +21,7 @@ module.exports = {
     ...appJson.expo.ios,
     entitlements: {
       ...appJson.expo.ios.entitlements,
-      "com.apple.developer.devicecheck.appattest-environment":
-        appAttestEnvironment,
+      ...appAttestEntitlements,
     },
     infoPlist: {
       ...appJson.expo.ios.infoPlist,

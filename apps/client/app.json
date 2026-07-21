@@ -12,9 +12,6 @@
       "icon": "./assets/expo.icon",
       "supportsTablet": true,
       "bundleIdentifier": "studio.peacockery.vibepad",
-      "entitlements": {
-        "com.apple.developer.devicecheck.appattest-environment": "development"
-      },
       "infoPlist": {
         "NSAppTransportSecurity": {
           "NSAllowsLocalNetworking": true

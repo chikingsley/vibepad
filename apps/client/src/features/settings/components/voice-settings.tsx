@@ -155,7 +155,7 @@ export function VoiceSettings() {
             value="host"
           />
           <SettingsChoice
-            description="Connect straight to Peacockery Voice with App Attest and a device-bound Secure Enclave key."
+            description="Connect straight to Peacockery Voice with a device-bound Secure Enclave key."
             label="Hosted direct"
             onSelect={selectTransport}
             selected={voice.transport === "hosted"}

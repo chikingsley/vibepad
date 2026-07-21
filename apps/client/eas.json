@@ -7,25 +7,16 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "env": {
-        "VIBEPAD_APP_ATTEST_ENVIRONMENT": "development"
-      },
       "ios": {
         "simulator": true
       }
     },
     "preview": {
-      "distribution": "internal",
-      "env": {
-        "VIBEPAD_APP_ATTEST_ENVIRONMENT": "development"
-      }
+      "distribution": "internal"
     },
     "testflight": {
       "autoIncrement": true,
-      "distribution": "store",
-      "env": {
-        "VIBEPAD_APP_ATTEST_ENVIRONMENT": "production"
-      }
+      "distribution": "store"
     }
   },
   "submit": {
