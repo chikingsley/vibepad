@@ -63,4 +63,6 @@
 - Published iOS 1.0.0 build 6 from commit
   [`6459df2`](https://github.com/chikingsley/vibepad/commit/6459df2e450ebc993e1f67aee8e669f25df3c928)
   through [EAS Build](https://expo.dev/accounts/peacockery-studio/projects/vibepad/builds/82ed9384-2aa9-4d27-a117-3c6eb0112d62) and completed its
-  [TestFlight submission](https://expo.dev/accounts/peacockery-studio/projects/vibepad/submissions/b44cc7f4-900d-4dbc-adab-d1499c68a4b6).
+  [TestFlight submission](https://expo.dev/accounts/peacockery-studio/projects/vibepad/submissions/b44cc7f4-900d-4dbc-adab-d1499c68a4b6);
+  [App Store Connect](https://appstoreconnect.apple.com/apps/6792378876/testflight/ios)
+  processed the build as valid with export compliance resolved.
