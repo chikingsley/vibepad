@@ -121,19 +121,17 @@ export function SessionWorkbench({
   return (
     <View className="min-h-0 flex-1 bg-background" testID="session-workbench">
       {surface === "preview" ? null : (
-        <View className="h-10 flex-row items-center gap-2 border-border border-b px-2.5">
+        <View className="h-12 flex-row items-center gap-2 border-border border-b px-3">
           <Icon
             className="text-muted-foreground"
             name={iconForSurface[surface]}
             size={13}
           />
-          <Text className="font-medium text-xs">
-            {titleForSurface[surface]}
-          </Text>
+          <Text variant="control">{titleForSurface[surface]}</Text>
           <Text
-            className="min-w-0 flex-1 text-[10px]"
+            className="min-w-0 flex-1 text-muted-foreground"
             numberOfLines={1}
-            variant="muted"
+            variant="metadata"
           >
             {project.name}
           </Text>
@@ -141,6 +139,7 @@ export function SessionWorkbench({
             accessibilityLabel={
               expanded ? "Restore split view" : "Expand workbench"
             }
+            className="size-11 sm:size-11"
             onPress={toggleExpanded}
             size="icon"
             testID="session-workbench-expand"
@@ -154,6 +153,7 @@ export function SessionWorkbench({
           </Button>
           <Button
             accessibilityLabel="Close workbench"
+            className="size-11 sm:size-11"
             onPress={close}
             size="icon"
             testID="session-workbench-close"

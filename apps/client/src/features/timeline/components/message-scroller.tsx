@@ -35,8 +35,8 @@ const tailThreshold = 96;
 const checkpointDelay = 280;
 const timelineInset = 16;
 const listStyle = { flex: 1 } as const;
-const listContentStyle = { paddingBottom: 40, paddingTop: 32 } as const;
-const listHeaderStyle = { marginBottom: 24 } as const;
+const listContentStyle = { paddingBottom: 32, paddingTop: 20 } as const;
+const listHeaderStyle = { marginBottom: 16 } as const;
 
 interface OpeningPlan {
   readonly atEnd: boolean;
@@ -84,8 +84,17 @@ const timelineBlocksEqual = (
   );
 };
 
-function TimelineItemSeparator() {
-  return <View className="h-5" />;
+function timelineGapAfter(
+  leading: ProjectedTimelineBlock,
+  trailing: ProjectedTimelineBlock | undefined
+) {
+  if (!trailing) {
+    return 0;
+  }
+  if (leading.turnId && trailing.turnId && leading.turnId === trailing.turnId) {
+    return 4;
+  }
+  return 12;
 }
 
 function EarlierTimelineControl({
@@ -336,6 +345,22 @@ export function MessageScroller({
       ) : null,
     [harnessId]
   );
+  const gapAfterById = useMemo(
+    () =>
+      new Map(
+        blocks.map((block, index) => [
+          block.id,
+          timelineGapAfter(block, blocks[index + 1]),
+        ])
+      ),
+    [blocks]
+  );
+  const timelineItemSeparator = useCallback(
+    ({ leadingItem }: { readonly leadingItem: ProjectedTimelineBlock }) => (
+      <View style={{ height: gapAfterById.get(leadingItem.id) ?? 12 }} />
+    ),
+    [gapAfterById]
+  );
 
   const listHeader = useMemo(
     () => (
@@ -386,7 +411,7 @@ export function MessageScroller({
           extraData={harnessId}
           getItemType={timelineBlockType}
           {...initialScrollProps}
-          ItemSeparatorComponent={TimelineItemSeparator}
+          ItemSeparatorComponent={timelineItemSeparator}
           itemsAreEqual={timelineBlocksEqual}
           key={`${sessionId ?? "empty"}:${validOpeningPlan?.generation ?? "loading"}`}
           keyExtractor={timelineBlockKey}

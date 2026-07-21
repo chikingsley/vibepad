@@ -1,6 +1,6 @@
 import type { WorkspaceFileNode } from "@vibepad/protocol/files";
 import { useCallback } from "react";
-import { Pressable, View } from "react-native";
+import { TouchableOpacity, View } from "react-native";
 
 import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
@@ -37,9 +37,11 @@ export function FileNodeRow({
   }, [isDirectory, node.path, onOpenFile]);
 
   return (
-    <Pressable
+    <TouchableOpacity
       accessibilityLabel={`${isDirectory ? "Open folder" : "Open file"} ${node.path}`}
-      className="h-9 flex-row items-center gap-2 px-3 active:bg-accent"
+      accessibilityRole="button"
+      activeOpacity={0.68}
+      className="h-9 flex-row items-center gap-2 px-3"
       delayLongPress={350}
       onLongPress={isDirectory ? undefined : openAdditive}
       onPress={open}
@@ -76,6 +78,6 @@ export function FileNodeRow({
           size={12}
         />
       ) : null}
-    </Pressable>
+    </TouchableOpacity>
   );
 }

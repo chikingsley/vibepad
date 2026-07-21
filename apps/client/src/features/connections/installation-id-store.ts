@@ -1,5 +1,6 @@
-import { randomUUID } from "expo-crypto";
 import { getItemAsync, setItemAsync } from "expo-secure-store";
+
+import { randomUuid } from "@/lib/random-uuid";
 
 const installationIdKey = "vibepad.installation-id.v1";
 const uuid =
@@ -12,7 +13,7 @@ const loadInstallationId = async () => {
   if (stored && uuid.test(stored)) {
     return stored;
   }
-  const created = randomUUID();
+  const created = randomUuid();
   await setItemAsync(installationIdKey, created);
   return created;
 };

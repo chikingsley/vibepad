@@ -28,12 +28,16 @@ const textVariants = cva(
         p: 'mt-3 leading-7 sm:mt-6',
         blockquote: 'mt-4 border-l-2 pl-3 italic sm:mt-6 sm:pl-6',
         code: cn(
-          'bg-muted relative rounded px-[0.3rem] py-[0.2rem] font-mono text-sm font-semibold'
+          'bg-muted relative rounded px-1 py-1 font-mono text-sm font-semibold'
         ),
         lead: 'text-muted-foreground text-xl',
         large: 'text-lg font-semibold',
         small: 'text-sm font-medium leading-none',
         muted: 'text-muted-foreground text-sm',
+        sessionTitle: 'text-base font-semibold leading-6',
+        control: 'text-[13px] font-medium leading-5',
+        metadata: 'text-xs leading-4',
+        caption: 'text-[11px] font-medium leading-4 uppercase tracking-wider',
       },
     },
     defaultVariants: {

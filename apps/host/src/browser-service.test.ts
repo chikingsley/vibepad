@@ -103,6 +103,8 @@ describe("VibePad Browser broker", () => {
     const session = service.createViewSession();
     const url = new URL(session.path, "http://vibepad.test");
 
+    expect(url.searchParams.get("resize")).toBe("remote");
+
     const response = await service.handleViewAsset(new Request(url), url);
 
     expect(await response.text()).toContain("VibePad Browser");
@@ -244,5 +246,51 @@ describe("VibePad Browser broker", () => {
     expect(requests.at(-1)?.url).toBe(
       "http://127.0.0.1:19223/json/close/target-1"
     );
+  });
+
+  it("keeps browser tabs in creation order across newest-first CDP polls", async () => {
+    const first = {
+      ...target,
+      id: "target-1",
+      title: "First",
+      url: "https://first.example/",
+    };
+    const second = {
+      ...target,
+      id: "target-2",
+      title: "Second",
+      url: "https://second.example/",
+    };
+    const third = {
+      ...target,
+      id: "target-3",
+      title: "Third",
+      url: "https://third.example/",
+    };
+    let targets = [second, first];
+    const service = new BrowserService({
+      cdpUrl: "http://127.0.0.1:19223",
+      enabled: true,
+      fetcher: (input) => {
+        const url = String(input);
+        if (url.endsWith("/json/list")) {
+          return Promise.resolve(Response.json(targets));
+        }
+        if (url.includes("/json/new?")) {
+          targets = [third, ...targets];
+          return Promise.resolve(Response.json(third));
+        }
+        return Promise.resolve(new Response("ok"));
+      },
+      surfaceUrl: "http://127.0.0.1:16901",
+    });
+
+    await expect(service.state()).resolves.toMatchObject({
+      targets: [{ id: "target-1" }, { id: "target-2" }],
+    });
+    await service.createTarget(third.url);
+    await expect(service.state()).resolves.toMatchObject({
+      targets: [{ id: "target-1" }, { id: "target-2" }, { id: "target-3" }],
+    });
   });
 });

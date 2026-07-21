@@ -1,4 +1,4 @@
-appId: host.exp.Exponent
+appId: studio.peacockery.vibepad
 name: VibePad live Codex provider journey
 ---
 - extendedWaitUntil:

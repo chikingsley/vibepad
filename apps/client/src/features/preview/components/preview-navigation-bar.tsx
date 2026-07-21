@@ -21,7 +21,7 @@ function PreviewToolButton({
   return (
     <Button
       accessibilityLabel={accessibilityLabel}
-      className="size-8 rounded-md"
+      className="size-11 rounded-md sm:size-11"
       disabled={disabled}
       onPress={onPress}
       size="icon"
@@ -65,7 +65,7 @@ export function PreviewNavigationBar({
   readonly onToggleExpanded: () => void;
 }) {
   return (
-    <View className="h-11 flex-row items-center gap-1 border-border border-b px-2">
+    <View className="h-12 flex-row items-center gap-1 border-border border-b px-2">
       <PreviewToolButton
         accessibilityLabel="Preview back"
         disabled={!canGoBack}
@@ -87,12 +87,12 @@ export function PreviewNavigationBar({
         onPress={onReload}
         testID="preview-reload"
       />
-      <View className="mx-1 h-8 min-w-40 flex-1 flex-row items-center rounded-md border border-border bg-card px-2">
+      <View className="mx-1 h-10 min-w-40 flex-1 flex-row items-center rounded-md border border-border bg-card px-3">
         <TextInput
           accessibilityLabel="Preview URL"
           autoCapitalize="none"
           autoCorrect={false}
-          className="min-w-0 flex-1 text-[12px] text-foreground outline-none"
+          className="min-w-0 flex-1 text-foreground text-xs leading-4 outline-none"
           editable={hasActiveTab}
           onChangeText={onDraftUrlChange}
           onSubmitEditing={onSubmitDraftUrl}
@@ -101,7 +101,7 @@ export function PreviewNavigationBar({
           value={draftUrl}
         />
         {loading ? (
-          <Text className="text-[10px]" variant="muted">
+          <Text className="text-muted-foreground" variant="metadata">
             Loading…
           </Text>
         ) : null}

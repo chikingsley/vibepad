@@ -1,8 +1,7 @@
-appId: host.exp.Exponent
+appId: studio.peacockery.vibepad
 name: VibePad live OpenCode turn
 ---
 - launchApp
-- openLink: ${EXPO_URL}
 - setOrientation: LANDSCAPE_LEFT
 - tapOn:
     text: Continue

@@ -26,6 +26,7 @@ module.exports = {
         },
         background: "hsl(var(--background))",
         border: "hsl(var(--border))",
+        brand: "hsl(var(--brand))",
         card: {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
@@ -53,6 +54,7 @@ module.exports = {
           DEFAULT: "hsl(var(--secondary))",
           foreground: "hsl(var(--secondary-foreground))",
         },
+        success: "hsl(var(--success))",
       },
     },
   },

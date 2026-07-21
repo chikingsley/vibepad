@@ -11,6 +11,10 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
 import {
+  NewSessionControl,
+  type NewSessionProject,
+} from "@/features/workspace/components/new-session-control";
+import {
   ConnectionIndicator,
   type HostConnection,
 } from "@/features/workspace/components/status-indicators";
@@ -24,11 +28,15 @@ import {
 interface WorkspaceSidebarProps {
   readonly hostConnection: HostConnection;
   readonly hostName: string;
+  readonly newSessionDisabled: boolean;
   readonly onArchiveSession: (sessionId: string) => Promise<void>;
+  readonly onCreateSession: (projectId: string) => Promise<void>;
   readonly onOpenSettings: () => void;
   readonly onRefresh: () => void;
   readonly onRenameSession: (sessionId: string, title: string) => Promise<void>;
   readonly onSelectSession: (sessionId: string) => void;
+  readonly projects: readonly NewSessionProject[];
+  readonly selectedProjectId: string | undefined;
 }
 
 const projectPrefix = "project:";
@@ -81,11 +89,15 @@ function SidebarListFooter({
 export function WorkspaceSidebar({
   hostConnection,
   hostName,
+  newSessionDisabled,
   onArchiveSession,
+  onCreateSession,
   onOpenSettings,
   onRenameSession,
   onSelectSession,
   onRefresh,
+  projects,
+  selectedProjectId,
 }: WorkspaceSidebarProps) {
   const insets = useSafeAreaInsets();
   const workspace = useVibePadWorkspaceStore();
@@ -117,6 +129,8 @@ export function WorkspaceSidebar({
         <WorkspaceProjectRow
           hostConnection={hostConnection}
           hostName={hostName}
+          newSessionDisabled={newSessionDisabled}
+          onCreateSession={onCreateSession}
           projectId={item.slice(projectPrefix.length)}
         />
       ) : (
@@ -130,17 +144,16 @@ export function WorkspaceSidebar({
     [
       hostConnection,
       hostName,
+      newSessionDisabled,
       onArchiveSession,
+      onCreateSession,
       onRenameSession,
       onSelectSession,
     ]
   );
   const listHeader = (
     <View className="px-2 pt-2 pb-1">
-      <Text
-        className="font-medium text-[11px] uppercase tracking-wider"
-        variant="muted"
-      >
+      <Text className="text-muted-foreground" variant="caption">
         Workspaces
       </Text>
     </View>
@@ -156,32 +169,27 @@ export function WorkspaceSidebar({
 
   return (
     <View className="h-full bg-card" testID="workspace-sidebar">
-      <View className="h-14 flex-row items-center gap-3 border-border border-b px-3">
-        <View className="size-7 items-center justify-center rounded-lg bg-foreground">
-          <Text className="font-semibold text-background text-sm">V</Text>
+      <View className="h-12 flex-row items-center gap-2.5 border-border border-b px-3">
+        <View className="size-8 items-center justify-center rounded-lg bg-foreground">
+          <Text className="font-semibold text-background text-base">V</Text>
         </View>
-        <Text className="flex-1 font-semibold text-sm">VibePad</Text>
+        <Text className="flex-1 font-semibold text-base">VibePad</Text>
       </View>
 
-      <View className="px-3 pt-3 pb-2">
-        <Pressable
-          accessibilityLabel="Search workspaces and sessions"
-          className="h-9 flex-row items-center gap-2 rounded-lg bg-muted px-3"
-        >
-          <Icon className="text-muted-foreground" name="search" size={14} />
-          <Text className="text-xs" variant="muted">
-            Search
-          </Text>
-          <Text className="ml-auto text-[10px]" variant="muted">
-            ⌘ K
-          </Text>
-        </Pressable>
+      <View className="px-2 pt-2 pb-1">
+        <NewSessionControl
+          disabled={newSessionDisabled}
+          onCreate={onCreateSession}
+          projects={projects}
+          selectedProjectId={selectedProjectId}
+          triggerVariant="sidebar"
+        />
       </View>
 
       <LegendList
         contentContainerStyle={{
-          gap: 4,
-          paddingBottom: 16,
+          gap: 2,
+          paddingBottom: 12,
           paddingHorizontal: 8,
         }}
         data={rows}
@@ -202,11 +210,11 @@ export function WorkspaceSidebar({
       >
         <Pressable
           accessibilityLabel="Open settings"
-          className="flex-row items-center gap-3 rounded-lg px-2 py-2 active:bg-accent/70"
+          className="min-h-12 flex-row items-center gap-3 rounded-lg px-2 py-2 active:bg-accent/70"
           onPress={onOpenSettings}
           testID="settings-open"
         >
-          <View className="size-7 items-center justify-center rounded-md bg-muted">
+          <View className="size-8 items-center justify-center rounded-md bg-muted">
             <Text className="font-semibold text-xs">
               {hostName.slice(0, 2).toUpperCase()}
             </Text>
@@ -216,7 +224,7 @@ export function WorkspaceSidebar({
               <Text className="font-medium text-xs">{hostName}</Text>
               <ConnectionIndicator connection={hostConnection} />
             </View>
-            <Text className="text-[10px]" variant="muted">
+            <Text className="text-xs leading-4" variant="muted">
               VibePad host
             </Text>
           </View>

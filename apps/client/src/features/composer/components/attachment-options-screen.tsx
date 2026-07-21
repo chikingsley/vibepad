@@ -51,7 +51,7 @@ function DetailInspector({ option }: { readonly option: AttachmentOption }) {
   const title = {
     bundle: "Review bundle",
     hybrid: "Review + key frames",
-    strip: "Capture strip",
+    strip: "Review attachments",
   }[option];
 
   return (
@@ -186,7 +186,7 @@ export function AttachmentOptionsScreen() {
 
           <View className="gap-3">
             <OptionLabel number={2} recommended>
-              Timestamped capture strip
+              Timestamped review attachments
             </OptionLabel>
             <Text className="text-xs" variant="muted">
               Most literal and visual; best when every marked moment matters.

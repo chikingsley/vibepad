@@ -1,8 +1,8 @@
-appId: host.exp.Exponent
+appId: studio.peacockery.vibepad
 name: VibePad preview selection and drawing
 ---
+- stopApp
 - launchApp
-- openLink: ${EXPO_URL}
 - setOrientation: LANDSCAPE_LEFT
 - tapOn:
     text: Continue

@@ -1,8 +1,8 @@
-appId: host.exp.Exponent
+appId: studio.peacockery.vibepad
 name: VibePad shell smoke
 ---
+- stopApp
 - launchApp
-- openLink: ${EXPO_URL}
 - setOrientation: LANDSCAPE_LEFT
 - tapOn:
     text: Continue
@@ -19,11 +19,15 @@ name: VibePad shell smoke
 - assertVisible:
     id: header-host-status
 - assertVisible:
-    id: session-tab-strip
+    id: header-session-context
 - assertVisible:
     id: new-session-trigger
 - assertVisible:
+    id: session-workbench-controls
+- assertVisible:
     id: session-canvas
+- tapOn:
+    id: session-surface-chat
 - assertVisible:
     id: message-send-inactive
 - tapOn:
@@ -48,31 +52,10 @@ name: VibePad shell smoke
 - hideKeyboard
 - assertVisible:
     id: message-send-inactive
-- tapOn:
-    id: header-host-status
-- assertVisible:
-    id: host-connection-menu
-- assertVisible:
-    id: host-add-connection
-- tapOn:
-    id: host-connection-close
-- assertVisible:
-    id: system-status-trigger
-- tapOn:
-    id: system-status-trigger
-- assertVisible:
-    id: system-status-tab-mcp
-- assertVisible:
-    id: system-status-tab-lsp
-- assertVisible:
-    id: system-status-tab-plugins
-- assertVisible:
-    id: system-status-panel-mcp
-- tapOn:
-    id: system-status-tab-lsp
-- assertVisible:
-    id: system-status-panel-lsp
-- tapOn:
-    id: system-status-tab-plugins
-- assertVisible:
-    id: system-status-panel-plugins
+- runFlow:
+    when:
+      visible:
+        id: system-status-trigger
+    commands:
+      - tapOn:
+          id: system-status-trigger

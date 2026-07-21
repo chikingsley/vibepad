@@ -28,7 +28,9 @@ export function ObservableSearchField({
         className="h-10 min-w-0 flex-1 text-foreground text-sm outline-none"
         placeholder={placeholder}
         placeholderTextColor={theme.mutedForeground}
+        returnKeyType="done"
         style={{ color: theme.foreground }}
+        submitBehavior="blurAndSubmit"
         testID={testID}
       />
     </View>

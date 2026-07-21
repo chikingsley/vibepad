@@ -72,14 +72,14 @@ function ArchiveSwipeAction({
       accessibilityElementsHidden={!visible}
       accessibilityLabel={`Archive ${title}`}
       aria-hidden={!visible}
-      className="w-20 items-center justify-center bg-red-500 active:bg-red-600"
+      className="w-20 items-center justify-center bg-destructive active:bg-destructive/90"
       disabled={archiving}
       importantForAccessibility={visible ? "auto" : "no-hide-descendants"}
       onPress={archive}
       testID={`session-${sessionId}-swipe-archive`}
     >
       <Icon className="text-white" name="archive" size={15} />
-      <Text className="mt-0.5 text-[10px] text-white">
+      <Text className="mt-1 text-destructive-foreground" variant="metadata">
         {archiveActionLabel(archiving, archiveFailed)}
       </Text>
     </Pressable>
@@ -181,7 +181,7 @@ export function WorkspaceSessionRow({
   const state = stateForSession(session);
 
   return (
-    <View className="ml-[31px] border-border border-l pl-2">
+    <View className="ml-8 border-border border-l pl-2">
       <ReanimatedSwipeable
         enableTrackpadTwoFingerGesture
         friction={1.5}
@@ -194,7 +194,7 @@ export function WorkspaceSessionRow({
       >
         <View
           className={cn(
-            "mb-0.5 h-9 flex-row items-center gap-1.5 rounded-md bg-card px-2 active:bg-accent/70",
+            "h-11 flex-row items-center gap-2 rounded-md bg-card px-2 active:bg-accent/70",
             selected && "bg-accent"
           )}
           testID={`session-${session.id}`}
@@ -218,7 +218,7 @@ export function WorkspaceSessionRow({
             <SessionTitle title={session.title} />
           </ContextPressable>
           <View
-            className="size-7 shrink-0 items-center justify-center"
+            className="size-11 shrink-0 items-center justify-center"
             testID={`session-${session.id}-state`}
           >
             {state === "idle" ? null : <SessionStateIndicator state={state} />}

@@ -1,7 +1,7 @@
 import { useValue } from "@legendapp/state/react";
 
 import { SessionCanvas } from "@/features/workspace/components/session-canvas";
-import { defaultWorkbenchLayout } from "@/features/workspace/state/workspace-ui-store";
+import { defaultWorkbenchLayout } from "@/features/workspace/state/workspace-ui-persistence";
 import {
   useVibePadWorkspaceStore,
   useVibePadWorkspaceUiStore,
@@ -46,6 +46,7 @@ export function WorkspaceSessionCanvas({
       loading={loading}
       onCloseWorkbench={workspaceUi.closeWorkbench}
       onSessionChange={workspace.upsertSession}
+      onSplitRatioChange={workspaceUi.setWorkbenchSplitRatio}
       onToggleWorkbenchExpanded={workspaceUi.toggleWorkbenchExpanded}
       project={project}
       session={session}

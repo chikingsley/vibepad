@@ -8,7 +8,13 @@ import type {
   WorkspaceFileNode,
 } from "@vibepad/protocol/files";
 import { useCallback, useMemo } from "react";
-import { Pressable, useWindowDimensions, View } from "react-native";
+import {
+  FlatList,
+  type ListRenderItemInfo,
+  Pressable,
+  useWindowDimensions,
+  View,
+} from "react-native";
 
 import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
@@ -100,15 +106,19 @@ export function FilesSurface({
     navigation.moveToParent(sessionId);
   }, [navigation, sessionId]);
   const openDirectory = useCallback(
-    (nextPath: string) => navigation.openDirectory(sessionId, nextPath),
+    (nextPath: string) => {
+      navigation.openDirectory(sessionId, nextPath);
+    },
     [navigation, sessionId]
   );
   const selectFile = useCallback(
-    (nextPath: string) => navigation.selectFile(sessionId, nextPath),
+    (nextPath: string) => {
+      navigation.selectFile(sessionId, nextPath);
+    },
     [navigation, sessionId]
   );
   const renderNode = useCallback(
-    ({ item: node }: LegendListRenderItemProps<WorkspaceFileNode>) => (
+    ({ item: node }: ListRenderItemInfo<WorkspaceFileNode>) => (
       <FileNodeRow
         change={summarizeChanges(node, changes.data)}
         node={node}
@@ -171,14 +181,11 @@ export function FilesSurface({
             <Text className="text-red-600 text-xs">{files.message}</Text>
           </View>
         ) : (
-          <LegendList
+          <FlatList
             contentContainerStyle={{ paddingVertical: 4 }}
             data={nodes}
-            dataKey={`${projectId}:${path}`}
-            estimatedItemSize={36}
             key={`file-tree:${projectId}:${path}`}
             keyExtractor={fileNodeKey}
-            recycleItems
             renderItem={renderNode}
             style={{ flex: 1 }}
           />

@@ -114,7 +114,7 @@ export function SessionActionsMenu({
       <PopoverTrigger asChild ref={triggerRef}>
         <Button
           accessibilityLabel={`Session actions for ${title}`}
-          className="size-7 rounded-md"
+          className="size-11 rounded-md sm:size-11"
           size="icon"
           testID={`${testIdPrefix}-actions-trigger`}
           variant="ghost"

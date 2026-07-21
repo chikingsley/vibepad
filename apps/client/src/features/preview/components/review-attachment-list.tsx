@@ -35,7 +35,7 @@ function ReviewCueCard({
   );
 }
 
-export function ReviewCaptureStrip({
+export function ReviewAttachmentList({
   cues,
   onOpenCue,
   onRemoveCue,

@@ -2,8 +2,14 @@ import type {
   ProjectSummary,
   SessionSummary,
 } from "@vibepad/protocol/provider";
-import { useCallback, useMemo, useState } from "react";
-import { type LayoutChangeEvent, View, type ViewStyle } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type AccessibilityActionEvent,
+  type LayoutChangeEvent,
+  PanResponder,
+  View,
+  type ViewStyle,
+} from "react-native";
 import Animated, {
   FadeInRight,
   FadeOutRight,
@@ -25,13 +31,87 @@ import {
   projectTimeline,
 } from "@/features/timeline/model/timeline-projection";
 import { SessionWorkbench } from "@/features/workspace/components/session-workbench";
-import type { SessionWorkbenchLayout } from "@/features/workspace/state/workspace-ui-store";
+import {
+  clampWorkbenchSplitRatio,
+  type SessionWorkbenchLayout,
+} from "@/features/workspace/state/workspace-ui-persistence";
 import {
   useSessionInteractions,
   useSessionTimeline,
 } from "@/lib/use-host-workspace";
 
 const splitWorkbenchBreakpoint = 820;
+const splitDividerWidth = 12;
+
+function SplitDivider({
+  canvasWidth,
+  onChange,
+  onPreview,
+  ratio,
+}: {
+  readonly canvasWidth: number;
+  readonly onChange: (ratio: number) => void;
+  readonly onPreview: (ratio: number) => void;
+  readonly ratio: number;
+}) {
+  const startRatio = useRef(ratio);
+  const ratioForDelta = useCallback(
+    (delta: number) =>
+      clampWorkbenchSplitRatio(
+        startRatio.current + delta / Math.max(canvasWidth, 1)
+      ),
+    [canvasWidth]
+  );
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_, gesture) =>
+          Math.abs(gesture.dx) > Math.abs(gesture.dy) &&
+          Math.abs(gesture.dx) > 2,
+        onPanResponderGrant: () => {
+          startRatio.current = ratio;
+        },
+        onPanResponderMove: (_, gesture) => {
+          onPreview(ratioForDelta(gesture.dx));
+        },
+        onPanResponderRelease: (_, gesture) => {
+          onChange(ratioForDelta(gesture.dx));
+        },
+        onPanResponderTerminate: (_, gesture) => {
+          onChange(ratioForDelta(gesture.dx));
+        },
+      }),
+    [onChange, onPreview, ratio, ratioForDelta]
+  );
+  const adjust = useCallback(
+    (event: AccessibilityActionEvent) => {
+      const delta = event.nativeEvent.actionName === "increment" ? 0.05 : -0.05;
+      const next = clampWorkbenchSplitRatio(ratio + delta);
+      onPreview(next);
+      onChange(next);
+    },
+    [onChange, onPreview, ratio]
+  );
+
+  return (
+    <View
+      accessibilityActions={[
+        { label: "More chat", name: "increment" },
+        { label: "More workbench", name: "decrement" },
+      ]}
+      accessibilityLabel="Resize chat and workbench"
+      accessibilityRole="adjustable"
+      accessibilityValue={{ max: 68, min: 28, now: Math.round(ratio * 100) }}
+      className="items-center justify-center bg-background"
+      onAccessibilityAction={adjust}
+      style={{ width: splitDividerWidth }}
+      testID="session-split-divider"
+      {...panResponder.panHandlers}
+    >
+      <View className="h-full w-px bg-border" />
+    </View>
+  );
+}
 
 function SessionContent({
   errorMessage,
@@ -156,6 +236,7 @@ export function SessionCanvas({
   loading,
   onCloseWorkbench,
   onSessionChange,
+  onSplitRatioChange,
   onToggleWorkbenchExpanded,
   project,
   session,
@@ -167,12 +248,14 @@ export function SessionCanvas({
   readonly loading: boolean;
   readonly onCloseWorkbench: (sessionId: string) => void;
   readonly onSessionChange: (session: SessionSummary) => void;
+  readonly onSplitRatioChange: (sessionId: string, ratio: number) => void;
   readonly onToggleWorkbenchExpanded: (sessionId: string) => void;
   readonly project: ProjectSummary | undefined;
   readonly session: SessionSummary | undefined;
   readonly workbench: SessionWorkbenchLayout;
 }) {
   const [canvasWidth, setCanvasWidth] = useState(0);
+  const [liveSplitRatio, setLiveSplitRatio] = useState(workbench.splitRatio);
   const timeline = useSessionTimeline(session?.id, active);
   const interactions = useSessionInteractions(session?.id, active);
   const { interrupt, send, sendDraft } = useSessionComposerActions({
@@ -187,8 +270,14 @@ export function SessionCanvas({
   if (hideChat) {
     chatStyle = { display: "none" };
   } else if (workbench.open && split) {
-    chatStyle = { width: "38%" };
+    chatStyle = {
+      width: Math.max(0, (canvasWidth - splitDividerWidth) * liveSplitRatio),
+    };
   }
+
+  useEffect(() => {
+    setLiveSplitRatio(workbench.splitRatio);
+  }, [workbench.splitRatio]);
 
   const measureCanvas = useCallback((event: LayoutChangeEvent) => {
     const nextWidth = Math.round(event.nativeEvent.layout.width);
@@ -204,6 +293,15 @@ export function SessionCanvas({
       onToggleWorkbenchExpanded(session.id);
     }
   }, [onToggleWorkbenchExpanded, session]);
+  const commitSplitRatio = useCallback(
+    (ratio: number) => {
+      setLiveSplitRatio(ratio);
+      if (session) {
+        onSplitRatioChange(session.id, ratio);
+      }
+    },
+    [onSplitRatioChange, session]
+  );
   return (
     <View
       className="min-h-0 flex-1 flex-row bg-background"
@@ -230,9 +328,18 @@ export function SessionCanvas({
         />
       </View>
 
+      {active && session && project && workbench.open && split && !hideChat ? (
+        <SplitDivider
+          canvasWidth={canvasWidth}
+          onChange={commitSplitRatio}
+          onPreview={setLiveSplitRatio}
+          ratio={liveSplitRatio}
+        />
+      ) : null}
+
       {active && session && project && workbench.open ? (
         <Animated.View
-          className="min-h-0 min-w-0 flex-1 border-border border-l"
+          className="min-h-0 min-w-0 flex-1"
           entering={FadeInRight.duration(180).reduceMotion(ReduceMotion.System)}
           exiting={FadeOutRight.duration(140).reduceMotion(ReduceMotion.System)}
           layout={LinearTransition.duration(180).reduceMotion(

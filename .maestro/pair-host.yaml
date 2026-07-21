@@ -1,0 +1,37 @@
+appId: studio.peacockery.vibepad
+name: Pair VibePad host
+---
+- launchApp
+- setOrientation: LANDSCAPE_LEFT
+- extendedWaitUntil:
+    visible:
+      id: settings-open
+    timeout: 30000
+- tapOn:
+    id: settings-open
+- tapOn:
+    id: settings-page-connections
+- tapOn:
+    id: host-pairing-open
+- tapOn:
+    id: host-pairing-url
+- eraseText
+- inputText: ${HOST_URL}
+- hideKeyboard
+- tapOn:
+    id: host-pairing-code
+- eraseText
+- inputText: ${PAIRING_CODE}
+- hideKeyboard
+- tapOn:
+    id: host-pairing-submit
+- extendedWaitUntil:
+    visible:
+      id: session-canvas
+    timeout: 30000
+- tapOn:
+    id: settings-close
+- assertVisible:
+    id: workspace-sidebar
+- assertVisible:
+    id: header-host-status

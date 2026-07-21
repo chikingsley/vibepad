@@ -536,6 +536,11 @@ it("interrupts a real active OpenCode turn and returns the session to idle", asy
 
     const activeBefore = await client.v2.session.active({ throwOnError: true });
     expect(JSON.stringify(activeBefore.data)).toContain(nativeSessionId);
+    const sessionsBefore = await adapter.listSessions(project.id);
+    expect(
+      sessionsBefore.find((session) => session.id === createdSessionId)
+        ?.activity
+    ).toBe("busy");
 
     await adapter.abortTurn(createdSessionId);
     await waitFor(

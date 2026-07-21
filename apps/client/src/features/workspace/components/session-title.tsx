@@ -3,7 +3,13 @@ import { LinearGradient } from "expo-linear-gradient";
 
 import { Text } from "@/components/ui/text";
 
-export function SessionTitle({ title }: { readonly title: string }) {
+export function SessionTitle({
+  fill = true,
+  title,
+}: {
+  readonly fill?: boolean;
+  readonly title: string;
+}) {
   return (
     <MaskedView
       maskElement={
@@ -13,9 +19,13 @@ export function SessionTitle({ title }: { readonly title: string }) {
           style={{ flex: 1 }}
         />
       }
-      style={{ flex: 1, minWidth: 0 }}
+      style={
+        fill
+          ? { flex: 1, minWidth: 0 }
+          : { flexShrink: 1, maxWidth: "70%", minWidth: 0 }
+      }
     >
-      <Text className="text-[13px]" ellipsizeMode="clip" numberOfLines={1}>
+      <Text ellipsizeMode="clip" numberOfLines={1} variant="sessionTitle">
         {title}
       </Text>
     </MaskedView>

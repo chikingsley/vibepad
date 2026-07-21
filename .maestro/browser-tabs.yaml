@@ -1,8 +1,8 @@
-appId: host.exp.Exponent
+appId: studio.peacockery.vibepad
 name: VibePad persistent browser tabs
 ---
+- stopApp
 - launchApp
-- openLink: ${EXPO_URL}
 - setOrientation: LANDSCAPE_LEFT
 - tapOn:
     text: Continue
@@ -18,22 +18,20 @@ name: VibePad persistent browser tabs
     id: session-surface-preview
 - extendedWaitUntil:
     visible:
-      text: Open Google
+      id: browser-tab-strip
     timeout: 30000
 - assertVisible:
-    id: browser-tab-browser-tab-1
+    text: Close browser tab about:blank
 - tapOn:
-    text: Open Google
+    id: browser-new-tab
 - extendedWaitUntil:
     visible:
-      id: browser-tab-browser-tab-2
+      text: Close browser tab Google.*
     timeout: 30000
-- assertVisible:
-    id: browser-profile-status
 - takeScreenshot: browser-tabs-google
 - tapOn:
-    id: browser-tab-close-browser-tab-2
+    text: Close browser tab Google.*
 - assertNotVisible:
-    id: browser-tab-browser-tab-2
+    text: Close browser tab Google.*
 - assertVisible:
-    id: browser-tab-browser-tab-1
+    text: Close browser tab about:blank

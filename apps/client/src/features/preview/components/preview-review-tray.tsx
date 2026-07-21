@@ -3,7 +3,7 @@ import { StyleSheet, View } from "react-native";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
-import { ReviewCaptureStrip } from "@/features/preview/components/review-capture-strip";
+import { ReviewAttachmentList } from "@/features/preview/components/review-attachment-list";
 import type { PreviewFeedbackCue } from "@/features/preview/preview-review";
 
 const sendTestId = (sending: boolean, canSend: boolean) => {
@@ -41,7 +41,7 @@ export function PreviewReviewTray({
       ) : null}
       <View className="min-w-0 flex-row items-end gap-2">
         <View className="min-w-0 flex-1">
-          <ReviewCaptureStrip cues={cues} onRemoveCue={onRemoveCue} />
+          <ReviewAttachmentList cues={cues} onRemoveCue={onRemoveCue} />
         </View>
         <View className="flex-row items-center gap-1 pb-1">
           <Button
@@ -56,7 +56,7 @@ export function PreviewReviewTray({
           </Button>
           <Button
             accessibilityLabel="Send preview feedback"
-            className={canSend ? "rounded-full bg-blue-500" : "rounded-full"}
+            className={canSend ? "rounded-full bg-brand" : "rounded-full"}
             disabled={!canSend}
             onPress={onSend}
             size="icon"

@@ -4,19 +4,13 @@ import {
 } from "@legendapp/list/react-native";
 import type { Observable } from "@legendapp/state";
 import { useObservable, useValue } from "@legendapp/state/react";
-import type { TriggerRef } from "@rn-primitives/popover";
 import type { HarnessId } from "@vibepad/protocol/provider";
-import { useCallback, useMemo, useRef } from "react";
-import { Platform, View } from "react-native";
+import { useCallback, useMemo } from "react";
+import { Modal, Platform, Pressable, View } from "react-native";
 
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { ObservableSearchField } from "@/components/ui/observable-search-field";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { Text } from "@/components/ui/text";
 import {
   HarnessIcon,
@@ -36,6 +30,7 @@ interface NewSessionControlProps {
   readonly onCreate: (projectId: string) => Promise<void>;
   readonly projects: readonly NewSessionProject[];
   readonly selectedProjectId: string | undefined;
+  readonly triggerVariant?: "icon" | "sidebar";
 }
 
 const projectKey = (project: NewSessionProject) => project.id;
@@ -44,6 +39,7 @@ const projectItemSize = () => 56;
 interface NewSessionControlState {
   creatingProjectId: string | undefined;
   errorMessage: string | undefined;
+  open: boolean;
   query: string;
 }
 
@@ -88,12 +84,16 @@ function ProjectOption({
             {project.name}
           </Text>
           {selected ? (
-            <Text className="text-[10px]" variant="muted">
+            <Text className="text-muted-foreground" variant="metadata">
               Current
             </Text>
           ) : null}
         </View>
-        <Text className="text-[10px]" numberOfLines={1} variant="muted">
+        <Text
+          className="text-muted-foreground"
+          numberOfLines={1}
+          variant="metadata"
+        >
           {creating
             ? "Creating…"
             : `${harnessLabel(project.harnessId)} · ${project.path}`}
@@ -206,13 +206,24 @@ export function NewSessionControl({
   onCreate,
   projects,
   selectedProjectId,
+  triggerVariant = "icon",
 }: NewSessionControlProps) {
-  const triggerRef = useRef<TriggerRef>(null);
   const state$ = useObservable<NewSessionControlState>({
     creatingProjectId: undefined,
     errorMessage: undefined,
+    open: false,
     query: "",
   });
+  const open = useValue(state$.open);
+  const close = useCallback(() => {
+    if (state$.creatingProjectId.peek()) {
+      return;
+    }
+    state$.assign({ errorMessage: undefined, open: false, query: "" });
+  }, [state$]);
+  const openMenu = useCallback(() => {
+    state$.open.set(true);
+  }, [state$]);
   const createSession = useCallback(
     async (projectId: string) => {
       if (state$.creatingProjectId.peek()) {
@@ -221,7 +232,7 @@ export function NewSessionControl({
       state$.assign({ creatingProjectId: projectId, errorMessage: undefined });
       try {
         await onCreate(projectId);
-        triggerRef.current?.close();
+        state$.assign({ open: false, query: "" });
       } catch (error) {
         state$.errorMessage.set(
           error instanceof Error ? error.message : "Unable to create session"
@@ -234,47 +245,76 @@ export function NewSessionControl({
   );
 
   return (
-    <Popover>
-      <PopoverTrigger asChild ref={triggerRef}>
-        <Button
-          accessibilityLabel="New session"
-          className="h-10 shrink-0 rounded-lg bg-foreground px-3 shadow-black/10 shadow-sm sm:h-10"
-          disabled={disabled}
-          size="sm"
-          testID="new-session-trigger"
-        >
-          <Icon className="text-background" name="plus" size={14} />
-          <Text className="font-medium text-background text-xs">
-            New session
-          </Text>
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        align="end"
-        className="w-80 gap-3 rounded-xl p-3"
-        side="bottom"
-        sideOffset={6}
-        testID="new-session-menu"
+    <>
+      <Button
+        accessibilityLabel="New chat"
+        className={
+          triggerVariant === "sidebar"
+            ? "h-11 w-full justify-start rounded-lg px-3 sm:h-11"
+            : "size-11 shrink-0 rounded-md sm:size-11"
+        }
+        disabled={disabled}
+        onPress={openMenu}
+        size={triggerVariant === "sidebar" ? "default" : "icon"}
+        testID="new-session-trigger"
+        variant={triggerVariant === "sidebar" ? "outline" : "ghost"}
       >
-        <View className="gap-1 px-1">
-          <Text className="font-semibold text-sm">New session</Text>
-          <Text className="text-[11px]" variant="muted">
-            Choose the workspace and harness for this session.
-          </Text>
+        <Icon name="plus" size={15} />
+        {triggerVariant === "sidebar" ? <Text>New chat</Text> : null}
+      </Button>
+      <Modal
+        animationType="fade"
+        onRequestClose={close}
+        presentationStyle="overFullScreen"
+        transparent
+        visible={open}
+      >
+        <View
+          accessibilityViewIsModal
+          className="flex-1 items-center justify-center px-4 py-8"
+        >
+          <Pressable
+            accessibilityLabel="Close new session menu"
+            className="absolute inset-0 bg-black/40"
+            onPress={close}
+            testID="new-session-backdrop"
+          />
+          <View
+            className="w-full max-w-96 gap-3 rounded-2xl border border-border bg-popover p-4 shadow-2xl shadow-black/25"
+            testID="new-session-menu"
+          >
+            <View className="flex-row items-start gap-3">
+              <View className="min-w-0 flex-1 gap-1">
+                <Text className="font-semibold text-sm">New session</Text>
+                <Text className="text-muted-foreground" variant="metadata">
+                  Choose the workspace and harness for this session.
+                </Text>
+              </View>
+              <Button
+                accessibilityLabel="Close new session menu"
+                onPress={close}
+                size="icon"
+                testID="new-session-close"
+                variant="ghost"
+              >
+                <Icon name="x" size={15} />
+              </Button>
+            </View>
+            <ObservableSearchField
+              placeholder="Search workspaces and harnesses…"
+              query$={state$.query}
+              testID="new-session-search"
+            />
+            <NewSessionProjectResults
+              onCreate={createSession}
+              projects={projects}
+              selectedProjectId={selectedProjectId}
+              state$={state$}
+            />
+            <NewSessionError state$={state$} />
+          </View>
         </View>
-        <ObservableSearchField
-          placeholder="Search workspaces and harnesses…"
-          query$={state$.query}
-          testID="new-session-search"
-        />
-        <NewSessionProjectResults
-          onCreate={createSession}
-          projects={projects}
-          selectedProjectId={selectedProjectId}
-          state$={state$}
-        />
-        <NewSessionError state$={state$} />
-      </PopoverContent>
-    </Popover>
+      </Modal>
+    </>
   );
 }

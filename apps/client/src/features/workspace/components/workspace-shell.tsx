@@ -13,7 +13,7 @@ import type { SessionSurface } from "@/features/workspace/components/session-wor
 import { WorkspaceHeader } from "@/features/workspace/components/workspace-header";
 import { WorkspaceSessionCanvas } from "@/features/workspace/components/workspace-session-canvas";
 import { WorkspaceSidebar } from "@/features/workspace/components/workspace-sidebar";
-import { defaultWorkbenchLayout } from "@/features/workspace/state/workspace-ui-store";
+import { defaultWorkbenchLayout } from "@/features/workspace/state/workspace-ui-persistence";
 import {
   useProjectServices,
   useWorkspaceLifecycle,
@@ -42,10 +42,10 @@ function DesktopSidebar({
       layout={LinearTransition.duration(180).reduceMotion(ReduceMotion.System)}
       style={{
         borderRightWidth: open ? 1 : 0,
-        width: open ? 288 : 0,
+        width: open ? 284 : 0,
       }}
     >
-      <View className="h-full" style={{ width: 288 }}>
+      <View className="h-full" style={{ width: 284 }}>
         {children}
       </View>
     </Animated.View>
@@ -58,7 +58,6 @@ export function WorkspaceShell() {
   const workspaceUi = useVibePadWorkspaceUiStore();
   const {
     closeMobileSidebar,
-    closeSessionTab,
     closeSettings,
     reconcileSessions,
     removeSession: removeUiSession,
@@ -72,14 +71,12 @@ export function WorkspaceShell() {
   const {
     desktopSidebarOpen,
     mobileSidebarOpen,
-    openSessionIds,
     selectedSessionId,
     settingsOpen,
     settingsPage,
   } = useValue(() => ({
     desktopSidebarOpen: workspaceUi.state$.desktopSidebarOpen.get(),
     mobileSidebarOpen: workspaceUi.state$.mobileSidebarOpen.get(),
-    openSessionIds: workspaceUi.state$.openSessionIds.get(),
     selectedSessionId: workspaceUi.state$.selectedSessionId.get(),
     settingsOpen: workspaceUi.state$.settingsOpen.get(),
     settingsPage: workspaceUi.state$.settingsPage.get(),
@@ -90,6 +87,7 @@ export function WorkspaceShell() {
     health,
     projects,
     selectedProject,
+    selectedSession,
     selectedWorkbench,
     sessionIds,
     workspaceStatus,
@@ -102,7 +100,7 @@ export function WorkspaceShell() {
         const project = workspace.project$(projectId)?.get();
         return project ? [project] : [];
       });
-    const selectedSession = selectedSessionId
+    const selectedSessionRecord = selectedSessionId
       ? workspace.session$(selectedSessionId)?.get()
       : undefined;
     return {
@@ -110,9 +108,10 @@ export function WorkspaceShell() {
         status === "error" ? workspace.state$.errorMessage.get() : undefined,
       health: healthRecord,
       projects: projectRecords,
-      selectedProject: selectedSession
-        ? workspace.project$(selectedSession.projectId)?.get()
+      selectedProject: selectedSessionRecord
+        ? workspace.project$(selectedSessionRecord.projectId)?.get()
         : undefined,
+      selectedSession: selectedSessionRecord,
       selectedWorkbench: selectedSessionId
         ? (workspaceUi.state$.workbenchesBySessionId[
             selectedSessionId
@@ -125,7 +124,6 @@ export function WorkspaceShell() {
   const hostName = health?.host.id ?? "home-mac";
   const hostConnection = health?.host.healthy ? "online" : "offline";
   const providerHealthy = health?.provider.healthy ?? false;
-  const providerHealth = health?.providers ?? [];
 
   useEffect(() => {
     if (workspaceStatus !== "ready") {
@@ -203,19 +201,23 @@ export function WorkspaceShell() {
   const openSettings = useCallback(() => {
     showSettings("timeline");
   }, [showSettings]);
-  const openConnectionSettings = useCallback(() => {
-    showSettings("connections");
-  }, [showSettings]);
-
   const sidebar = (
     <WorkspaceSidebar
       hostConnection={hostConnection}
       hostName={hostName}
+      newSessionDisabled={
+        workspaceStatus !== "ready" ||
+        hostConnection === "offline" ||
+        projects.length === 0
+      }
       onArchiveSession={archiveSession}
+      onCreateSession={createSession}
       onOpenSettings={openSettings}
       onRefresh={refreshWorkspace}
       onRenameSession={renameSession}
       onSelectSession={selectSession}
+      projects={projects}
+      selectedProjectId={selectedProject?.id}
     />
   );
 
@@ -237,55 +239,24 @@ export function WorkspaceShell() {
           <WorkspaceHeader
             hostConnection={hostConnection}
             hostName={hostName}
-            hostUrl={host.baseUrl}
-            newSessionDisabled={
-              workspaceStatus !== "ready" ||
-              hostConnection === "offline" ||
-              projects.length === 0
-            }
-            onAddConnection={openConnectionSettings}
-            onCloseTab={closeSessionTab}
-            onCreateSession={createSession}
             onSelectSurface={selectSelectedSurface}
-            onSelectTab={selectSession}
             onToggleSidebar={toggleSidebar}
-            openSessionIds={openSessionIds}
-            projects={projects}
+            projectName={selectedProject?.name}
             providerHealthy={providerHealthy}
-            providers={providerHealth}
-            selectedProjectId={selectedProject?.id}
             selectedSessionId={selectedSessionId}
             selectedSurface={selectedSurface}
             services={servicesState.data}
             servicesLoading={servicesState.status === "loading"}
+            sessionTitle={selectedSession?.title}
           />
-          {openSessionIds.length > 0 ? (
-            openSessionIds.map((sessionId) => (
-              <View
-                className="min-h-0 flex-1"
-                key={sessionId}
-                style={{
-                  display: sessionId === selectedSessionId ? "flex" : "none",
-                }}
-              >
-                <WorkspaceSessionCanvas
-                  active={sessionId === selectedSessionId}
-                  errorMessage={errorMessage}
-                  hostName={hostName}
-                  loading={workspaceStatus === "loading"}
-                  sessionId={sessionId}
-                />
-              </View>
-            ))
-          ) : (
-            <WorkspaceSessionCanvas
-              active
-              errorMessage={errorMessage}
-              hostName={hostName}
-              loading={workspaceStatus === "loading"}
-              sessionId={selectedSessionId}
-            />
-          )}
+          <WorkspaceSessionCanvas
+            active
+            errorMessage={errorMessage}
+            hostName={hostName}
+            key={selectedSessionId ?? "empty"}
+            loading={workspaceStatus === "loading"}
+            sessionId={selectedSessionId}
+          />
         </View>
 
         {!regularLayout && mobileSidebarOpen ? (

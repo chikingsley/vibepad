@@ -27,7 +27,7 @@ function InteractionModeButton({
     <Pressable
       accessibilityLabel={`${label} preview mode`}
       className={cn(
-        "h-8 flex-row items-center gap-1.5 rounded-md px-2.5 active:bg-accent",
+        "h-11 flex-row items-center gap-2 rounded-md px-3 active:bg-accent",
         selected ? "bg-accent" : "bg-transparent"
       )}
       onPress={select}
@@ -38,7 +38,7 @@ function InteractionModeButton({
         name={icon}
         size={13}
       />
-      <Text className="text-[11px]">{label}</Text>
+      <Text variant="control">{label}</Text>
     </Pressable>
   );
 }
@@ -51,7 +51,7 @@ export function PreviewInteractionBar({
   readonly onSelectMode: (mode: PreviewInteractionMode) => void;
 }) {
   return (
-    <View className="h-11 flex-row items-center gap-1 border-border border-b px-2">
+    <View className="h-12 flex-row items-center gap-1 border-border border-b px-2">
       <InteractionModeButton
         icon="browser"
         label="Interact"

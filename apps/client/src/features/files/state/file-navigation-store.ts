@@ -44,7 +44,11 @@ export function createFileNavigationStore(): FileNavigationStore {
   const read = (sessionId: string) =>
     state$.bySessionId[sessionId]?.peek() ?? idleFileNavigation;
   const write = (sessionId: string, value: FileNavigationRecord) => {
-    state$.bySessionId.assign({ [sessionId]: value });
+    const record$ = state$.bySessionId[sessionId];
+    if (!record$) {
+      throw new Error("Legend did not create the file navigation record");
+    }
+    record$.set(value);
   };
 
   return {

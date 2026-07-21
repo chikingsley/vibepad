@@ -1,4 +1,4 @@
-import { randomUUID } from "expo-crypto";
+import { randomUuid } from "@/lib/random-uuid";
 
 const installationIdKey = "vibepad.installation-id.v1";
 const uuid =
@@ -15,7 +15,7 @@ export const getInstallationId = () => {
     pageInstallationId = stored;
     return stored;
   }
-  pageInstallationId = randomUUID();
+  pageInstallationId = randomUuid();
   globalThis.localStorage?.setItem(installationIdKey, pageInstallationId);
   return pageInstallationId;
 };

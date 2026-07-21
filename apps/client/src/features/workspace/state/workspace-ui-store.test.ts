@@ -1,43 +1,44 @@
 import { describe, expect, it } from "vitest";
 
+import type { WorkspaceUiStorage } from "../storage/workspace-ui-storage";
 import {
-  createWorkspaceUiStore,
   defaultWorkbenchLayout,
-} from "./workspace-ui-store";
+  type WorkspaceUiSnapshot,
+  workspaceUiSnapshotSchemaVersion,
+} from "./workspace-ui-persistence";
+import { createWorkspaceUiStore } from "./workspace-ui-store";
 
 describe("Legend workspace UI store", () => {
-  it("opens the default session once and preserves explicit tab choices", () => {
+  const firstSessionId = "a";
+  const secondSessionId = "b";
+
+  it("selects the default session once and preserves an explicit selection", () => {
     const store = createWorkspaceUiStore();
 
     store.reconcileSessions(["a", "b"], "a");
     store.selectSession("b");
     store.reconcileSessions(["a", "b", "c"], "c");
 
-    expect(store.state$.openSessionIds.peek()).toEqual(["a", "b"]);
     expect(store.state$.selectedSessionId.peek()).toBe("b");
   });
 
-  it("selects the nearest remaining tab when the active tab closes", () => {
+  it("selects the nearest remaining session when the active session is removed", () => {
     const store = createWorkspaceUiStore();
     store.reconcileSessions(["a", "b", "c"], "a");
     store.selectSession("b");
-    store.selectSession("c");
-    store.selectSession("b");
 
-    store.closeSessionTab("b");
+    store.removeSession("b");
 
-    expect(store.state$.openSessionIds.peek()).toEqual(["a", "c"]);
     expect(store.state$.selectedSessionId.peek()).toBe("c");
   });
 
-  it("removes unavailable sessions while retaining a valid selection", () => {
+  it("replaces an unavailable selection with the provider default", () => {
     const store = createWorkspaceUiStore();
     store.reconcileSessions(["a", "b"], "a");
     store.selectSession("b");
 
     store.reconcileSessions(["a"], "a");
 
-    expect(store.state$.openSessionIds.peek()).toEqual(["a"]);
     expect(store.state$.selectedSessionId.peek()).toBe("a");
   });
 
@@ -47,8 +48,6 @@ describe("Legend workspace UI store", () => {
       a: defaultWorkbenchLayout,
       b: defaultWorkbenchLayout,
     });
-    const firstSessionId = "a";
-    const secondSessionId = "b";
     const first$ = store.state$.workbenchesBySessionId[firstSessionId];
     const second$ = store.state$.workbenchesBySessionId[secondSessionId];
     if (!(first$ && second$)) {
@@ -68,12 +67,62 @@ describe("Legend workspace UI store", () => {
     expect(store.workbenchFor("a")).toEqual({
       expanded: false,
       open: true,
+      splitRatio: 0.4,
       surface: "preview",
     });
     expect(firstNotifications).toBe(1);
     expect(secondNotifications).toBe(0);
     disposeFirst();
     disposeSecond();
+  });
+
+  it("clamps and persists a session split ratio", async () => {
+    const writes: WorkspaceUiSnapshot[] = [];
+    const storage: WorkspaceUiStorage = {
+      read: () => Promise.resolve(undefined),
+      write: (_hostId, snapshot) => {
+        writes.push(snapshot);
+        return Promise.resolve();
+      },
+    };
+    const store = createWorkspaceUiStore(storage, "hojo");
+
+    store.setWorkbenchSplitRatio("a", 0.95);
+    await store.waitForPersistence();
+
+    expect(store.workbenchFor("a").splitRatio).toBe(0.68);
+    expect(
+      writes.at(-1)?.workbenchesBySessionId[firstSessionId]?.splitRatio
+    ).toBe(0.68);
+  });
+
+  it("hydrates persisted sidebar and session layouts", async () => {
+    const stored: WorkspaceUiSnapshot = {
+      desktopSidebarOpen: false,
+      expandedProjects: { global: true },
+      schemaVersion: workspaceUiSnapshotSchemaVersion,
+      workbenchesBySessionId: {
+        a: {
+          expanded: false,
+          open: true,
+          splitRatio: 0.52,
+          surface: "files",
+        },
+      },
+    };
+    const storage: WorkspaceUiStorage = {
+      read: () => Promise.resolve(stored),
+      write: () => Promise.resolve(),
+    };
+    const store = createWorkspaceUiStore(storage, "hojo");
+
+    await store.load();
+
+    expect(store.state$.desktopSidebarOpen.peek()).toBe(false);
+    expect(store.state$.expandedProjects.peek()).toEqual({ global: true });
+    expect(store.workbenchFor("a")).toEqual(
+      stored.workbenchesBySessionId[firstSessionId]
+    );
   });
 
   it("keeps regular and compact sidebar visibility independent", () => {

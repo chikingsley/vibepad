@@ -32,6 +32,7 @@ const stopMediaStream = (stream: MediaStream) => {
 };
 
 export function usePcmCapture(onBuffer: (buffer: PcmAudioBuffer) => void) {
+  const nativeStreamingRef = useRef(false);
   const preparedWebStreamRef = useRef<MediaStream | undefined>(undefined);
   const webCaptureRef = useRef<WebAudioCapture | undefined>(undefined);
   const { stream: nativeStream } = useAudioStream({
@@ -75,6 +76,7 @@ export function usePcmCapture(onBuffer: (buffer: PcmAudioBuffer) => void) {
         playsInSilentMode: true,
       });
       await nativeStream.start();
+      nativeStreamingRef.current = true;
       return;
     }
 
@@ -129,7 +131,8 @@ export function usePcmCapture(onBuffer: (buffer: PcmAudioBuffer) => void) {
       await capture.context.close();
       return;
     }
-    if (nativeStream.isStreaming) {
+    if (nativeStreamingRef.current) {
+      nativeStreamingRef.current = false;
       nativeStream.stop();
     }
     await setAudioModeAsync({ allowsRecording: false });
@@ -150,8 +153,13 @@ export function usePcmCapture(onBuffer: (buffer: PcmAudioBuffer) => void) {
         stopMediaStream(capture.stream);
         capture.context.close().catch(() => undefined);
       }
-      if (Platform.OS !== "web" && nativeStream.isStreaming) {
-        nativeStream.stop();
+      if (Platform.OS !== "web" && nativeStreamingRef.current) {
+        nativeStreamingRef.current = false;
+        try {
+          nativeStream.stop();
+        } catch {
+          // Expo may release the shared stream before React runs this cleanup.
+        }
       }
     },
     [nativeStream]

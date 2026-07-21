@@ -1,8 +1,8 @@
-appId: host.exp.Exponent
+appId: studio.peacockery.vibepad
 name: VibePad real files and changes
 ---
+- stopApp
 - launchApp
-- openLink: ${EXPO_URL}
 - setOrientation: LANDSCAPE_LEFT
 - tapOn:
     text: Continue
@@ -10,6 +10,47 @@ name: VibePad real files and changes
 - tapOn:
     text: Close
     optional: true
+- tapOn:
+    id: new-session-close
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: new-session-trigger
+    timeout: 30000
+- tapOn:
+    id: new-session-trigger
+    retryTapIfNoChange: true
+- assertVisible:
+    id: new-session-menu
+- tapOn:
+    id: new-session-search
+- eraseText: 200
+- inputText: ${PROJECT_QUERY}
+- pressKey: enter
+- extendedWaitUntil:
+    visible:
+      id: new-session-project-${PROJECT_ID}
+    timeout: 10000
+- tapOn:
+    id: new-session-project-${PROJECT_ID}
+- runFlow:
+    when:
+      visible: "Collapse Global"
+    commands:
+      - tapOn: "Collapse Global"
+- extendedWaitUntil:
+    visible:
+      id: selected-session-actions-trigger
+    timeout: 30000
+- tapOn:
+    id: selected-session-actions-trigger
+- tapOn:
+    id: selected-session-rename
+- tapOn:
+    id: selected-session-title-input
+- eraseText: 200
+- inputText: ${SESSION_TITLE}
+- pressKey: enter
 - extendedWaitUntil:
     visible:
       id: session-surface-files
@@ -24,26 +65,24 @@ name: VibePad real files and changes
     id: session-workbench-expand
 - tapOn:
     id: session-workbench-expand
-- tapOn:
-    id: session-workbench-close
-- assertNotVisible:
-    id: session-workbench
-- tapOn:
-    id: session-surface-files
+- waitForAnimationToEnd
 - extendedWaitUntil:
     visible:
       id: file-node-README.md
     timeout: 15000
 - tapOn:
     id: file-node-README.md
+    retryTapIfNoChange: true
 - extendedWaitUntil:
     visible:
       id: file-content
     timeout: 15000
 - tapOn:
     id: session-surface-chat
+- waitForAnimationToEnd
 - tapOn:
     id: session-surface-files
+- waitForAnimationToEnd
 - assertVisible:
     id: file-content
 - tapOn:
@@ -51,3 +90,13 @@ name: VibePad real files and changes
 - assertVisible:
     id: changes-surface
 - takeScreenshot: files-and-changes
+- tapOn:
+    id: session-workbench-close
+- tapOn:
+    id: selected-session-actions-trigger
+- tapOn:
+    id: selected-session-archive
+- extendedWaitUntil:
+    notVisible:
+      text: ${SESSION_TITLE}
+    timeout: 30000

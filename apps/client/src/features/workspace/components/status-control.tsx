@@ -28,6 +28,11 @@ const statusTabs = [
   { label: "Plugins", value: "plugins" },
 ] as const satisfies readonly { label: string; value: StatusTab }[];
 
+const categoryForTab = (tab: StatusTab) => (tab === "plugins" ? "plugin" : tab);
+
+const servicesForTab = (services: readonly ServiceSummary[], tab: StatusTab) =>
+  services.filter((service) => service.category === categoryForTab(tab));
+
 function OpenCodeStatusGlyph({ active }: { readonly active: boolean }) {
   const { colorScheme } = useColorScheme();
   const color = colorScheme === "dark" ? "#f3efe7" : "#25272b";
@@ -147,8 +152,6 @@ function ServiceList({
   );
 }
 
-const categoryForTab = (tab: StatusTab) => (tab === "plugins" ? "plugin" : tab);
-
 const emptyMessageForTab = (tab: StatusTab) =>
   tab === "plugins"
     ? "No plugins configured"
@@ -181,10 +184,16 @@ export function StatusControl({
   readonly loading: boolean;
   readonly services: readonly ServiceSummary[];
 }) {
+  const visibleTabs = statusTabs.filter(
+    (tab) => servicesForTab(services, tab.value).length > 0
+  );
   const [open, setOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<StatusTab>("mcp");
+  const [requestedTab, setRequestedTab] = useState<StatusTab>("mcp");
+  const activeTab = visibleTabs.some((tab) => tab.value === requestedTab)
+    ? requestedTab
+    : visibleTabs[0]?.value;
   const changeTab = useCallback((value: string) => {
-    setActiveTab(value as StatusTab);
+    setRequestedTab(value as StatusTab);
   }, []);
   const degraded = services.some(
     (service) => service.state === "attention" || service.state === "disabled"
@@ -192,12 +201,21 @@ export function StatusControl({
   const failed = services.some((service) => service.state === "error");
   const aggregateTone = aggregateToneClass({ degraded, failed, healthy });
 
+  if (!(loading || activeTab)) {
+    return null;
+  }
+
+  const statusLabel =
+    visibleTabs.length > 0
+      ? visibleTabs.map((tab) => tab.label).join(", ")
+      : "provider services";
+
   return (
     <Popover onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
-          accessibilityLabel="Open MCP, LSP, and plugin status"
-          className="relative"
+          accessibilityLabel={`Open ${statusLabel} status`}
+          className="relative size-11 sm:size-11"
           size="icon"
           testID="system-status-trigger"
           variant="ghost"
@@ -220,23 +238,19 @@ export function StatusControl({
         <TabsRoot
           className="w-full"
           onValueChange={changeTab}
-          value={activeTab}
+          value={activeTab ?? "mcp"}
         >
           <TabsList className="h-10 flex-row gap-4 px-4 pt-1">
-            {statusTabs.map((tab) => (
+            {visibleTabs.map((tab) => (
               <StatusTabTrigger
-                count={
-                  services.filter(
-                    (service) => service.category === categoryForTab(tab.value)
-                  ).length
-                }
+                count={servicesForTab(services, tab.value).length}
                 key={tab.value}
                 label={tab.label}
                 value={tab.value}
               />
             ))}
           </TabsList>
-          {statusTabs.map((tab) => (
+          {visibleTabs.map((tab) => (
             <TabsContent
               key={tab.value}
               testID={`system-status-panel-${tab.value}`}
@@ -244,9 +258,7 @@ export function StatusControl({
             >
               <ServiceList
                 emptyMessage={emptyMessageForTab(tab.value)}
-                items={services.filter(
-                  (service) => service.category === categoryForTab(tab.value)
-                )}
+                items={servicesForTab(services, tab.value)}
                 loading={loading}
               />
             </TabsContent>

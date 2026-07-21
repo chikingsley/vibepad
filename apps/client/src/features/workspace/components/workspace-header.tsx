@@ -1,15 +1,11 @@
 import type { ServiceSummary } from "@vibepad/protocol/provider";
-import type { HostHealthResponse } from "@vibepad/protocol/transport";
 import { View } from "react-native";
 
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
+import { Text } from "@/components/ui/text";
 import { HostConnectionControl } from "@/features/workspace/components/host-connection-control";
-import {
-  NewSessionControl,
-  type NewSessionProject,
-} from "@/features/workspace/components/new-session-control";
-import { SessionTabStrip } from "@/features/workspace/components/session-tab-strip";
+import { SessionTitle } from "@/features/workspace/components/session-title";
 import {
   type SessionSurface,
   SessionWorkbenchControls,
@@ -20,48 +16,33 @@ import type { HostConnection } from "@/features/workspace/components/status-indi
 export function WorkspaceHeader({
   hostConnection,
   hostName,
-  hostUrl,
-  newSessionDisabled,
-  onAddConnection,
-  onCloseTab,
-  onCreateSession,
   onSelectSurface,
-  onSelectTab,
   onToggleSidebar,
-  openSessionIds,
+  projectName,
   providerHealthy,
-  providers,
-  projects,
-  selectedProjectId,
   selectedSessionId,
   selectedSurface,
   services,
   servicesLoading,
+  sessionTitle,
 }: {
   readonly hostConnection: HostConnection;
   readonly hostName: string;
-  readonly hostUrl: string;
-  readonly newSessionDisabled: boolean;
-  readonly onAddConnection: () => void;
-  readonly onCloseTab: (sessionId: string) => void;
-  readonly onCreateSession: (projectId: string) => Promise<void>;
   readonly onSelectSurface: (surface: SessionSurface) => void;
-  readonly onSelectTab: (sessionId: string) => void;
   readonly onToggleSidebar: () => void;
-  readonly openSessionIds: readonly string[];
+  readonly projectName: string | undefined;
   readonly providerHealthy: boolean;
-  readonly providers: HostHealthResponse["providers"];
-  readonly projects: readonly NewSessionProject[];
-  readonly selectedProjectId: string | undefined;
   readonly selectedSessionId: string | undefined;
   readonly selectedSurface: SessionSurface;
   readonly services: readonly ServiceSummary[];
   readonly servicesLoading: boolean;
+  readonly sessionTitle: string | undefined;
 }) {
   return (
-    <View className="h-14 flex-row items-center gap-2 border-border border-b bg-background px-2 sm:px-3">
+    <View className="h-12 flex-row items-center border-border border-b bg-background px-1">
       <Button
         accessibilityLabel="Toggle sidebar"
+        className="size-11 rounded-md sm:size-11"
         onPress={onToggleSidebar}
         size="icon"
         testID="sidebar-toggle"
@@ -69,31 +50,37 @@ export function WorkspaceHeader({
       >
         <Icon className="text-foreground" name="panel-left" size={18} />
       </Button>
-      <NewSessionControl
-        disabled={newSessionDisabled}
-        onCreate={onCreateSession}
-        projects={projects}
-        selectedProjectId={selectedProjectId}
-      />
-      <View className="mx-0.5 h-5 w-px shrink-0 bg-border" />
-      <SessionTabStrip
-        onClose={onCloseTab}
-        onSelect={onSelectTab}
-        sessionIds={openSessionIds}
-      />
+      <View className="mx-1 h-5 w-px shrink-0 bg-border" />
+      <View
+        className="min-w-0 flex-1 flex-row items-center gap-2 px-2"
+        testID="header-session-context"
+      >
+        {sessionTitle ? (
+          <SessionTitle fill={false} title={sessionTitle} />
+        ) : null}
+        {projectName ? (
+          <>
+            <Text className="text-xs leading-4" variant="muted">
+              ·
+            </Text>
+            <Text
+              className="max-w-40 text-xs leading-4"
+              numberOfLines={1}
+              variant="muted"
+            >
+              {projectName}
+            </Text>
+          </>
+        ) : null}
+      </View>
       {selectedSessionId ? (
         <SessionWorkbenchControls
           onSelect={onSelectSurface}
           selected={selectedSurface}
         />
       ) : null}
-      <HostConnectionControl
-        connection={hostConnection}
-        hostName={hostName}
-        hostUrl={hostUrl}
-        onAddConnection={onAddConnection}
-        providers={providers}
-      />
+      <View className="mx-1 h-5 w-px shrink-0 bg-border" />
+      <HostConnectionControl connection={hostConnection} hostName={hostName} />
       <StatusControl
         healthy={providerHealthy}
         loading={servicesLoading}

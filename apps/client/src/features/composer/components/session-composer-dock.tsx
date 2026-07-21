@@ -11,7 +11,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SessionComposer } from "@/features/composer/components/session-composer";
 import type { DraftSelection } from "@/features/composer/state/session-composer-store";
 import { ProviderControls } from "@/features/models/components/provider-controls";
-import { ReviewCaptureStrip } from "@/features/preview/components/review-capture-strip";
+import { ReviewAttachmentList } from "@/features/preview/components/review-attachment-list";
 import { emptyPreviewReviewDraft } from "@/features/preview/preview-review";
 import { useSettingsValue } from "@/features/settings/settings-context";
 import { DictationButton } from "@/features/voice/components/dictation-button";
@@ -265,7 +265,7 @@ export function SessionComposerDock({
       <SessionComposer
         attachments={
           previewReview.cues.length > 0 ? (
-            <ReviewCaptureStrip
+            <ReviewAttachmentList
               cues={previewReview.cues}
               onRemoveCue={removeReviewCue}
             />

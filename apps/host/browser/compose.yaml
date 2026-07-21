@@ -15,8 +15,8 @@ services:
       - "127.0.0.1:${VIBEPAD_BROWSER_CDP_PORT}:9223"
     environment:
       APP_ARGS: >-
-        --start-maximized
-        --restore-last-session
+        --kiosk
+        about:blank
         --disable-session-crashed-bubble
         --user-data-dir=/home/kasm-user/.config/google-chrome-vibepad
         --disk-cache-dir=/home/kasm-user/.cache/google-chrome-vibepad

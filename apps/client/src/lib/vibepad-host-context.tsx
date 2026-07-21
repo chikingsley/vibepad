@@ -53,6 +53,7 @@ import {
   createWorkspaceUiStore,
   type WorkspaceUiStore,
 } from "@/features/workspace/state/workspace-ui-store";
+import { workspaceUiStorage } from "@/features/workspace/storage/workspace-ui-storage";
 import {
   VibePadHostClient,
   type VibePadHostConnection,
@@ -104,9 +105,13 @@ export function VibePadHostProvider({
       timelineDisclosure: createTimelineDisclosureStore(),
       voiceCatalog: createVoiceCatalogStore(client),
       workspace,
-      workspaceUi: createWorkspaceUiStore(),
+      workspaceUi: createWorkspaceUiStore(workspaceUiStorage, hostId),
     };
   }, [baseUrl, hostId]);
+  useEffect(() => {
+    runtime.workspaceUi.load().catch(() => undefined);
+    return runtime.workspaceUi.cancelPending;
+  }, [runtime]);
   useEffect(
     () => () => {
       runtime.browser.cancelPending();

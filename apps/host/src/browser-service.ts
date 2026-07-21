@@ -133,6 +133,7 @@ export class BrowserService {
   readonly #viewSessions = new Map<string, ViewSessionRecord>();
   readonly #webSocketFactory: BrowserWebSocketFactory;
   #activeTargetId: string | undefined;
+  #targetOrder: string[] = [];
 
   constructor(config: BrowserServiceConfig) {
     this.#cdpUrl = config.cdpUrl?.replace(trailingSlashPattern, "");
@@ -288,7 +289,7 @@ export class BrowserService {
       path: `${browserSocketPathPrefix.slice(1)}/${token}`,
       reconnect: "true",
       reconnect_delay: "1000",
-      resize: "scale",
+      resize: "remote",
       show_dot: "true",
     });
     return {
@@ -319,6 +320,10 @@ export class BrowserService {
       throw this.#upstreamError("returned an invalid target");
     }
     this.#activeTargetId = value.id;
+    this.#targetOrder = [
+      ...this.#targetOrder.filter((targetId) => targetId !== value.id),
+      value.id,
+    ];
     return publicTarget(value);
   }
 
@@ -344,6 +349,9 @@ export class BrowserService {
     if (this.#activeTargetId === targetId) {
       this.#activeTargetId = undefined;
     }
+    this.#targetOrder = this.#targetOrder.filter(
+      (orderedTargetId) => orderedTargetId !== targetId
+    );
   }
 
   async performAction(
@@ -475,12 +483,33 @@ export class BrowserService {
       throw this.#upstreamError("target inventory failed", response.status);
     }
     const value = (await response.json()) as unknown;
-    return Array.isArray(value)
-      ? value.filter(
-          (target): target is CdpTarget =>
-            isCdpTarget(target) && target.type === "page"
-        )
-      : [];
+    if (!Array.isArray(value)) {
+      return [];
+    }
+    const targets = value.filter(
+      (target): target is CdpTarget =>
+        isCdpTarget(target) && target.type === "page"
+    );
+    const targetsById = new Map(targets.map((target) => [target.id, target]));
+    if (this.#targetOrder.length === 0) {
+      // Chrome reports page targets newest first. Product tabs read in creation
+      // order, so the initial inventory starts with Chrome's oldest target.
+      this.#targetOrder = targets.map((target) => target.id).reverse();
+    } else {
+      this.#targetOrder = this.#targetOrder.filter((targetId) =>
+        targetsById.has(targetId)
+      );
+      const known = new Set(this.#targetOrder);
+      const newTargets = targets
+        .filter((target) => !known.has(target.id))
+        .map((target) => target.id)
+        .reverse();
+      this.#targetOrder.push(...newTargets);
+    }
+    return this.#targetOrder.flatMap((targetId) => {
+      const target = targetsById.get(targetId);
+      return target ? [target] : [];
+    });
   }
 
   #assertAvailable() {

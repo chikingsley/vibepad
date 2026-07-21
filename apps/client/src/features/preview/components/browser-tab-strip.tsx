@@ -32,16 +32,16 @@ function BrowserTab({
   return (
     <View
       className={cn(
-        "h-8 min-w-32 max-w-48 flex-row items-center rounded-t-md border px-1",
+        "h-11 min-w-36 max-w-56 flex-row items-center rounded-md border px-1",
         active
-          ? "border-border border-b-background bg-background"
-          : "border-transparent bg-transparent"
+          ? "border-border bg-background shadow-black/5 shadow-sm"
+          : "border-border/55 bg-background/35"
       )}
       testID={`browser-tab-${tab.id}`}
     >
       <Pressable
         accessibilityLabel={`Open browser tab ${tab.title}`}
-        className="min-w-0 flex-1 flex-row items-center gap-1.5 px-1.5"
+        className="h-full min-w-0 flex-1 flex-row items-center gap-2 px-2"
         onPress={select}
       >
         {tab.loading ? (
@@ -53,13 +53,13 @@ function BrowserTab({
             size={11}
           />
         )}
-        <Text className="min-w-0 flex-1 text-[11px]" numberOfLines={1}>
+        <Text className="min-w-0 flex-1" numberOfLines={1} variant="control">
           {tab.title}
         </Text>
       </Pressable>
       <Button
         accessibilityLabel={`Close browser tab ${tab.title}`}
-        className="size-6 rounded-sm"
+        className="size-11 rounded-md sm:size-11"
         onPress={close}
         size="icon"
         testID={`browser-tab-close-${tab.id}`}
@@ -102,24 +102,28 @@ export function BrowserTabStrip({
 
   return (
     <View
-      className="h-9 flex-row items-end border-border border-b bg-muted/45 pl-2"
+      className="h-12 flex-row items-center border-border border-b bg-muted/45 pl-2"
       testID="browser-tab-strip"
     >
-      <LegendList
-        contentContainerStyle={{ alignItems: "flex-end", gap: 2 }}
-        data={tabs}
-        dataKey={`browser-tabs:${sessionId}`}
-        estimatedItemSize={176}
-        horizontal
-        keyExtractor={browserTabKey}
-        recycleItems
-        renderItem={renderTab}
-        showsHorizontalScrollIndicator={false}
-        style={{ flex: 1, minWidth: 0 }}
-      />
+      {tabs.length === 0 ? (
+        <View className="min-w-0 flex-1" />
+      ) : (
+        <LegendList
+          contentContainerStyle={{ alignItems: "center", gap: 4 }}
+          data={tabs}
+          dataKey={`browser-tabs:${sessionId}`}
+          estimatedItemSize={176}
+          horizontal
+          keyExtractor={browserTabKey}
+          recycleItems
+          renderItem={renderTab}
+          showsHorizontalScrollIndicator={false}
+          style={{ flex: 1, minWidth: 0 }}
+        />
+      )}
       <Button
         accessibilityLabel="Open browser tab"
-        className="mb-0.5 size-7 rounded-md"
+        className="size-11 rounded-md sm:size-11"
         onPress={onNewTab}
         size="icon"
         testID="browser-new-tab"
@@ -127,16 +131,7 @@ export function BrowserTabStrip({
       >
         <Icon className="text-muted-foreground" name="plus" size={13} />
       </Button>
-      <View
-        accessibilityLabel="Persistent VibePad host browser"
-        className="mx-1.5 mb-1 hidden h-6 flex-row items-center gap-1.5 rounded-md bg-background/80 px-2 sm:flex"
-        testID="browser-profile-status"
-      >
-        <Icon className="text-muted-foreground" name="browser" size={10} />
-        <Text className="text-[9px]" variant="muted">
-          VibePad host
-        </Text>
-      </View>
+      <View className="w-1" />
     </View>
   );
 }

@@ -1,5 +1,5 @@
 import { voiceRealtimeModel } from "@vibepad/protocol/voice";
-import { randomUUID } from "expo-crypto";
+import { randomUuid } from "@/lib/random-uuid";
 import { canonicalDpopHtu } from "./dpop-proof";
 import {
   type HostedVoiceCredentialManager,
@@ -49,7 +49,7 @@ export class HostedVoiceSession {
           accessToken: access.token.key,
           htm: original.method,
           htu: original.url,
-          jti: randomUUID(),
+          jti: randomUuid(),
           ...(this.#nonce ? { nonce: this.#nonce } : {}),
         })
       );
@@ -100,7 +100,7 @@ export class HostedVoiceSession {
       accessToken: access.token.key,
       htm: "GET",
       htu: canonicalDpopHtu(httpUrl.toString()),
-      jti: randomUUID(),
+      jti: randomUuid(),
       nonce: this.#nonce,
     });
     const socketUrl = new URL(httpUrl);

@@ -1,14 +1,17 @@
-appId: host.exp.Exponent
+appId: studio.peacockery.vibepad
 name: VibePad OpenCode session lifecycle
 ---
+- stopApp
 - launchApp
-- openLink: ${EXPO_URL}
 - setOrientation: LANDSCAPE_LEFT
 - tapOn:
     text: Continue
     optional: true
 - tapOn:
     text: Close
+    optional: true
+- tapOn:
+    id: new-session-close
     optional: true
 - extendedWaitUntil:
     visible:
@@ -19,7 +22,21 @@ name: VibePad OpenCode session lifecycle
 - assertVisible:
     id: new-session-menu
 - tapOn:
+    id: new-session-search
+- eraseText: 200
+- inputText: ${PROJECT_QUERY}
+- pressKey: enter
+- extendedWaitUntil:
+    visible:
+      id: new-session-project-${PROJECT_ID}
+    timeout: 10000
+- tapOn:
     id: new-session-project-${PROJECT_ID}
+- runFlow:
+    when:
+      visible: "Collapse Global"
+    commands:
+      - tapOn: "Collapse Global"
 - extendedWaitUntil:
     visible:
       id: selected-session-actions-trigger
@@ -33,9 +50,8 @@ name: VibePad OpenCode session lifecycle
 - assertVisible:
     id: selected-session-title-input
 - tapOn:
-    id: selected-session-title-clear
-- tapOn:
     id: selected-session-title-input
+- eraseText: 200
 - inputText: ${SESSION_TITLE}
 - pressKey: enter
 - extendedWaitUntil:
@@ -48,3 +64,13 @@ name: VibePad OpenCode session lifecycle
     id: session-canvas
 - assertVisible:
     id: message-send-inactive
+- tapOn:
+    id: selected-session-actions-trigger
+- assertVisible:
+    id: selected-session-actions-menu
+- tapOn:
+    id: selected-session-archive
+- extendedWaitUntil:
+    notVisible:
+      text: ${SESSION_TITLE}
+    timeout: 30000

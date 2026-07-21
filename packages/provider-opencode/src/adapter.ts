@@ -59,16 +59,18 @@ export interface OpenCodeAdapterOptions {
 }
 
 const mapSessionActivity = (
-  status: SessionStatus | undefined
-): SessionActivity => status?.type ?? "idle";
+  status: SessionStatus | undefined,
+  active: boolean
+): SessionActivity => (active ? "busy" : (status?.type ?? "idle"));
 
 const mapSession = (
   session: SessionV2Info,
   status?: SessionStatus,
   projectId = openCodeProjectId(session.projectID),
-  pendingInput?: PendingSessionInput
+  pendingInput?: PendingSessionInput,
+  active = false
 ): ReadySessionSummary => ({
-  activity: mapSessionActivity(status),
+  activity: mapSessionActivity(status, active),
   controls: {
     ...(session.agent ? { agent: session.agent } : {}),
     ...(session.model
@@ -411,22 +413,30 @@ export class OpenCodeAdapter implements HarnessAdapter {
       order: "desc" as const,
       roots: true,
     };
-    const [sessions, statuses, projects, permissions, questions] =
-      await Promise.all([
-        this.#client.v2.session.list(sessionParameters, {
-          throwOnError: true,
-        }),
-        this.#client.session.status({}, { throwOnError: true }),
-        this.listProjects(),
-        this.#client.v2.permission.request
-          .list({}, { throwOnError: true })
-          .then((result) => result.data.data)
-          .catch(() => []),
-        this.#client.v2.question.request
-          .list({}, { throwOnError: true })
-          .then((result) => result.data.data)
-          .catch(() => []),
-      ]);
+    const [
+      sessions,
+      activeSessions,
+      statuses,
+      projects,
+      permissions,
+      questions,
+    ] = await Promise.all([
+      this.#client.v2.session.list(sessionParameters, {
+        throwOnError: true,
+      }),
+      this.#client.v2.session.active({ throwOnError: true }),
+      this.#client.session.status({}, { throwOnError: true }),
+      this.listProjects(),
+      this.#client.v2.permission.request
+        .list({}, { throwOnError: true })
+        .then((result) => result.data.data)
+        .catch(() => []),
+      this.#client.v2.question.request
+        .list({}, { throwOnError: true })
+        .then((result) => result.data.data)
+        .catch(() => []),
+    ]);
+    const activeSessionIds = new Set(Object.keys(activeSessions.data.data));
     const permissionSessionIds = new Set(
       permissions.map((permission) => permission.sessionID)
     );
@@ -448,7 +458,8 @@ export class OpenCodeAdapter implements HarnessAdapter {
             session.id,
             permissionSessionIds,
             questionSessionIds
-          )
+          ),
+          activeSessionIds.has(session.id)
         )
       );
     return projectId
