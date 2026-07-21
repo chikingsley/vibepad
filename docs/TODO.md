@@ -5,17 +5,6 @@ next distributable build. Completed work moves to
 [`CHANGELOG.md`](../CHANGELOG.md); later product work belongs in
 [`ROADMAP.md`](ROADMAP.md).
 
-## Test build
-
-- [x] Validate the production shell in landscape on Hojo's booted iPad simulator
-  through Argent Lens.
-- [x] Run the shell, Files/Changes, Preview feedback, and persistent
-  browser-target Maestro flows against the real root route.
-- [x] Confirm the client reconnects to the paired GMK host after a reload
-  without losing the selected session or workbench layout.
-- [ ] Publish the iOS internal test build and record its build URL and source
-  commit.
-
 ## Physical iPad acceptance
 
 - [ ] Install the test build on a physical landscape iPad and verify host

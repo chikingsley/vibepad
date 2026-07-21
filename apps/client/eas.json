@@ -20,6 +20,13 @@
     }
   },
   "submit": {
-    "testflight": {}
+    "testflight": {
+      "ios": {
+        "ascApiKeyId": "$EXPO_ASC_KEY_ID",
+        "ascApiKeyIssuerId": "$EXPO_ASC_ISSUER_ID",
+        "ascApiKeyPath": "$EXPO_ASC_API_KEY_PATH",
+        "ascAppId": "6792378876"
+      }
+    }
   }
 }
