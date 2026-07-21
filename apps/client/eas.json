@@ -16,7 +16,10 @@
     },
     "testflight": {
       "autoIncrement": true,
-      "distribution": "store"
+      "distribution": "store",
+      "env": {
+        "VIBEPAD_APP_ATTEST_ENVIRONMENT": "production"
+      }
     }
   },
   "submit": {
