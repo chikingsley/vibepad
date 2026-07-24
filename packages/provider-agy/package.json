@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     "./adapter": "./src/adapter.ts",
+    "./constants": "./src/constants.ts",
     "./ids": "./src/ids.ts",
     "./manifest": "./src/manifest.ts"
   },

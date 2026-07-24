@@ -11,6 +11,7 @@ const defaultStateDirectory =
 
 const hostConfigSchema = z.object({
   agentBrowserExecutable: z.string().min(1).optional(),
+  agyEnabled: z.boolean(),
   browserCdpUrl: z.url().optional(),
   browserEnabled: z.boolean(),
   browserSurfaceUrl: z.url().optional(),
@@ -45,6 +46,7 @@ export const loadHostConfig = () => {
     OPENCODE_BIN,
     OPENCODE_SERVER_PASSWORD,
     OPENCODE_SERVER_USERNAME,
+    VIBEPAD_AGY_ENABLED,
     VIBEPAD_CLAUDE_CODE_ENABLED,
     VIBEPAD_CODEX_ENABLED,
     VIBEPAD_BROWSER_CDP_URL,
@@ -64,6 +66,7 @@ export const loadHostConfig = () => {
 
   return hostConfigSchema.parse({
     agentBrowserExecutable: AGENT_BROWSER_BIN,
+    agyEnabled: VIBEPAD_AGY_ENABLED !== "0",
     browserCdpUrl: VIBEPAD_BROWSER_CDP_URL,
     browserEnabled: VIBEPAD_BROWSER_ENABLED === "1",
     browserSurfaceUrl: VIBEPAD_BROWSER_SURFACE_URL,

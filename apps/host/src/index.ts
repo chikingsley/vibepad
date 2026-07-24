@@ -1,4 +1,6 @@
 import type { HarnessAdapter } from "@vibepad/protocol/provider";
+import { AgyAdapter } from "@vibepad/provider-agy/adapter";
+import { AGY_BIN, resolveAgyBin } from "@vibepad/provider-agy/constants";
 import { ClaudeCodeAdapter } from "@vibepad/provider-claude-code/adapter";
 import { detectClaudeCode } from "@vibepad/provider-claude-code/detect";
 import { CodexAdapter } from "@vibepad/provider-codex/adapter";
@@ -97,6 +99,23 @@ if (config.claudeCodeEnabled) {
   } else {
     console.info(
       "VibePad found no Claude Code CLI; the claude-code harness is disabled"
+    );
+  }
+}
+if (config.agyEnabled) {
+  const agyExecutable = resolveAgyBin();
+  if (agyExecutable === AGY_BIN) {
+    console.info(
+      "VibePad found no Antigravity CLI; the agy harness is disabled"
+    );
+  } else {
+    adapters.push(
+      new AgyAdapter({
+        eventStore: providerEvents,
+        executable: agyExecutable,
+        projectRoots: config.codexProjectRoots,
+        sessionControlStore: providerSessions,
+      })
     );
   }
 }
