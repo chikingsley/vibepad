@@ -4,20 +4,18 @@ import {
 } from "@legendapp/list/react-native";
 import { useValue } from "@legendapp/state/react";
 import { useCallback } from "react";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
+import { ComputerFilter } from "@/features/connections/components/computer-filter";
 import {
   NewSessionControl,
   type NewSessionProject,
 } from "@/features/workspace/components/new-session-control";
-import {
-  ConnectionIndicator,
-  type HostConnection,
-} from "@/features/workspace/components/status-indicators";
+import type { HostConnection } from "@/features/workspace/components/status-indicators";
 import { WorkspaceProjectRow } from "@/features/workspace/components/workspace-project-row";
 import { WorkspaceSessionRow } from "@/features/workspace/components/workspace-session-row";
 import {
@@ -26,6 +24,7 @@ import {
 } from "@/lib/vibepad-host-context";
 
 interface WorkspaceSidebarProps {
+  readonly hideStatusFooter?: boolean;
   readonly hostConnection: HostConnection;
   readonly hostName: string;
   readonly newSessionDisabled: boolean;
@@ -60,7 +59,7 @@ function SidebarListFooter({
     return (
       <View className="px-2 py-6">
         <Text className="text-xs" variant="muted">
-          Loading projects…
+          Loading chats…
         </Text>
       </View>
     );
@@ -80,13 +79,14 @@ function SidebarListFooter({
   return rowCount === 0 ? (
     <View className="px-2 py-6">
       <Text className="text-xs" variant="muted">
-        No projects found.
+        No chats found.
       </Text>
     </View>
   ) : null;
 }
 
 export function WorkspaceSidebar({
+  hideStatusFooter = false,
   hostConnection,
   hostName,
   newSessionDisabled,
@@ -151,14 +151,7 @@ export function WorkspaceSidebar({
       onSelectSession,
     ]
   );
-  const listHeader = (
-    <View className="px-2 pt-2 pb-1">
-      <Text className="text-muted-foreground" variant="caption">
-        Workspaces
-      </Text>
-    </View>
-  );
-  const listFooter = (
+  const listFooter = hideStatusFooter ? null : (
     <SidebarListFooter
       errorMessage={errorMessage}
       loading={loading}
@@ -170,11 +163,19 @@ export function WorkspaceSidebar({
   return (
     <View className="h-full bg-card" testID="workspace-sidebar">
       <View className="h-12 flex-row items-center gap-2.5 border-border border-b px-3">
-        <View className="size-8 items-center justify-center rounded-lg bg-foreground">
-          <Text className="font-semibold text-background text-base">V</Text>
-        </View>
-        <Text className="flex-1 font-semibold text-base">VibePad</Text>
+        <Text className="flex-1 font-semibold text-base">Chats</Text>
+        <Button
+          accessibilityLabel="Open settings"
+          onPress={onOpenSettings}
+          size="icon"
+          testID="settings-open"
+          variant="ghost"
+        >
+          <Icon name="settings" size={15} />
+        </Button>
       </View>
+
+      <ComputerFilter />
 
       <View className="px-2 pt-2 pb-1">
         <NewSessionControl
@@ -198,39 +199,12 @@ export function WorkspaceSidebar({
         getItemType={sidebarRowType}
         keyExtractor={sidebarRowKey}
         ListFooterComponent={listFooter}
-        ListHeaderComponent={listHeader}
         recycleItems={false}
         renderItem={renderRow}
         style={{ flex: 1 }}
       />
 
-      <View
-        className="border-border border-t p-2"
-        style={{ paddingBottom: Math.max(insets.bottom, 8) }}
-      >
-        <Pressable
-          accessibilityLabel="Open settings"
-          className="min-h-12 flex-row items-center gap-3 rounded-lg px-2 py-2 active:bg-accent/70"
-          onPress={onOpenSettings}
-          testID="settings-open"
-        >
-          <View className="size-8 items-center justify-center rounded-md bg-muted">
-            <Text className="font-semibold text-xs">
-              {hostName.slice(0, 2).toUpperCase()}
-            </Text>
-          </View>
-          <View className="min-w-0 flex-1">
-            <View className="flex-row items-center gap-1.5">
-              <Text className="font-medium text-xs">{hostName}</Text>
-              <ConnectionIndicator connection={hostConnection} />
-            </View>
-            <Text className="text-xs leading-4" variant="muted">
-              VibePad host
-            </Text>
-          </View>
-          <Icon className="text-muted-foreground" name="settings" size={15} />
-        </Pressable>
-      </View>
+      <View style={{ height: Math.max(insets.bottom, 8) }} />
     </View>
   );
 }

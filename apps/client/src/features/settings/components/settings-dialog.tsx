@@ -1,9 +1,4 @@
 import { Pressable, ScrollView, useWindowDimensions, View } from "react-native";
-import Animated, {
-  FadeIn,
-  FadeOut,
-  ReduceMotion,
-} from "react-native-reanimated";
 
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -29,18 +24,14 @@ const settingsPersistenceLabel = (state: string) => {
   if (state === "error") {
     return "Not saved";
   }
-  return "Saved";
+  return null;
 };
 
 export function SettingsDialog({
-  hostName,
-  hostUrl,
   onClose,
   onSelectPage,
   page,
 }: {
-  readonly hostName: string;
-  readonly hostUrl: string;
   readonly onClose: () => void;
   readonly onSelectPage: (page: SettingsPage) => void;
   readonly page: SettingsPage;
@@ -55,11 +46,9 @@ export function SettingsDialog({
   const persistenceLabel = settingsPersistenceLabel(persistenceState);
 
   return (
-    <Animated.View
+    <View
       accessibilityViewIsModal
       className="absolute inset-0 z-[100] items-center justify-center px-4 py-8"
-      entering={FadeIn.duration(140).reduceMotion(ReduceMotion.System)}
-      exiting={FadeOut.duration(120).reduceMotion(ReduceMotion.System)}
       testID="settings-dialog"
     >
       <Pressable
@@ -78,15 +67,17 @@ export function SettingsDialog({
           </View>
           <View className="min-w-0 flex-1">
             <Text className="font-semibold text-sm">Settings</Text>
-            <Text
-              className={cn(
-                "text-[10px]",
-                persistenceState === "error" && "text-red-600"
-              )}
-              variant={persistenceState === "error" ? "default" : "muted"}
-            >
-              {errorMessage ?? persistenceLabel}
-            </Text>
+            {errorMessage || persistenceLabel ? (
+              <Text
+                className={cn(
+                  "text-[10px]",
+                  persistenceState === "error" && "text-red-600"
+                )}
+                variant={persistenceState === "error" ? "default" : "muted"}
+              >
+                {errorMessage ?? persistenceLabel}
+              </Text>
+            ) : null}
           </View>
           <Button
             accessibilityLabel="Restore settings defaults"
@@ -124,12 +115,10 @@ export function SettingsDialog({
           >
             {page === "timeline" ? <TimelineSettings /> : null}
             {page === "voice" ? <VoiceSettings /> : null}
-            {page === "connections" ? (
-              <ConnectionSettings hostName={hostName} hostUrl={hostUrl} />
-            ) : null}
+            {page === "connections" ? <ConnectionSettings /> : null}
           </ScrollView>
         </View>
       </View>
-    </Animated.View>
+    </View>
   );
 }

@@ -13,6 +13,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "studio.peacockery.vibepad",
       "infoPlist": {
+        "NSBonjourServices": ["_vibepad._tcp."],
         "NSAppTransportSecurity": {
           "NSAllowsLocalNetworking": true
         },
@@ -22,6 +23,12 @@
     "android": {
       "icon": "./assets/images/icon.png",
       "package": "studio.peacockery.vibepad",
+      "permissions": [
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.ACCESS_WIFI_STATE",
+        "android.permission.CHANGE_WIFI_MULTICAST_STATE",
+        "android.permission.INTERNET"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#020307",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -68,7 +75,15 @@
         }
       ],
       "expo-sqlite",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "17.0"
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "dependencies": {
     "@expo/app-integrity": "^57.0.1",
+    "@inthepocket/react-native-service-discovery": "^0.2.9",
     "@legendapp/list": "3.3.3",
     "@legendapp/state": "3.0.0-beta.48",
     "@react-native-masked-view/masked-view": "0.3.2",
@@ -21,6 +22,7 @@
     "expo": "~57.0.7",
     "expo-application": "~57.0.2",
     "expo-audio": "~57.0.2",
+    "expo-build-properties": "~57.0.6",
     "expo-constants": "~57.0.6",
     "expo-crypto": "~57.0.1",
     "expo-device": "~57.0.1",

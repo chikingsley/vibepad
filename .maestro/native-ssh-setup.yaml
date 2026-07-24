@@ -1,0 +1,59 @@
+appId: studio.peacockery.vibepad
+name: VibePad first-run SSH inspection
+---
+- launchApp:
+    clearState: true
+- setOrientation: PORTRAIT
+- extendedWaitUntil:
+    visible:
+      id: onboarding-welcome
+    timeout: 60000
+- tapOn:
+    id: onboarding-connect
+- extendedWaitUntil:
+    visible:
+      id: onboarding-runtime-choice
+    timeout: 10000
+- tapOn:
+    id: onboarding-self-hosted
+- extendedWaitUntil:
+    visible:
+      id: onboarding-computer-choice
+    timeout: 10000
+- tapOn:
+    id: onboarding-ssh-setup
+- extendedWaitUntil:
+    visible:
+      id: onboarding-ssh-credentials
+    timeout: 10000
+- tapOn:
+    id: onboarding-ssh-name
+- inputText: Test computer
+- hideKeyboard
+- tapOn:
+    id: onboarding-ssh-host
+- inputText: 127.0.0.1
+- hideKeyboard
+- tapOn:
+    id: onboarding-ssh-username
+- inputText: vibepad-maestro
+- hideKeyboard
+- tapOn:
+    id: onboarding-ssh-password
+- inputText: invalid-test-password
+- pressKey: enter
+- scrollUntilVisible:
+    element:
+      id: onboarding-ssh-inspect
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: onboarding-ssh-inspect
+- scrollUntilVisible:
+    element:
+      id: onboarding-ssh-error
+    direction: DOWN
+    timeout: 30000
+- assertVisible:
+    id: onboarding-ssh-inspect
+- takeScreenshot: native-ssh-inspection-error

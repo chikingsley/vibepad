@@ -4,8 +4,6 @@ import {
   type PairHostRequest,
   pairHostPath,
   pairHostResponseSchema,
-  revokeHostPath,
-  revokeHostResponseSchema,
 } from "@vibepad/protocol/auth";
 import {
   type BrowserState,
@@ -48,6 +46,13 @@ import type {
   SessionBootstrap,
   SessionSummary,
 } from "@vibepad/protocol/provider";
+import {
+  type SshTarget,
+  sshBootstrapPath,
+  sshBootstrapResponseSchema,
+  sshTargetListResponseSchema,
+  sshTargetsPath,
+} from "@vibepad/protocol/remote";
 import type { TimelinePage } from "@vibepad/protocol/timeline";
 import {
   archiveSessionResponseSchema,
@@ -170,6 +175,7 @@ export class VibePadHostClient {
       body: JSON.stringify(request),
       headers: { "Content-Type": "application/json" },
       method: "POST",
+      signal: AbortSignal.timeout(4000),
     });
     if (!response.ok) {
       const message = await response.text();
@@ -183,12 +189,6 @@ export class VibePadHostClient {
       token: paired.token,
     });
     return paired;
-  }
-
-  async revoke(): Promise<void> {
-    const response = await this.#write("DELETE", revokeHostPath);
-    revokeHostResponseSchema.parse(response);
-    await hostCredentialStore.delete(this.#transport.hostId);
   }
 
   async loadWorkspace(signal?: AbortSignal): Promise<WorkspaceSnapshot> {
@@ -205,6 +205,16 @@ export class VibePadHostClient {
       providers: providerListResponseSchema.parse(providers).data,
       sessions: sessionListResponseSchema.parse(sessions).data,
     };
+  }
+
+  async listSshTargets(signal?: AbortSignal): Promise<readonly SshTarget[]> {
+    const response = await this.#get(sshTargetsPath, signal);
+    return sshTargetListResponseSchema.parse(response).data;
+  }
+
+  async bootstrapSshTarget(alias: string) {
+    const response = await this.#post(sshBootstrapPath, { alias });
+    return sshBootstrapResponseSchema.parse(response).data;
   }
 
   async loadBrowser(signal?: AbortSignal): Promise<BrowserState> {

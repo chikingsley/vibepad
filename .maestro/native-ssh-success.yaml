@@ -1,0 +1,95 @@
+appId: studio.peacockery.vibepad
+name: VibePad successful SSH install and automatic-start provisioning
+---
+- launchApp:
+    clearState: true
+- setOrientation: PORTRAIT
+- extendedWaitUntil:
+    visible:
+      id: onboarding-welcome
+    timeout: 60000
+- tapOn:
+    id: onboarding-connect
+- tapOn:
+    id: onboarding-self-hosted
+- extendedWaitUntil:
+    visible:
+      id: onboarding-computer-choice
+    timeout: 10000
+- tapOn:
+    id: onboarding-ssh-setup
+- tapOn:
+    id: onboarding-ssh-name
+- inputText: Acceptance computer
+- tapOn:
+    id: onboarding-ssh-host
+- inputText: ${SSH_HOST}
+- tapOn:
+    id: onboarding-ssh-port
+- eraseText
+- inputText: ${SSH_PORT}
+- scrollUntilVisible:
+    element:
+      id: onboarding-ssh-username
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: onboarding-ssh-username
+- inputText: ${SSH_USERNAME}
+- scrollUntilVisible:
+    element:
+      id: onboarding-ssh-password
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: onboarding-ssh-password
+- inputText: ${SSH_PASSWORD}
+- pressKey: enter
+- scrollUntilVisible:
+    element:
+      id: onboarding-ssh-inspect
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: onboarding-ssh-inspect
+- extendedWaitUntil:
+    visible:
+      id: onboarding-computer-inspection
+    timeout: 60000
+- waitForAnimationToEnd
+- tapOn:
+    text: Not Now
+    optional: true
+- scrollUntilVisible:
+    element:
+      id: onboarding-component-toggle-opencode
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: onboarding-component-toggle-opencode
+- scrollUntilVisible:
+    element:
+      id: onboarding-component-toggle-browser-tools
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: onboarding-component-toggle-browser-tools
+- scrollUntilVisible:
+    element:
+      id: onboarding-install
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: onboarding-install
+- extendedWaitUntil:
+    visible:
+      id: onboarding-computer-ready
+    timeout: 600000
+- takeScreenshot: native-ssh-computer-ready
+- tapOn:
+    id: onboarding-open-vibepad
+- extendedWaitUntil:
+    visible:
+      id: sidebar-toggle
+    timeout: 60000
+- takeScreenshot: native-ssh-connected-workspace

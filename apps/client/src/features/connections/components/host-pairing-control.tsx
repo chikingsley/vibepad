@@ -1,9 +1,12 @@
-import type { Observable } from "@legendapp/state";
-import { useObservable, useValue } from "@legendapp/state/react";
-import { $TextInput } from "@legendapp/state/react-native";
+import { decodePairingInvitationUrl } from "@vibepad/protocol/auth";
+import {
+  createHostProfile,
+  type HostProfile,
+} from "@vibepad/protocol/settings";
+import { useURL } from "expo-linking";
 import { useColorScheme } from "nativewind";
-import { useCallback } from "react";
-import { Platform, View } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Switch, TextInput, View } from "react-native";
 
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -13,287 +16,248 @@ import {
   useSettingsValue,
 } from "@/features/settings/settings-context";
 import { THEME } from "@/lib/theme";
+import type {
+  PairVibePadHostInput,
+  VibePadHostClient,
+} from "@/lib/vibepad-host";
 import {
   useVibePadHost,
   useVibePadWorkspaceStore,
 } from "@/lib/vibepad-host-context";
 
-const trailingSlash = /\/$/u;
-const defaultDeviceName =
-  Platform.select({
-    android: "VibePad on Android",
-    default: "VibePad device",
-    ios: "VibePad on iPad",
-    web: "VibePad Web",
-  }) ?? "VibePad device";
+import {
+  type NearbyHostDiscoveryState,
+  subscribeToNearbyHosts,
+} from "../nearby-host-discovery";
+import { clientDeviceName } from "../pair-host";
 
-const normalizedHostUrl = (value: string) => {
-  const url = new URL(value.trim());
-  if (!(url.protocol === "http:" || url.protocol === "https:")) {
-    throw new Error("Host URL must use HTTP or HTTPS");
+const emptyDiscovery: NearbyHostDiscoveryState = { hosts: [] };
+
+const invitationFromUrl = (url: string | null) =>
+  url ? decodePairingInvitationUrl(url) : undefined;
+
+const redeemAtEndpoints = async (
+  host: VibePadHostClient,
+  endpoints: readonly string[],
+  input: PairVibePadHostInput,
+  index = 0
+): Promise<{
+  readonly endpoint: string;
+  readonly paired: Awaited<ReturnType<VibePadHostClient["pair"]>>;
+}> => {
+  const endpoint = endpoints[index];
+  if (!endpoint) {
+    throw new Error("VibePad could not find a reachable host for this code");
   }
-  url.pathname = url.pathname.replace(trailingSlash, "");
-  url.search = "";
-  url.hash = "";
-  return url.toString().replace(trailingSlash, "");
+  try {
+    return { endpoint, paired: await host.pair(endpoint, input) };
+  } catch (error) {
+    if (index === endpoints.length - 1) {
+      throw error;
+    }
+    return redeemAtEndpoints(host, endpoints, input, index + 1);
+  }
 };
 
-interface PairingState {
-  code: string;
-  deviceName: string;
-  errorMessage: string | undefined;
-  hostUrl: string;
-  open: boolean;
-  pairing: boolean;
-}
+const discoveryStatus = (
+  invitationHostName: string | undefined,
+  discovery: NearbyHostDiscoveryState
+) => {
+  if (invitationHostName) {
+    return `Connecting to ${invitationHostName}…`;
+  }
+  if (discovery.hosts.length === 1) {
+    return `Found ${discovery.hosts[0]?.name}`;
+  }
+  if (discovery.hosts.length > 1) {
+    return `Found ${discovery.hosts.length} nearby hosts`;
+  }
+  return "Looking for VibePad Host nearby…";
+};
 
-function PairingFields({
-  state$,
-  theme,
+export function HostPairingControl({
+  alwaysOpen = false,
 }: {
-  readonly state$: Observable<PairingState>;
-  readonly theme: (typeof THEME)[keyof typeof THEME];
+  readonly alwaysOpen?: boolean;
 }) {
-  return (
-    <>
-      <View className="gap-3 sm:flex-row">
-        <View className="min-w-0 flex-1 gap-1.5">
-          <Text className="font-medium text-xs">Host URL</Text>
-          <$TextInput
-            $value={state$.hostUrl}
-            autoCapitalize="none"
-            autoCorrect={false}
-            className="h-10 rounded-lg border border-border bg-background px-3 text-foreground text-sm outline-none"
-            keyboardType="url"
-            placeholder="http://100.x.y.z:4100"
-            placeholderTextColor={theme.mutedForeground}
-            style={{ color: theme.foreground }}
-            testID="host-pairing-url"
-          />
-        </View>
-        <View className="min-w-48 gap-1.5">
-          <Text className="font-medium text-xs">Pairing code</Text>
-          <$TextInput
-            $value={state$.code}
-            autoCapitalize="characters"
-            autoCorrect={false}
-            className="h-10 rounded-lg border border-border bg-background px-3 font-mono text-foreground text-sm outline-none"
-            placeholder="XXXX-XXXX"
-            placeholderTextColor={theme.mutedForeground}
-            style={{ color: theme.foreground }}
-            testID="host-pairing-code"
-          />
-        </View>
-      </View>
-      <View className="gap-1.5">
-        <Text className="font-medium text-xs">Device name</Text>
-        <$TextInput
-          $value={state$.deviceName}
-          autoCorrect={false}
-          className="h-10 rounded-lg border border-border bg-background px-3 text-foreground text-sm outline-none"
-          placeholder="VibePad on iPad"
-          placeholderTextColor={theme.mutedForeground}
-          style={{ color: theme.foreground }}
-          testID="host-pairing-device-name"
-        />
-      </View>
-    </>
-  );
-}
-
-function PairingError({
-  state$,
-}: {
-  readonly state$: Observable<PairingState>;
-}) {
-  const errorMessage = useValue(state$.errorMessage);
-  return errorMessage ? (
-    <Text className="text-red-600 text-xs">{errorMessage}</Text>
-  ) : null;
-}
-
-function PairingSubmit({
-  onPress,
-  state$,
-}: {
-  readonly onPress: () => void;
-  readonly state$: Observable<PairingState>;
-}) {
-  const code = useValue(state$.code);
-  const deviceName = useValue(state$.deviceName);
-  const hostUrl = useValue(state$.hostUrl);
-  const pairing = useValue(state$.pairing);
-
-  return (
-    <Button
-      className="self-end"
-      disabled={
-        pairing ||
-        hostUrl.trim().length === 0 ||
-        code.trim().length < 8 ||
-        deviceName.trim().length === 0
-      }
-      onPress={onPress}
-      size="sm"
-      testID="host-pairing-submit"
-    >
-      <Text>{pairing ? "Pairing…" : "Pair and use host"}</Text>
-    </Button>
-  );
-}
-
-export function HostPairingControl() {
   const host = useVibePadHost();
   const workspace = useVibePadWorkspaceStore();
   const { update } = useAppSettingsStore();
   const { colorScheme } = useColorScheme();
   const theme = THEME[colorScheme === "dark" ? "dark" : "light"];
-  const state$ = useObservable<PairingState>({
-    code: "",
-    deviceName: defaultDeviceName,
-    errorMessage: undefined,
-    hostUrl: "",
-    open: false,
-    pairing: false,
-  });
-  const open = useValue(state$.open);
+  const incomingUrl = useURL();
+  const invitation = invitationFromUrl(incomingUrl);
+  const processedInvitation = useRef<string | undefined>(undefined);
+  const [code, setCode] = useState(invitation?.code ?? "");
+  const [discovery, setDiscovery] =
+    useState<NearbyHostDiscoveryState>(emptyDiscovery);
+  const [errorMessage, setErrorMessage] = useState<string>();
+  const [invitationHostName, setInvitationHostName] = useState(
+    invitation?.hostName
+  );
+  const [open, setOpen] = useState(alwaysOpen);
+  const [pairing, setPairing] = useState(false);
 
-  const toggleOpen = useCallback(() => {
-    state$.open.set((current) => !current);
-    state$.errorMessage.set(undefined);
-  }, [state$]);
-  const pair = useCallback(async () => {
-    if (state$.pairing.peek()) {
+  useEffect(() => subscribeToNearbyHosts(setDiscovery), []);
+
+  const pair = useCallback(
+    async (pairingCode = code, invitationEndpoints?: readonly string[]) => {
+      if (pairing) {
+        return;
+      }
+      const endpoints = [
+        ...new Set(
+          invitationEndpoints ??
+            discovery.hosts.flatMap((nearbyHost) => nearbyHost.endpoints)
+        ),
+      ];
+      if (endpoints.length === 0) {
+        setErrorMessage(
+          "VibePad is still looking for a host nearby. Keep both devices on the same network or scan the host QR code."
+        );
+        return;
+      }
+      setPairing(true);
+      setErrorMessage(undefined);
+      try {
+        const { endpoint, paired } = await redeemAtEndpoints(host, endpoints, {
+          code: pairingCode.trim(),
+          deviceName: clientDeviceName,
+        });
+        update((current) => ({
+          ...current,
+          connections: {
+            activeHostId: paired.hostId,
+            hosts: [
+              ...current.connections.hosts.filter(
+                (candidate) => candidate.id !== paired.hostId
+              ),
+              createHostProfile({
+                id: paired.hostId,
+                name: paired.hostName,
+                url: endpoint,
+              }),
+            ],
+          },
+        }));
+        setCode("");
+        setInvitationHostName(undefined);
+        setOpen(alwaysOpen);
+        if (paired.hostId === host.hostId && endpoint === host.baseUrl) {
+          await workspace.refresh();
+        }
+      } catch (error) {
+        setErrorMessage(
+          error instanceof Error
+            ? error.message
+            : "VibePad could not redeem this pairing code"
+        );
+      } finally {
+        setPairing(false);
+      }
+    },
+    [alwaysOpen, code, discovery.hosts, host, pairing, update, workspace]
+  );
+
+  useEffect(() => {
+    if (
+      !(incomingUrl && invitation) ||
+      processedInvitation.current === incomingUrl
+    ) {
       return;
     }
-    state$.pairing.set(true);
-    state$.errorMessage.set(undefined);
-    try {
-      const url = normalizedHostUrl(state$.hostUrl.peek());
-      const paired = await host.pair(url, {
-        code: state$.code.peek().trim(),
-        deviceName: state$.deviceName.peek().trim(),
-      });
-      update((current) => ({
-        ...current,
-        connections: {
-          activeHostId: paired.hostId,
-          hosts: [
-            ...current.connections.hosts.filter(
-              (candidate) => candidate.id !== paired.hostId
-            ),
-            { id: paired.hostId, name: paired.hostName, url },
-          ],
-        },
-      }));
-      state$.code.set("");
-      state$.open.set(false);
-      if (paired.hostId === host.hostId && url === host.baseUrl) {
-        await workspace.refresh();
-      }
-    } catch (error) {
-      state$.errorMessage.set(
-        error instanceof Error ? error.message : "Unable to pair this host"
-      );
-    } finally {
-      state$.pairing.set(false);
-    }
-  }, [host, state$, update, workspace]);
+    processedInvitation.current = incomingUrl;
+    setCode(invitation.code);
+    pair(invitation.code, invitation.endpoints).catch(() => undefined);
+  }, [incomingUrl, invitation, pair]);
+
+  const toggleOpen = useCallback(() => {
+    setOpen((current) => !current);
+    setErrorMessage(undefined);
+  }, []);
+  const submit = useCallback(() => {
+    pair().catch(() => undefined);
+  }, [pair]);
+  const discoveryLabel = discoveryStatus(invitationHostName, discovery);
 
   return (
     <View className="gap-3">
-      <Button
-        accessibilityLabel={open ? "Cancel adding host" : "Add host"}
-        className="self-start"
-        onPress={toggleOpen}
-        size="sm"
-        testID="host-pairing-open"
-        variant="outline"
-      >
-        <Icon name={open ? "x" : "plus"} size={13} />
-        <Text>{open ? "Cancel" : "Add host"}</Text>
-      </Button>
+      {alwaysOpen ? null : (
+        <Button
+          accessibilityLabel={open ? "Cancel pairing" : "Pair another computer"}
+          className="min-h-11 self-start"
+          onPress={toggleOpen}
+          testID="host-pairing-open"
+          variant="outline"
+        >
+          <Icon name={open ? "x" : "plus"} size={14} />
+          <Text>{open ? "Cancel" : "Pair another computer"}</Text>
+        </Button>
+      )}
       {open ? (
         <View
           className="gap-4 rounded-xl border border-border bg-card p-4"
           testID="host-pairing-form"
         >
-          <View className="gap-1">
-            <Text className="font-semibold text-sm">Pair a VibePad host</Text>
-            <Text className="text-xs leading-5" variant="muted">
-              Start the host, copy its short-lived pairing code, and enter the
-              reachable HTTP or HTTPS address. The device token is returned once
-              and stored separately from preferences.
+          <Text className="text-sm leading-6" variant="muted">
+            Run VibePad Host on your computer. Enter the code it shows, or scan
+            its QR code with Camera.
+          </Text>
+          <View className="flex-row items-center gap-2">
+            <Icon
+              className="text-muted-foreground"
+              name={
+                discovery.hosts.length > 0 || invitationHostName
+                  ? "check"
+                  : "search"
+              }
+              size={14}
+            />
+            <Text className="text-xs" variant="muted">
+              {discoveryLabel}
             </Text>
           </View>
-          <PairingFields state$={state$} theme={theme} />
-          <PairingError state$={state$} />
-          <PairingSubmit onPress={pair} state$={state$} />
+          <View className="gap-1.5">
+            <Text className="font-medium text-sm">Pairing code</Text>
+            <View className="gap-3 sm:flex-row">
+              <TextInput
+                accessibilityLabel="Pairing code"
+                autoCapitalize="characters"
+                autoCorrect={false}
+                className="h-12 min-w-0 flex-1 rounded-lg border border-border bg-muted/40 px-3 font-mono text-base text-foreground outline-none"
+                enterKeyHint="go"
+                onChangeText={setCode}
+                onSubmitEditing={submit}
+                placeholder="XXXX-XXXX"
+                placeholderTextColor={theme.mutedForeground}
+                selectionColor={theme.primary}
+                style={{ color: theme.foreground }}
+                submitBehavior="blurAndSubmit"
+                testID="host-pairing-code"
+                value={code}
+              />
+              <Button
+                className="min-h-12"
+                disabled={pairing || code.trim().length < 8}
+                onPress={submit}
+                testID="host-pairing-submit"
+              >
+                <Text>{pairing ? "Connecting…" : "Connect"}</Text>
+              </Button>
+            </View>
+          </View>
+          {errorMessage ? (
+            <Text className="text-red-600 text-xs leading-5">
+              {errorMessage}
+            </Text>
+          ) : null}
+          {discovery.errorMessage ? (
+            <Text className="text-xs" variant="muted">
+              Nearby discovery needs local-network access. QR pairing remains
+              available.
+            </Text>
+          ) : null}
         </View>
-      ) : null}
-    </View>
-  );
-}
-
-export function RevokeCurrentHostControl() {
-  const host = useVibePadHost();
-  const { update } = useAppSettingsStore();
-  const operation$ = useObservable({
-    errorMessage: undefined as string | undefined,
-    revoking: false,
-  });
-  const { errorMessage, revoking } = useValue(operation$);
-  const isPaired = useSettingsValue((state$) =>
-    state$.settings.connections.hosts
-      .get()
-      .some((candidate) => candidate.id === host.hostId)
-  );
-  const revoke = useCallback(async () => {
-    if (operation$.revoking.peek()) {
-      return;
-    }
-    operation$.assign({ errorMessage: undefined, revoking: true });
-    try {
-      await host.revoke();
-      update((current) => ({
-        ...current,
-        connections: {
-          activeHostId:
-            current.connections.activeHostId === host.hostId
-              ? null
-              : current.connections.activeHostId,
-          hosts: current.connections.hosts.filter(
-            (candidate) => candidate.id !== host.hostId
-          ),
-        },
-      }));
-    } catch (error) {
-      operation$.errorMessage.set(
-        error instanceof Error ? error.message : "Unable to revoke this device"
-      );
-    } finally {
-      operation$.revoking.set(false);
-    }
-  }, [host, operation$, update]);
-
-  if (!isPaired) {
-    return null;
-  }
-  return (
-    <View className="items-end gap-1">
-      <Button
-        disabled={revoking}
-        onPress={revoke}
-        size="sm"
-        testID="host-revoke-current"
-        variant="destructive"
-      >
-        <Text>{revoking ? "Revoking…" : "Revoke this device"}</Text>
-      </Button>
-      {errorMessage ? (
-        <Text className="max-w-64 text-right text-[10px] text-red-600">
-          {errorMessage}
-        </Text>
       ) : null}
     </View>
   );
@@ -303,36 +267,60 @@ function SavedHostRow({
   active,
   host,
   onSelect,
+  onToggleAutomaticStart,
 }: {
   readonly active: boolean;
-  readonly host: {
-    readonly id: string;
-    readonly name: string;
-    readonly url: string;
-  };
+  readonly host: HostProfile;
   readonly onSelect: (hostId: string) => void;
+  readonly onToggleAutomaticStart: (hostId: string, enabled: boolean) => void;
 }) {
-  const select = useCallback(() => {
-    onSelect(host.id);
-  }, [host.id, onSelect]);
-
+  const select = useCallback(() => onSelect(host.id), [host.id, onSelect]);
+  const toggleAutomaticStart = useCallback(
+    (enabled: boolean) => onToggleAutomaticStart(host.id, enabled),
+    [host.id, onToggleAutomaticStart]
+  );
+  const automaticStartAvailable = Boolean(
+    host.automaticStart.recoveryKeyId && host.automaticStart.ssh
+  );
+  let detail = active ? "Connected computer" : "Saved computer";
+  if (automaticStartAvailable && host.automaticStart.enabled) {
+    detail = "Starts when VibePad opens";
+  }
   return (
-    <Button
-      accessibilityLabel={`Use ${host.name} at ${host.url}`}
-      className="h-auto min-h-12 justify-start px-3 py-2"
-      onPress={select}
+    <View
+      className="flex-row items-center gap-3 border-border border-b px-4 py-4 last:border-b-0"
       testID={`saved-host-${host.id}`}
-      variant={active ? "secondary" : "ghost"}
     >
-      <Icon name="laptop" size={14} />
-      <View className="min-w-0 flex-1 items-start">
-        <Text className="font-medium text-xs">{host.name}</Text>
-        <Text className="text-[10px]" numberOfLines={1} variant="muted">
-          {host.url}
+      <View className="size-10 items-center justify-center rounded-lg bg-muted">
+        <Icon className="text-muted-foreground" name="laptop" size={16} />
+      </View>
+      <View className="min-w-0 flex-1">
+        <Text className="font-medium text-sm">{host.name}</Text>
+        <Text className="text-xs" variant="muted">
+          {detail}
         </Text>
       </View>
-      {active ? <Icon name="check" size={13} /> : null}
-    </Button>
+      {automaticStartAvailable ? (
+        <Switch
+          accessibilityLabel={`Start ${host.name} when VibePad opens`}
+          onValueChange={toggleAutomaticStart}
+          testID={`saved-host-automatic-start-${host.id}`}
+          value={host.automaticStart.enabled}
+        />
+      ) : null}
+      {active ? (
+        <View className="flex-row items-center gap-1 px-2">
+          <Icon className="text-muted-foreground" name="check" size={13} />
+          <Text className="text-xs" variant="muted">
+            Active
+          </Text>
+        </View>
+      ) : (
+        <Button onPress={select} size="sm" variant="outline">
+          <Text>Use</Text>
+        </Button>
+      )}
+    </View>
   );
 }
 
@@ -350,22 +338,38 @@ export function SavedHostList() {
     },
     [update]
   );
+  const toggleAutomaticStart = useCallback(
+    (hostId: string, enabled: boolean) => {
+      update((current) => ({
+        ...current,
+        connections: {
+          ...current.connections,
+          hosts: current.connections.hosts.map((host) =>
+            host.id === hostId
+              ? {
+                  ...host,
+                  automaticStart: { ...host.automaticStart, enabled },
+                }
+              : host
+          ),
+        },
+      }));
+    },
+    [update]
+  );
 
   if (connections.hosts.length === 0) {
-    return (
-      <Text className="text-xs" variant="muted">
-        No paired hosts
-      </Text>
-    );
+    return null;
   }
   return (
-    <View className="min-w-72 gap-1">
-      {connections.hosts.map((host) => (
+    <View className="overflow-hidden rounded-xl border border-border bg-card">
+      {connections.hosts.map((savedHost) => (
         <SavedHostRow
-          active={host.id === connections.activeHostId}
-          host={host}
-          key={host.id}
+          active={savedHost.id === connections.activeHostId}
+          host={savedHost}
+          key={savedHost.id}
           onSelect={select}
+          onToggleAutomaticStart={toggleAutomaticStart}
         />
       ))}
     </View>

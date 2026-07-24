@@ -267,6 +267,7 @@ export function SessionComposerDock({
           previewReview.cues.length > 0 ? (
             <ReviewAttachmentList
               cues={previewReview.cues}
+              layout="row"
               onRemoveCue={removeReviewCue}
             />
           ) : undefined

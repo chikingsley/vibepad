@@ -5,32 +5,18 @@ name: Pair VibePad host
 - setOrientation: LANDSCAPE_LEFT
 - extendedWaitUntil:
     visible:
-      id: settings-open
+      id: host-pairing-code
     timeout: 30000
-- tapOn:
-    id: settings-open
-- tapOn:
-    id: settings-page-connections
-- tapOn:
-    id: host-pairing-open
-- tapOn:
-    id: host-pairing-url
-- eraseText
-- inputText: ${HOST_URL}
-- hideKeyboard
+- assertVisible: "Found .*"
 - tapOn:
     id: host-pairing-code
 - eraseText
 - inputText: ${PAIRING_CODE}
-- hideKeyboard
-- tapOn:
-    id: host-pairing-submit
+- pressKey: Enter
 - extendedWaitUntil:
     visible:
       id: session-canvas
     timeout: 30000
-- tapOn:
-    id: settings-close
 - assertVisible:
     id: workspace-sidebar
 - assertVisible:

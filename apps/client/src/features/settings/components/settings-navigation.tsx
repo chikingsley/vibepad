@@ -1,4 +1,3 @@
-import { appSettingsSchemaVersion } from "@vibepad/protocol/settings";
 import { useCallback } from "react";
 import { Pressable, View } from "react-native";
 
@@ -73,12 +72,6 @@ export function SettingsNavigation({
         compact ? "border-b" : "w-52 border-r"
       )}
     >
-      <Text
-        className="px-2 pb-2 font-medium text-[10px] uppercase tracking-widest"
-        variant="muted"
-      >
-        VibePad
-      </Text>
       <View className={cn("gap-1", compact && "flex-row")}>
         {settingsPages.map((page) => (
           <SettingsNavigationItem
@@ -90,11 +83,6 @@ export function SettingsNavigation({
           />
         ))}
       </View>
-      {compact ? null : (
-        <Text className="mt-auto px-2 pt-6 text-[10px]" variant="muted">
-          Preferences schema v{appSettingsSchemaVersion}
-        </Text>
-      )}
     </View>
   );
 }

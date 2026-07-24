@@ -11,10 +11,12 @@ import {
 
 function ReviewCueCard({
   cue,
+  layout,
   onOpen,
   onRemove,
 }: {
   readonly cue: PreviewFeedbackCue;
+  readonly layout: "row" | "tile";
   readonly onOpen?: (cueId: string) => void;
   readonly onRemove?: (cueId: string) => void;
 }) {
@@ -26,7 +28,7 @@ function ReviewCueCard({
       cueCount={1}
       detail={reviewCueDetail(cue)}
       durationMs={cue.offsetMs}
-      layout="tile"
+      layout={layout}
       {...(onOpen ? { onOpen: open } : {})}
       {...(onRemove ? { onRemove: remove } : {})}
       title={reviewCueLabel(cue)}
@@ -37,10 +39,12 @@ function ReviewCueCard({
 
 export function ReviewAttachmentList({
   cues,
+  layout = "tile",
   onOpenCue,
   onRemoveCue,
 }: {
   readonly cues: readonly PreviewFeedbackCue[];
+  readonly layout?: "row" | "tile";
   readonly onOpenCue?: (cueId: string) => void;
   readonly onRemoveCue?: (cueId: string) => void;
 }) {
@@ -59,6 +63,7 @@ export function ReviewAttachmentList({
             <ReviewCueCard
               cue={cue}
               key={cue.id}
+              layout={layout}
               {...(onOpenCue ? { onOpen: onOpenCue } : {})}
               {...(onRemoveCue ? { onRemove: onRemoveCue } : {})}
             />

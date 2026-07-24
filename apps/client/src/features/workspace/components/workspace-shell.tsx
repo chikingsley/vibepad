@@ -8,6 +8,7 @@ import Animated, {
   ReduceMotion,
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { HostConnectionRecovery } from "@/features/connections/components/host-connection-recovery";
 import { SettingsDialog } from "@/features/settings/components/settings-dialog";
 import type { SessionSurface } from "@/features/workspace/components/session-workbench-controls";
 import { WorkspaceHeader } from "@/features/workspace/components/workspace-header";
@@ -121,9 +122,10 @@ export function WorkspaceShell() {
       workspaceStatus: status,
     };
   });
-  const hostName = health?.host.id ?? "home-mac";
+  const hostName = health?.host.id ?? host.hostId;
   const hostConnection = health?.host.healthy ? "online" : "offline";
   const providerHealthy = health?.provider.healthy ?? false;
+  const connectionRecovery = workspaceStatus === "error" && !health;
 
   useEffect(() => {
     if (workspaceStatus !== "ready") {
@@ -199,10 +201,11 @@ export function WorkspaceShell() {
     refresh().catch(() => undefined);
   }, [refresh]);
   const openSettings = useCallback(() => {
-    showSettings("timeline");
+    showSettings("connections");
   }, [showSettings]);
   const sidebar = (
     <WorkspaceSidebar
+      hideStatusFooter={connectionRecovery}
       hostConnection={hostConnection}
       hostName={hostName}
       newSessionDisabled={
@@ -249,14 +252,24 @@ export function WorkspaceShell() {
             servicesLoading={servicesState.status === "loading"}
             sessionTitle={selectedSession?.title}
           />
-          <WorkspaceSessionCanvas
-            active
-            errorMessage={errorMessage}
-            hostName={hostName}
-            key={selectedSessionId ?? "empty"}
-            loading={workspaceStatus === "loading"}
-            sessionId={selectedSessionId}
-          />
+          {connectionRecovery && errorMessage ? (
+            <HostConnectionRecovery
+              errorMessage={errorMessage}
+              hostId={host.hostId}
+              hostName={hostName}
+              onOpenConnections={openSettings}
+              onRetry={refreshWorkspace}
+            />
+          ) : (
+            <WorkspaceSessionCanvas
+              active
+              errorMessage={errorMessage}
+              hostName={hostName}
+              key={selectedSessionId ?? "empty"}
+              loading={workspaceStatus === "loading"}
+              sessionId={selectedSessionId}
+            />
+          )}
         </View>
 
         {!regularLayout && mobileSidebarOpen ? (
@@ -284,8 +297,6 @@ export function WorkspaceShell() {
       </Animated.View>
       {settingsOpen ? (
         <SettingsDialog
-          hostName={hostName}
-          hostUrl={host.baseUrl}
           onClose={closeSettings}
           onSelectPage={showSettings}
           page={settingsPage}

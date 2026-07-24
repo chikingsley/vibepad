@@ -5,7 +5,8 @@
     "paths": {
       "@/*": ["./src/*"],
       "@/assets/*": ["./assets/*"],
-      "@vibepad/secure-signer": ["./modules/vibepad-secure-signer/src"]
+      "@vibepad/secure-signer": ["./modules/vibepad-secure-signer/src"],
+      "@vibepad/ssh-bootstrap": ["./modules/vibepad-ssh-bootstrap/src"]
     }
   },
   "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"]
