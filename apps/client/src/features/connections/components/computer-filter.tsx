@@ -1,9 +1,15 @@
 import type { HostProfile } from "@vibepad/protocol/settings";
-import { useCallback } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { useCallback, useEffect } from "react";
+import { AppState, Pressable, ScrollView, View } from "react-native";
 
 import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
+import { runSavedComputerChecks } from "@/features/connections/computer-connection-checks";
+import {
+  computerStatusDotClass,
+  computerStatusLabel,
+  useComputerConnectionStatus,
+} from "@/features/connections/state/computer-connections";
 import {
   useAppSettingsStore,
   useSettingsValue,
@@ -20,9 +26,13 @@ function ComputerChip({
   readonly onSelect: (hostId: string) => void;
 }) {
   const select = useCallback(() => onSelect(host.id), [host.id, onSelect]);
+  const status = useComputerConnectionStatus(host.id);
+  const statusLabel = computerStatusLabel(status);
   return (
     <Pressable
-      accessibilityLabel={`Use ${host.name}`}
+      accessibilityLabel={
+        statusLabel ? `Use ${host.name}, ${statusLabel}` : `Use ${host.name}`
+      }
       accessibilityState={{ selected: active }}
       className={cn(
         "min-h-9 flex-row items-center gap-2 rounded-full border px-3",
@@ -32,10 +42,8 @@ function ComputerChip({
       testID={`computer-filter-${host.id}`}
     >
       <View
-        className={cn(
-          "size-2 rounded-full",
-          active ? "bg-emerald-400" : "bg-muted-foreground/60"
-        )}
+        className={cn("size-2 rounded-full", computerStatusDotClass(status))}
+        testID={`computer-status-${host.id}`}
       />
       <Icon
         className={active ? "text-background" : "text-foreground"}
@@ -66,6 +74,21 @@ export function ComputerFilter() {
     },
     [update]
   );
+
+  useEffect(() => {
+    runSavedComputerChecks(connections.hosts, connections.activeHostId).catch(
+      () => undefined
+    );
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
+        runSavedComputerChecks(
+          connections.hosts,
+          connections.activeHostId
+        ).catch(() => undefined);
+      }
+    });
+    return () => subscription.remove();
+  }, [connections.activeHostId, connections.hosts]);
 
   return (
     <ScrollView

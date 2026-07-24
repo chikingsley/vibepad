@@ -7,6 +7,7 @@ import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
 import { subscribeToNearbyHosts } from "@/features/connections/nearby-host-discovery";
 import { recoverSavedHost } from "@/features/connections/recover-saved-host";
+import { reportComputerConnection } from "@/features/connections/state/computer-connections";
 import {
   useAppSettingsStore,
   useSettingsValue,
@@ -41,17 +42,19 @@ export function HostConnectionRecovery({
     }
     setStarting(true);
     setRecoveryError(undefined);
+    reportComputerConnection(hostId, "starting-host");
     try {
       await recoverSavedHost(savedHost, SshBootstrap);
       onRetry();
     } catch (error) {
-      setRecoveryError(
-        error instanceof Error ? error.message : "VibePad Host startup failed."
-      );
+      const message =
+        error instanceof Error ? error.message : "VibePad Host startup failed.";
+      setRecoveryError(message);
+      reportComputerConnection(hostId, "offline", message);
     } finally {
       setStarting(false);
     }
-  }, [onRetry, savedHost]);
+  }, [hostId, onRetry, savedHost]);
   const handleRetry = useCallback(() => {
     startAndRetry().catch(() => undefined);
   }, [startAndRetry]);

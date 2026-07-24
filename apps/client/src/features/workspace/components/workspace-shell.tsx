@@ -9,6 +9,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { HostConnectionRecovery } from "@/features/connections/components/host-connection-recovery";
+import { reportComputerConnection } from "@/features/connections/state/computer-connections";
 import { SettingsDialog } from "@/features/settings/components/settings-dialog";
 import type { SessionSurface } from "@/features/workspace/components/session-workbench-controls";
 import { WorkspaceHeader } from "@/features/workspace/components/workspace-header";
@@ -126,6 +127,23 @@ export function WorkspaceShell() {
   const hostConnection = health?.host.healthy ? "online" : "offline";
   const providerHealthy = health?.provider.healthy ?? false;
   const connectionRecovery = workspaceStatus === "error" && !health;
+
+  const hostHealthy = health?.host.healthy ?? false;
+  useEffect(() => {
+    if (workspaceStatus === "loading") {
+      reportComputerConnection(host.hostId, "connecting");
+      return;
+    }
+    if (hostHealthy) {
+      reportComputerConnection(host.hostId, "connected");
+      return;
+    }
+    if (workspaceStatus === "error") {
+      reportComputerConnection(host.hostId, "offline", errorMessage);
+      return;
+    }
+    reportComputerConnection(host.hostId, "attention");
+  }, [errorMessage, host.hostId, hostHealthy, workspaceStatus]);
 
   useEffect(() => {
     if (workspaceStatus !== "ready") {
