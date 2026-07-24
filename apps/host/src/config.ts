@@ -14,6 +14,8 @@ const hostConfigSchema = z.object({
   browserCdpUrl: z.url().optional(),
   browserEnabled: z.boolean(),
   browserSurfaceUrl: z.url().optional(),
+  claudeCodeEnabled: z.boolean(),
+  claudeCodeExecutable: z.string().min(1).optional(),
   codexEnabled: z.boolean(),
   codexExecutable: z.string().min(1),
   codexProjectRoots: z.array(z.string().min(1)),
@@ -37,11 +39,13 @@ const hostConfigSchema = z.object({
 export const loadHostConfig = () => {
   const {
     AGENT_BROWSER_BIN,
+    CLAUDE_BIN,
     CODEX_BIN,
     OPENCODE_BASE_URL,
     OPENCODE_BIN,
     OPENCODE_SERVER_PASSWORD,
     OPENCODE_SERVER_USERNAME,
+    VIBEPAD_CLAUDE_CODE_ENABLED,
     VIBEPAD_CODEX_ENABLED,
     VIBEPAD_BROWSER_CDP_URL,
     VIBEPAD_BROWSER_ENABLED,
@@ -63,6 +67,8 @@ export const loadHostConfig = () => {
     browserCdpUrl: VIBEPAD_BROWSER_CDP_URL,
     browserEnabled: VIBEPAD_BROWSER_ENABLED === "1",
     browserSurfaceUrl: VIBEPAD_BROWSER_SURFACE_URL,
+    claudeCodeEnabled: VIBEPAD_CLAUDE_CODE_ENABLED !== "0",
+    claudeCodeExecutable: CLAUDE_BIN,
     codexEnabled: VIBEPAD_CODEX_ENABLED !== "0",
     codexExecutable: CODEX_BIN ?? "codex",
     codexProjectRoots: (VIBEPAD_CODEX_PROJECT_ROOTS ?? defaultCodexProjectRoot)

@@ -1,4 +1,6 @@
 import type { HarnessAdapter } from "@vibepad/protocol/provider";
+import { ClaudeCodeAdapter } from "@vibepad/provider-claude-code/adapter";
+import { detectClaudeCode } from "@vibepad/provider-claude-code/detect";
 import { CodexAdapter } from "@vibepad/provider-codex/adapter";
 import { OpenCodeAdapter } from "@vibepad/provider-opencode/adapter";
 import {
@@ -76,6 +78,27 @@ if (config.codexEnabled) {
       sessionControlStore: providerSessions,
     })
   );
+}
+if (config.claudeCodeEnabled) {
+  const claudeCodeDetection = detectClaudeCode(
+    config.claudeCodeExecutable
+      ? { executable: config.claudeCodeExecutable }
+      : {}
+  );
+  if (claudeCodeDetection.available) {
+    adapters.push(
+      new ClaudeCodeAdapter({
+        detection: claudeCodeDetection,
+        eventStore: providerEvents,
+        projectRoots: config.codexProjectRoots,
+        sessionControlStore: providerSessions,
+      })
+    );
+  } else {
+    console.info(
+      "VibePad found no Claude Code CLI; the claude-code harness is disabled"
+    );
+  }
 }
 if (adapters.length === 0) {
   throw new Error("VibePad Host requires at least one enabled harness");

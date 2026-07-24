@@ -16,6 +16,7 @@
   "dependencies": {
     "@chikingsley/peacockery-voice-client": "workspace:*",
     "@vibepad/protocol": "workspace:*",
+    "@vibepad/provider-claude-code": "workspace:*",
     "@vibepad/provider-codex": "workspace:*",
     "@vibepad/provider-opencode": "workspace:*",
     "bonjour": "^3.5.1",

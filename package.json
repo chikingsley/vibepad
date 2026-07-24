@@ -19,6 +19,7 @@
     "host:service": "bun run --filter @vibepad/host service",
     "lint": "ultracite check",
     "test": "bun run --filter '*' test",
+    "test:live:claude-code": "VIBEPAD_LIVE_CLAUDE_CODE_TESTS=1 bun run --filter @vibepad/provider-claude-code test",
     "test:live:codex": "bun run --filter @vibepad/provider-codex test:live",
     "test:live:opencode": "bun run --filter @vibepad/provider-opencode test:live",
     "typecheck": "bun run --filter '*' typecheck"
