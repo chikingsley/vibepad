@@ -227,6 +227,13 @@ export class ChromiumBrowser {
     return evaluated.result?.value;
   }
 
+  async listTargets() {
+    const listed = await this.send<{
+      targetInfos: { targetId: string; type: string; url: string }[];
+    }>("Target.getTargets");
+    return listed.targetInfos;
+  }
+
   onEvent(method: string, handler: (event: CdpEvent) => void) {
     const handlers = this.#eventHandlers.get(method) ?? new Set();
     handlers.add(handler);

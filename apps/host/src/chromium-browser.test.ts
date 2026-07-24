@@ -41,6 +41,34 @@ const waitForFrame = (
     poll();
   });
 
+const waitForCookie = (
+  browser: ChromiumBrowser,
+  name: string,
+  timeoutMilliseconds: number
+) =>
+  new Promise<Record<string, unknown>[]>((resolve, reject) => {
+    const deadline = Date.now() + timeoutMilliseconds;
+    const poll = () => {
+      browser.exportCookies().then((cookies) => {
+        // biome-ignore lint/complexity/useLiteralKeys: strict index-signature access is required by the shared TypeScript config.
+        if (cookies.some((cookie) => cookie["name"] === name)) {
+          resolve(cookies);
+          return;
+        }
+        if (Date.now() > deadline) {
+          reject(
+            new Error(
+              `Cookie ${name} not visible within ${timeoutMilliseconds}ms`
+            )
+          );
+          return;
+        }
+        setTimeout(poll, 100);
+      }, reject);
+    };
+    poll();
+  });
+
 describe("finding a Chromium executable", () => {
   it("prefers the configured executable", async () => {
     const directory = await mkdtemp(join(tmpdir(), "vibepad-chromium-"));
@@ -144,11 +172,7 @@ describe.skipIf(!executable)("driving a real Chromium over CDP", () => {
       'document.cookie = "vibepad_login=canonical-secret; path=/"'
     );
 
-    const exported = await canonical.exportCookies();
-    expect(
-      // biome-ignore lint/complexity/useLiteralKeys: strict index-signature access is required by the shared TypeScript config.
-      exported.some((cookie) => cookie["name"] === "vibepad_login")
-    ).toBe(true);
+    const exported = await waitForCookie(canonical, "vibepad_login", 10_000);
 
     const sessionProfile = await mkdtemp(join(tmpdir(), "vibepad-session-"));
     cleanups.push(() => rm(sessionProfile, { force: true, recursive: true }));
