@@ -1,0 +1,71 @@
+name: VibePad client TestFlight
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "apps/client/**"
+      - "packages/protocol/**"
+      - "packages/ui/**"
+      - "package.json"
+      - "bun.lock"
+      - ".github/workflows/client-testflight.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vibepad-testflight
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - run: bun install --frozen-lockfile
+      - run: bun run check
+
+  build-and-submit:
+    needs: validate
+    runs-on: ubuntu-24.04
+    env:
+      EXPO_ASC_ISSUER_ID: ${{ secrets.EXPO_ASC_ISSUER_ID }}
+      EXPO_ASC_KEY_ID: ${{ secrets.EXPO_ASC_KEY_ID }}
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - run: bun install --frozen-lockfile
+      - name: Require Expo and App Store Connect credentials
+        env:
+          EXPO_ASC_API_KEY_P8_BASE64: ${{ secrets.EXPO_ASC_API_KEY_P8_BASE64 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for variable in EXPO_TOKEN EXPO_ASC_KEY_ID EXPO_ASC_ISSUER_ID EXPO_ASC_API_KEY_P8_BASE64; do
+            if [[ -z "${!variable:-}" ]]; then
+              printf '%s is required for TestFlight publication.\n' "$variable" >&2
+              exit 1
+            fi
+          done
+          key_path="$RUNNER_TEMP/vibepad-app-store-connect-key.p8"
+          printf '%s' "$EXPO_ASC_API_KEY_P8_BASE64" | base64 --decode > "$key_path"
+          chmod 600 "$key_path"
+          printf 'EXPO_ASC_API_KEY_PATH=%s\n' "$key_path" >> "$GITHUB_ENV"
+      - name: Queue signed iOS build and TestFlight submission
+        working-directory: apps/client
+        run: >-
+          bunx eas-cli build
+          --platform ios
+          --profile testflight
+          --auto-submit-with-profile testflight
+          --what-to-test "VibePad build from ${GITHUB_SHA}"
+          --non-interactive
+          --no-wait

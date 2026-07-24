@@ -7,13 +7,15 @@
     "packages/*"
   ],
   "scripts": {
-    "check": "bun run check:native && bun run lint && bun run typecheck && bun run test",
+    "check": "bun run check:native && bun run check:host-release && bun run lint && bun run typecheck && bun run test",
+    "check:host-release": "bun run scripts/check-host-release-inputs.ts",
     "check:native": "bun run scripts/check-native-modules.ts",
     "dev": "bun run --filter @vibepad/client start",
     "dev:host": "bun run --filter @vibepad/host dev",
     "fix": "ultracite fix",
     "host:browser": "bun run --filter @vibepad/host browser",
     "host:bootstrap": "bun run --filter @vibepad/host bootstrap",
+    "host:release": "bun run scripts/build-host-release.ts",
     "host:service": "bun run --filter @vibepad/host service",
     "lint": "ultracite check",
     "test": "bun run --filter '*' test",
