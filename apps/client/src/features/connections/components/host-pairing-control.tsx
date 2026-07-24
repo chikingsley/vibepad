@@ -1,11 +1,6 @@
-import { decodePairingInvitationUrl } from "@vibepad/protocol/auth";
-import {
-  createHostProfile,
-  type HostProfile,
-} from "@vibepad/protocol/settings";
-import { useURL } from "expo-linking";
+import type { HostProfile } from "@vibepad/protocol/settings";
 import { useColorScheme } from "nativewind";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Switch, TextInput, View } from "react-native";
 
 import { Button } from "@/components/ui/button";
@@ -16,10 +11,6 @@ import {
   useSettingsValue,
 } from "@/features/settings/settings-context";
 import { THEME } from "@/lib/theme";
-import type {
-  PairVibePadHostInput,
-  VibePadHostClient,
-} from "@/lib/vibepad-host";
 import {
   useVibePadHost,
   useVibePadWorkspaceStore,
@@ -29,43 +20,12 @@ import {
   type NearbyHostDiscoveryState,
   subscribeToNearbyHosts,
 } from "../nearby-host-discovery";
-import { clientDeviceName } from "../pair-host";
+import { pairHostInvitation } from "../pair-host";
+import { connectionsWithPairedHost } from "../pairing-invitation";
 
 const emptyDiscovery: NearbyHostDiscoveryState = { hosts: [] };
 
-const invitationFromUrl = (url: string | null) =>
-  url ? decodePairingInvitationUrl(url) : undefined;
-
-const redeemAtEndpoints = async (
-  host: VibePadHostClient,
-  endpoints: readonly string[],
-  input: PairVibePadHostInput,
-  index = 0
-): Promise<{
-  readonly endpoint: string;
-  readonly paired: Awaited<ReturnType<VibePadHostClient["pair"]>>;
-}> => {
-  const endpoint = endpoints[index];
-  if (!endpoint) {
-    throw new Error("VibePad could not find a reachable host for this code");
-  }
-  try {
-    return { endpoint, paired: await host.pair(endpoint, input) };
-  } catch (error) {
-    if (index === endpoints.length - 1) {
-      throw error;
-    }
-    return redeemAtEndpoints(host, endpoints, input, index + 1);
-  }
-};
-
-const discoveryStatus = (
-  invitationHostName: string | undefined,
-  discovery: NearbyHostDiscoveryState
-) => {
-  if (invitationHostName) {
-    return `Connecting to ${invitationHostName}…`;
-  }
+const discoveryStatus = (discovery: NearbyHostDiscoveryState) => {
   if (discovery.hosts.length === 1) {
     return `Found ${discovery.hosts[0]?.name}`;
   }
@@ -85,91 +45,59 @@ export function HostPairingControl({
   const { update } = useAppSettingsStore();
   const { colorScheme } = useColorScheme();
   const theme = THEME[colorScheme === "dark" ? "dark" : "light"];
-  const incomingUrl = useURL();
-  const invitation = invitationFromUrl(incomingUrl);
-  const processedInvitation = useRef<string | undefined>(undefined);
-  const [code, setCode] = useState(invitation?.code ?? "");
+  const [code, setCode] = useState("");
   const [discovery, setDiscovery] =
     useState<NearbyHostDiscoveryState>(emptyDiscovery);
   const [errorMessage, setErrorMessage] = useState<string>();
-  const [invitationHostName, setInvitationHostName] = useState(
-    invitation?.hostName
-  );
   const [open, setOpen] = useState(alwaysOpen);
   const [pairing, setPairing] = useState(false);
 
   useEffect(() => subscribeToNearbyHosts(setDiscovery), []);
 
-  const pair = useCallback(
-    async (pairingCode = code, invitationEndpoints?: readonly string[]) => {
-      if (pairing) {
-        return;
-      }
-      const endpoints = [
-        ...new Set(
-          invitationEndpoints ??
-            discovery.hosts.flatMap((nearbyHost) => nearbyHost.endpoints)
-        ),
-      ];
-      if (endpoints.length === 0) {
-        setErrorMessage(
-          "VibePad is still looking for a host nearby. Keep both devices on the same network or scan the host QR code."
-        );
-        return;
-      }
-      setPairing(true);
-      setErrorMessage(undefined);
-      try {
-        const { endpoint, paired } = await redeemAtEndpoints(host, endpoints, {
-          code: pairingCode.trim(),
-          deviceName: clientDeviceName,
-        });
-        update((current) => ({
-          ...current,
-          connections: {
-            activeHostId: paired.hostId,
-            hosts: [
-              ...current.connections.hosts.filter(
-                (candidate) => candidate.id !== paired.hostId
-              ),
-              createHostProfile({
-                id: paired.hostId,
-                name: paired.hostName,
-                url: endpoint,
-              }),
-            ],
-          },
-        }));
-        setCode("");
-        setInvitationHostName(undefined);
-        setOpen(alwaysOpen);
-        if (paired.hostId === host.hostId && endpoint === host.baseUrl) {
-          await workspace.refresh();
-        }
-      } catch (error) {
-        setErrorMessage(
-          error instanceof Error
-            ? error.message
-            : "VibePad could not redeem this pairing code"
-        );
-      } finally {
-        setPairing(false);
-      }
-    },
-    [alwaysOpen, code, discovery.hosts, host, pairing, update, workspace]
-  );
-
-  useEffect(() => {
-    if (
-      !(incomingUrl && invitation) ||
-      processedInvitation.current === incomingUrl
-    ) {
+  const pair = useCallback(async () => {
+    if (pairing) {
       return;
     }
-    processedInvitation.current = incomingUrl;
-    setCode(invitation.code);
-    pair(invitation.code, invitation.endpoints).catch(() => undefined);
-  }, [incomingUrl, invitation, pair]);
+    const endpoints = [
+      ...new Set(discovery.hosts.flatMap((nearbyHost) => nearbyHost.endpoints)),
+    ];
+    if (endpoints.length === 0) {
+      setErrorMessage(
+        "VibePad is still looking for a host nearby. Keep both devices on the same network or scan the host QR code."
+      );
+      return;
+    }
+    setPairing(true);
+    setErrorMessage(undefined);
+    try {
+      const { endpoint, paired } = await pairHostInvitation(
+        host,
+        endpoints,
+        code.trim()
+      );
+      update((current) => ({
+        ...current,
+        connections: connectionsWithPairedHost(
+          current.connections,
+          paired,
+          endpoint
+        ),
+      }));
+      setCode("");
+      setOpen(alwaysOpen);
+      if (paired.hostId === host.hostId && endpoint === host.baseUrl) {
+        await workspace.refresh();
+      }
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "VibePad could not redeem this pairing code"
+      );
+    } finally {
+      setPairing(false);
+    }
+  }, [alwaysOpen, code, discovery.hosts, host, pairing, update, workspace]);
 
   const toggleOpen = useCallback(() => {
     setOpen((current) => !current);
@@ -178,7 +106,7 @@ export function HostPairingControl({
   const submit = useCallback(() => {
     pair().catch(() => undefined);
   }, [pair]);
-  const discoveryLabel = discoveryStatus(invitationHostName, discovery);
+  const discoveryLabel = discoveryStatus(discovery);
 
   return (
     <View className="gap-3">
@@ -206,11 +134,7 @@ export function HostPairingControl({
           <View className="flex-row items-center gap-2">
             <Icon
               className="text-muted-foreground"
-              name={
-                discovery.hosts.length > 0 || invitationHostName
-                  ? "check"
-                  : "search"
-              }
+              name={discovery.hosts.length > 0 ? "check" : "search"}
               size={14}
             />
             <Text className="text-xs" variant="muted">

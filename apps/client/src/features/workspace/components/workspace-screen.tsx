@@ -2,6 +2,7 @@ import {
   HostActivationScreen,
   SettingsLoadingScreen,
 } from "@/features/connections/components/host-activation-screen";
+import { PairingInvitationGate } from "@/features/connections/components/pairing-invitation-gate";
 import { resolveConnectionEntryState } from "@/features/connections/connection-entry-state";
 import {
   useAppSettingsStore,
@@ -34,14 +35,16 @@ export function WorkspaceScreen() {
   if (entry.status === "activation") {
     return (
       <VibePadHostProvider connection={defaultVibePadHostConnection}>
-        <HostActivationScreen
-          {...(entry.errorMessage
-            ? {
-                errorMessage: entry.errorMessage,
-                onRetrySettings: settings.load,
-              }
-            : {})}
-        />
+        <PairingInvitationGate>
+          <HostActivationScreen
+            {...(entry.errorMessage
+              ? {
+                  errorMessage: entry.errorMessage,
+                  onRetrySettings: settings.load,
+                }
+              : {})}
+          />
+        </PairingInvitationGate>
       </VibePadHostProvider>
     );
   }
@@ -53,7 +56,9 @@ export function WorkspaceScreen() {
 
   return (
     <VibePadHostProvider connection={connection} key={connectionKey}>
-      <WorkspaceShell />
+      <PairingInvitationGate>
+        <WorkspaceShell />
+      </PairingInvitationGate>
     </VibePadHostProvider>
   );
 }
