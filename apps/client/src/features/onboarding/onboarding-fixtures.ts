@@ -8,6 +8,7 @@ export type OnboardingFixtureId =
   | "runtime-choice"
   | "computer-searching"
   | "computer-found"
+  | "computer-several"
   | "computer-empty"
   | "pair-existing"
   | "ssh-credentials"
@@ -59,6 +60,20 @@ export const onboardingFixtures: Record<OnboardingFixtureId, OnboardingState> =
     },
     "computer-searching": {
       discovery: { computers: [], status: "searching" },
+      screen: "computer-choice",
+    },
+    "computer-several": {
+      discovery: {
+        computers: [
+          studioComputer,
+          {
+            endpoints: ["http://192.168.1.41:4100"],
+            id: "office-linux",
+            name: "office-linux",
+          },
+        ],
+        status: "ready",
+      },
       screen: "computer-choice",
     },
     installation: {

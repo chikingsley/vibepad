@@ -81,10 +81,7 @@ function DetailInspector({ option }: { readonly option: AttachmentOption }) {
         </Text>
       </View>
       <View className="gap-3">
-        <Text
-          className="font-medium text-[11px] uppercase tracking-wider"
-          variant="muted"
-        >
+        <Text className="text-muted-foreground" variant="caption">
           Review timeline
         </Text>
         <View className="flex-row gap-3">

@@ -37,7 +37,7 @@ function SettingsNavigationItem({
       accessibilityState={{ selected }}
       aria-selected={selected}
       className={cn(
-        "min-h-10 flex-row items-center gap-2 rounded-lg px-3 active:bg-accent",
+        "min-h-11 flex-row items-center gap-2 rounded-lg px-3 active:bg-accent",
         compact && "flex-1 justify-center",
         selected && "bg-accent"
       )}

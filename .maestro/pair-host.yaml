@@ -20,4 +20,4 @@ name: Pair VibePad host
 - assertVisible:
     id: workspace-sidebar
 - assertVisible:
-    id: header-host-status
+    id: system-status-trigger

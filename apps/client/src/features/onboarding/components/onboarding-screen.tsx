@@ -2,31 +2,36 @@ import type {
   ComputerComponentId,
   ComputerComponentInspection,
   InstallationStep,
+  NearbyComputer,
   OnboardingPlatform,
   OnboardingState,
   SshConnectionInput,
 } from "@vibepad/protocol/onboarding";
 import { useColorScheme } from "nativewind";
 import { useCallback, useState } from "react";
-import { ScrollView, Switch, TextInput, View } from "react-native";
+import { Pressable, ScrollView, Switch, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { VibePadMark } from "@/components/brand/vibepad-mark";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
+import {
+  type PairedHostResult,
+  PairingCodeForm,
+} from "@/features/connections/components/pairing-code-form";
 import { THEME } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
 export interface OnboardingActions {
   readonly back?: (() => void) | undefined;
-  readonly chooseExistingHost?: () => void;
+  readonly chooseExistingHost?: (computerId?: string) => void;
   readonly chooseSelfHosted?: () => void;
   readonly chooseSshSetup?: () => void;
+  readonly completeExistingPairing?: (result: PairedHostResult) => void;
   readonly continueFromInspection?: (automaticStart: boolean) => void;
   readonly finish?: () => void;
   readonly inspectComputer?: (input: SshConnectionInput) => void;
-  readonly pairExisting?: (code: string) => void;
   readonly start?: () => void;
   readonly toggleComponent?: (componentId: ComputerComponentId) => void;
 }
@@ -198,16 +203,61 @@ function RuntimeChoiceScreen({ actions }: ScreenProps) {
   );
 }
 
+function ComputerResultRow({
+  computer,
+  onSelect,
+}: {
+  readonly computer: NearbyComputer;
+  readonly onSelect?: ((computerId?: string) => void) | undefined;
+}) {
+  const select = useCallback(
+    () => onSelect?.(computer.id),
+    [computer.id, onSelect]
+  );
+  return (
+    <Pressable
+      accessibilityLabel={`Pair ${computer.name}`}
+      className="min-h-12 flex-row items-center gap-3 border-border border-b px-4 py-3 last:border-b-0 active:bg-accent"
+      onPress={select}
+      testID={`onboarding-computer-${computer.id}`}
+    >
+      <Icon name="laptop" size={16} />
+      <Text className="min-w-0 flex-1 font-medium" numberOfLines={1}>
+        {computer.name}
+      </Text>
+      <View className="flex-row items-center gap-1">
+        <Text className="text-sm" variant="muted">
+          Pair
+        </Text>
+        <Icon
+          className="text-muted-foreground"
+          name="chevron-right"
+          size={14}
+        />
+      </View>
+    </Pressable>
+  );
+}
+
 function ComputerChoiceScreen({ actions, state }: ScreenProps) {
+  const chooseSingleHost = useCallback(
+    () => actions.chooseExistingHost?.(),
+    [actions]
+  );
   if (state.screen !== "computer-choice") {
     return null;
   }
   const { discovery } = state;
+  const severalComputers =
+    discovery.status === "ready" && discovery.computers.length > 1;
   let existingHostDetail = "Run VibePad Host, then pair with its code or QR.";
   if (discovery.status === "searching") {
     existingHostDetail = "Searching your local network…";
   } else if (discovery.status === "ready") {
     existingHostDetail = `Found ${discovery.computers[0]?.name}`;
+  } else if (discovery.status === "empty") {
+    existingHostDetail =
+      "No computers running VibePad Host were found nearby. Scan the Host QR code with your camera, or set up over SSH.";
   }
   return (
     <OnboardingFrame back={actions.back} testID="onboarding-computer-choice">
@@ -215,13 +265,28 @@ function ComputerChoiceScreen({ actions, state }: ScreenProps) {
         Connect your computer
       </OnboardingHeading>
       <View className="mx-auto w-full max-w-2xl gap-3 sm:flex-row">
-        <ChoiceCard
-          detail={existingHostDetail}
-          icon="search"
-          label="VibePad Host is running"
-          onPress={actions.chooseExistingHost}
-          testID="onboarding-existing-host"
-        />
+        {severalComputers ? (
+          <View
+            className="flex-1 overflow-hidden rounded-2xl border border-border bg-card"
+            testID="onboarding-computer-list"
+          >
+            {discovery.computers.map((computer) => (
+              <ComputerResultRow
+                computer={computer}
+                key={computer.id}
+                onSelect={actions.chooseExistingHost}
+              />
+            ))}
+          </View>
+        ) : (
+          <ChoiceCard
+            detail={existingHostDetail}
+            icon="search"
+            label="VibePad Host is running"
+            onPress={chooseSingleHost}
+            testID="onboarding-existing-host"
+          />
+        )}
         <ChoiceCard
           detail="Sign in to your computer and let VibePad install the Host."
           icon="laptop"
@@ -232,7 +297,10 @@ function ComputerChoiceScreen({ actions, state }: ScreenProps) {
       </View>
       {discovery.status === "permission-required" ||
       discovery.status === "error" ? (
-        <Text className="text-center text-red-600 text-sm">
+        <Text
+          className="text-center text-red-600 text-sm"
+          testID="onboarding-discovery-message"
+        >
           {discovery.message}
         </Text>
       ) : null}
@@ -241,14 +309,6 @@ function ComputerChoiceScreen({ actions, state }: ScreenProps) {
 }
 
 function PairExistingScreen({ actions, state }: ScreenProps) {
-  const { colorScheme } = useColorScheme();
-  const theme = THEME[colorScheme === "dark" ? "dark" : "light"];
-  const initialCode = state.screen === "pair-existing" ? state.pairingCode : "";
-  const [code, setCode] = useState(initialCode);
-  const submit = useCallback(
-    () => actions.pairExisting?.(code.trim()),
-    [actions, code]
-  );
   if (state.screen !== "pair-existing") {
     return null;
   }
@@ -259,36 +319,14 @@ function PairExistingScreen({ actions, state }: ScreenProps) {
       >
         Pair {state.computer.name}
       </OnboardingHeading>
-      <View className="mx-auto w-full max-w-md gap-4">
-        <TextInput
-          accessibilityLabel="Pairing code"
-          autoCapitalize="characters"
-          autoCorrect={false}
-          className="h-14 rounded-xl border border-border bg-card px-4 text-center font-mono text-foreground text-lg outline-none"
-          onChangeText={setCode}
-          onSubmitEditing={submit}
-          placeholder="XXXX-XXXX"
-          placeholderTextColor={theme.mutedForeground}
-          selectionColor={theme.primary}
-          style={{ color: theme.foreground }}
-          testID="onboarding-pairing-code"
-          value={code}
+      <View className="mx-auto w-full max-w-md">
+        <PairingCodeForm
+          codeFieldTestID="onboarding-pairing-code"
+          computer={state.computer}
+          layout="stacked"
+          onPaired={actions.completeExistingPairing}
+          submitTestID="onboarding-pair-submit"
         />
-        <Button
-          className="h-12 rounded-xl"
-          disabled={code.length < 8 || state.pairingStatus === "connecting"}
-          onPress={submit}
-          testID="onboarding-pair-submit"
-        >
-          <Text>
-            {state.pairingStatus === "connecting" ? "Connecting…" : "Pair"}
-          </Text>
-        </Button>
-        {state.errorMessage ? (
-          <Text className="text-center text-red-600 text-sm">
-            {state.errorMessage}
-          </Text>
-        ) : null}
       </View>
     </OnboardingFrame>
   );
@@ -321,7 +359,7 @@ function Field({
         autoCapitalize="none"
         autoComplete={label === "Password" ? "off" : undefined}
         autoCorrect={false}
-        className="h-12 rounded-lg border border-border bg-card px-3 text-foreground outline-none"
+        className="h-12 rounded-xl border border-border bg-card px-3 text-foreground outline-none"
         keyboardType={keyboardType}
         onChangeText={onChangeText}
         placeholder={placeholder}

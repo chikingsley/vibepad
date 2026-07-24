@@ -7,6 +7,8 @@ import {
   type OnboardingFixtureId,
   onboardingFixtures,
 } from "@/features/onboarding/onboarding-fixtures";
+import { defaultVibePadHostConnection } from "@/lib/vibepad-host";
+import { VibePadHostProvider } from "@/lib/vibepad-host-context";
 
 const fixtureIds = new Set(Object.keys(onboardingFixtures));
 
@@ -30,10 +32,12 @@ export default function OnboardingFixtureRoute() {
     : defaultPlatform();
 
   return (
-    <OnboardingScreen
-      actions={{}}
-      platform={platform}
-      state={onboardingFixtures[fixture]}
-    />
+    <VibePadHostProvider connection={defaultVibePadHostConnection}>
+      <OnboardingScreen
+        actions={{}}
+        platform={platform}
+        state={onboardingFixtures[fixture]}
+      />
+    </VibePadHostProvider>
   );
 }

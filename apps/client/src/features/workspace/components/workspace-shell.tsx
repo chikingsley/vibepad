@@ -259,7 +259,6 @@ export function WorkspaceShell() {
         <View className="min-w-0 flex-1">
           <WorkspaceHeader
             hostConnection={hostConnection}
-            hostName={hostName}
             onSelectSurface={selectSelectedSurface}
             onToggleSidebar={toggleSidebar}
             projectName={selectedProject?.name}

@@ -10,11 +10,18 @@ import SshBootstrap from "@vibepad/ssh-bootstrap";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { Platform } from "react-native";
 
+import type { PairedHostResult } from "@/features/connections/components/pairing-code-form";
 import { subscribeToNearbyHosts } from "@/features/connections/nearby-host-discovery";
 import { pairHostInvitation } from "@/features/connections/pair-host";
+import { connectionsWithPairedHost } from "@/features/connections/pairing-invitation";
 import { useAppSettingsStore } from "@/features/settings/settings-context";
 import { useVibePadHost } from "@/lib/vibepad-host-context";
 
+import {
+  discoverySearchWindowMs,
+  discoveryStateFromSnapshot,
+  selectedDiscoveryComputer,
+} from "../discovery";
 import {
   createNativeSshOnboardingClient,
   defaultInstallationSelection,
@@ -102,9 +109,12 @@ export function NativeSshOnboardingFlow() {
           readonly port: number;
           readonly username: string;
         };
+        readonly source: "install" | "pair-existing";
       }
     | undefined
   >(undefined);
+
+  const searchWindowElapsedRef = useRef(false);
 
   useEffect(
     () =>
@@ -112,37 +122,37 @@ export function NativeSshOnboardingFlow() {
         if (store.state$.screen.peek() !== "computer-choice") {
           return;
         }
-        if (discovery.errorMessage) {
-          store.setState({
-            discovery: {
-              message: discovery.errorMessage,
-              status: "permission-required",
-            },
-            screen: "computer-choice",
-          });
-          return;
-        }
-        if (discovery.hosts.length === 0) {
-          store.setState({
-            discovery: { computers: [], status: "searching" },
-            screen: "computer-choice",
-          });
-          return;
-        }
         store.setState({
-          discovery: {
-            computers: discovery.hosts.map((nearbyHost) => ({
-              endpoints: [...nearbyHost.endpoints],
-              id: nearbyHost.id,
-              name: nearbyHost.name,
-            })),
-            status: "ready",
-          },
+          discovery: discoveryStateFromSnapshot(discovery, {
+            searchWindowElapsed: searchWindowElapsedRef.current,
+          }),
           screen: "computer-choice",
         });
       }),
     [store]
   );
+
+  useEffect(() => {
+    if (state.screen !== "computer-choice") {
+      return;
+    }
+    searchWindowElapsedRef.current = false;
+    const timer = setTimeout(() => {
+      searchWindowElapsedRef.current = true;
+      const current = store.state$.peek();
+      if (
+        current.screen === "computer-choice" &&
+        current.discovery.status === "searching" &&
+        current.discovery.computers.length === 0
+      ) {
+        store.setState({
+          discovery: { status: "empty" },
+          screen: "computer-choice",
+        });
+      }
+    }, discoverySearchWindowMs);
+    return () => clearTimeout(timer);
+  }, [state.screen, store]);
 
   const savePairedHost = useCallback(
     (
@@ -246,6 +256,7 @@ export function NativeSshOnboardingFlow() {
         automaticStart: selection.automaticStart,
         endpoint: pairedResult.endpoint,
         paired: pairedResult.paired,
+        source: "install",
         ...(result.recoveryKeyId
           ? {
               recoveryKeyId: result.recoveryKeyId,
@@ -283,13 +294,13 @@ export function NativeSshOnboardingFlow() {
     }
   }, [hostClient, sshClient, store]);
 
-  const chooseExistingHost = useCallback(() => {
-    const current = store.state$.peek();
-    if (
-      current.screen === "computer-choice" &&
-      current.discovery.status === "ready"
-    ) {
-      const [computer] = current.discovery.computers;
+  const chooseExistingHost = useCallback(
+    (computerId?: string) => {
+      const current = store.state$.peek();
+      if (current.screen !== "computer-choice") {
+        return;
+      }
+      const computer = selectedDiscoveryComputer(current.discovery, computerId);
       if (computer) {
         store.setState({
           computer,
@@ -298,8 +309,9 @@ export function NativeSshOnboardingFlow() {
           screen: "pair-existing",
         });
       }
-    }
-  }, [store]);
+    },
+    [store]
+  );
 
   const toggleComponent = useCallback(
     (componentId: "browser-tools" | "codex" | "opencode" | "vibepad-host") => {
@@ -332,41 +344,28 @@ export function NativeSshOnboardingFlow() {
     [store]
   );
 
-  const pairExisting = useCallback(
-    async (code: string) => {
+  const completeExistingPairing = useCallback(
+    (result: PairedHostResult) => {
       const current = store.state$.peek();
       if (current.screen !== "pair-existing") {
         return;
       }
-      store.setState({ ...current, pairingStatus: "connecting" });
-      try {
-        const result = await pairHostInvitation(
-          hostClient,
-          current.computer.endpoints,
-          code
-        );
-        pendingPairRef.current = {
-          automaticStart: false,
-          endpoint: result.endpoint,
-          paired: result.paired,
-        };
-        store.setState({
-          computer: {
-            enabledProviders: ["codex", "opencode"],
-            hostId: result.paired.hostId,
-            hostName: result.paired.hostName,
-          },
-          screen: "computer-ready",
-        });
-      } catch (error) {
-        store.setState({
-          ...current,
-          errorMessage: errorMessage(error),
-          pairingStatus: "idle",
-        });
-      }
+      pendingPairRef.current = {
+        automaticStart: false,
+        endpoint: result.endpoint,
+        paired: result.paired,
+        source: "pair-existing",
+      };
+      store.setState({
+        computer: {
+          enabledProviders: ["codex", "opencode"],
+          hostId: result.paired.hostId,
+          hostName: result.paired.hostName,
+        },
+        screen: "computer-ready",
+      });
     },
-    [hostClient, store]
+    [store]
   );
 
   const finish = useCallback(() => {
@@ -374,15 +373,26 @@ export function NativeSshOnboardingFlow() {
     if (!pending) {
       return;
     }
-    savePairedHost(
-      pending.paired,
-      pending.endpoint,
-      pending.automaticStart,
-      pending.recoveryKeyId,
-      pending.recoverySsh
-    );
+    if (pending.source === "install") {
+      savePairedHost(
+        pending.paired,
+        pending.endpoint,
+        pending.automaticStart,
+        pending.recoveryKeyId,
+        pending.recoverySsh
+      );
+    } else {
+      settings.update((current) => ({
+        ...current,
+        connections: connectionsWithPairedHost(
+          current.connections,
+          pending.paired,
+          pending.endpoint
+        ),
+      }));
+    }
     pendingPairRef.current = undefined;
-  }, [savePairedHost]);
+  }, [savePairedHost, settings]);
 
   useEffect(() => {
     if (state.screen !== "computer-ready") {
@@ -414,6 +424,7 @@ export function NativeSshOnboardingFlow() {
         }),
       chooseSshSetup: () =>
         store.setState({ inspectionStatus: "idle", screen: "ssh-credentials" }),
+      completeExistingPairing,
       continueFromInspection: (automaticStart) => {
         const current = store.state$.peek();
         if (current.screen === "computer-inspection") {
@@ -425,18 +436,15 @@ export function NativeSshOnboardingFlow() {
       inspectComputer: (input) => {
         inspectComputer(input).catch(() => undefined);
       },
-      pairExisting: (code) => {
-        pairExisting(code).catch(() => undefined);
-      },
       start: () => store.setState({ screen: "runtime-choice" }),
       toggleComponent,
     }),
     [
       chooseExistingHost,
+      completeExistingPairing,
       finish,
       inspectComputer,
       install,
-      pairExisting,
       state.screen,
       store,
       toggleComponent,

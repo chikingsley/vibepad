@@ -1,5 +1,4 @@
 import type { SshTarget } from "@vibepad/protocol/remote";
-import { createHostProfile } from "@vibepad/protocol/settings";
 import { useCallback, useEffect, useState } from "react";
 import { View } from "react-native";
 
@@ -9,6 +8,7 @@ import { Text } from "@/components/ui/text";
 import { useAppSettingsStore } from "@/features/settings/settings-context";
 import { useVibePadHost } from "@/lib/vibepad-host-context";
 import { pairHostInvitation } from "../pair-host";
+import { connectionsWithPairedHost } from "../pairing-invitation";
 
 function SshTargetRow({
   busy,
@@ -87,19 +87,11 @@ export function SshComputerSetup() {
         );
         update((current) => ({
           ...current,
-          connections: {
-            ...current.connections,
-            hosts: [
-              ...current.connections.hosts.filter(
-                (candidate) => candidate.id !== paired.hostId
-              ),
-              createHostProfile({
-                id: paired.hostId,
-                name: paired.hostName,
-                url: endpoint,
-              }),
-            ],
-          },
+          connections: connectionsWithPairedHost(
+            current.connections,
+            paired,
+            endpoint
+          ),
         }));
         setMessage(`${paired.hostName} is ready`);
       } catch (error) {

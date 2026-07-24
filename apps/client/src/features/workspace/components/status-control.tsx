@@ -18,6 +18,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Text } from "@/components/ui/text";
+import type { HostConnection } from "@/features/workspace/components/status-indicators";
 import { cn } from "@/lib/utils";
 
 type StatusTab = "lsp" | "mcp" | "plugins";
@@ -62,7 +63,7 @@ function StatusTabTrigger({
 
   return (
     <TabsTrigger
-      className="relative h-10 items-center justify-center px-0"
+      className="relative h-11 items-center justify-center px-0"
       testID={`system-status-tab-${value}`}
       value={value}
     >
@@ -152,6 +153,38 @@ function ServiceList({
   );
 }
 
+function ConnectionOverviewRow({
+  detail,
+  label,
+  ready,
+  testID,
+}: {
+  readonly detail: string;
+  readonly label: string;
+  readonly ready: boolean;
+  readonly testID: string;
+}) {
+  return (
+    <View
+      className="min-h-9 flex-row items-center gap-2 rounded-md px-2 py-1.5"
+      testID={testID}
+    >
+      <View
+        className={cn(
+          "size-1.5 shrink-0 rounded-full",
+          ready ? "bg-emerald-500" : "bg-red-500"
+        )}
+      />
+      <Text className="min-w-0 flex-1 text-sm" numberOfLines={1}>
+        {label}
+      </Text>
+      <Text className="text-[11px]" variant="muted">
+        {detail}
+      </Text>
+    </View>
+  );
+}
+
 const emptyMessageForTab = (tab: StatusTab) =>
   tab === "plugins"
     ? "No plugins configured"
@@ -176,12 +209,14 @@ const aggregateToneClass = ({
 };
 
 export function StatusControl({
-  healthy,
+  hostConnection,
   loading,
+  providerHealthy,
   services,
 }: {
-  readonly healthy: boolean;
+  readonly hostConnection: HostConnection;
   readonly loading: boolean;
+  readonly providerHealthy: boolean;
   readonly services: readonly ServiceSummary[];
 }) {
   const visibleTabs = statusTabs.filter(
@@ -195,20 +230,21 @@ export function StatusControl({
   const changeTab = useCallback((value: string) => {
     setRequestedTab(value as StatusTab);
   }, []);
+  const hostOnline = hostConnection === "online";
   const degraded = services.some(
     (service) => service.state === "attention" || service.state === "disabled"
   );
   const failed = services.some((service) => service.state === "error");
-  const aggregateTone = aggregateToneClass({ degraded, failed, healthy });
-
-  if (!(loading || activeTab)) {
-    return null;
-  }
+  const aggregateTone = aggregateToneClass({
+    degraded,
+    failed,
+    healthy: hostOnline && providerHealthy,
+  });
 
   const statusLabel =
     visibleTabs.length > 0
-      ? visibleTabs.map((tab) => tab.label).join(", ")
-      : "provider services";
+      ? `host, provider, and ${visibleTabs.map((tab) => tab.label).join(", ")}`
+      : "host and provider";
 
   return (
     <Popover onOpenChange={setOpen}>
@@ -235,35 +271,57 @@ export function StatusControl({
         side="bottom"
         sideOffset={6}
       >
-        <TabsRoot
-          className="w-full"
-          onValueChange={changeTab}
-          value={activeTab ?? "mcp"}
+        <View
+          className={cn(
+            "m-2 rounded-lg bg-muted/55 p-1.5",
+            visibleTabs.length > 0 && "mb-0"
+          )}
+          testID="system-status-overview"
         >
-          <TabsList className="h-10 flex-row gap-4 px-4 pt-1">
+          <ConnectionOverviewRow
+            detail={hostOnline ? "Reachable" : "Offline"}
+            label="Host"
+            ready={hostOnline}
+            testID="system-status-host"
+          />
+          <ConnectionOverviewRow
+            detail={providerHealthy ? "Healthy" : "Unavailable"}
+            label="Provider"
+            ready={providerHealthy}
+            testID="system-status-provider"
+          />
+        </View>
+        {visibleTabs.length > 0 ? (
+          <TabsRoot
+            className="w-full"
+            onValueChange={changeTab}
+            value={activeTab ?? "mcp"}
+          >
+            <TabsList className="h-11 flex-row gap-4 px-4 pt-1">
+              {visibleTabs.map((tab) => (
+                <StatusTabTrigger
+                  count={servicesForTab(services, tab.value).length}
+                  key={tab.value}
+                  label={tab.label}
+                  value={tab.value}
+                />
+              ))}
+            </TabsList>
             {visibleTabs.map((tab) => (
-              <StatusTabTrigger
-                count={servicesForTab(services, tab.value).length}
+              <TabsContent
                 key={tab.value}
-                label={tab.label}
+                testID={`system-status-panel-${tab.value}`}
                 value={tab.value}
-              />
+              >
+                <ServiceList
+                  emptyMessage={emptyMessageForTab(tab.value)}
+                  items={servicesForTab(services, tab.value)}
+                  loading={loading}
+                />
+              </TabsContent>
             ))}
-          </TabsList>
-          {visibleTabs.map((tab) => (
-            <TabsContent
-              key={tab.value}
-              testID={`system-status-panel-${tab.value}`}
-              value={tab.value}
-            >
-              <ServiceList
-                emptyMessage={emptyMessageForTab(tab.value)}
-                items={servicesForTab(services, tab.value)}
-                loading={loading}
-              />
-            </TabsContent>
-          ))}
-        </TabsRoot>
+          </TabsRoot>
+        ) : null}
       </PopoverContent>
     </Popover>
   );

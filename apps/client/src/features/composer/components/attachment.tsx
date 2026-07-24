@@ -177,6 +177,7 @@ export function AttachmentAction({ className, ...props }: PressableProps) {
         "size-8 items-center justify-center rounded-full active:bg-accent",
         className
       )}
+      hitSlop={6}
       {...props}
     />
   );

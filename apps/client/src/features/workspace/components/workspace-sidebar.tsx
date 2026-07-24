@@ -175,8 +175,6 @@ export function WorkspaceSidebar({
         </Button>
       </View>
 
-      <ComputerFilter />
-
       <View className="px-2 pt-2 pb-1">
         <NewSessionControl
           disabled={newSessionDisabled}
@@ -186,6 +184,8 @@ export function WorkspaceSidebar({
           triggerVariant="sidebar"
         />
       </View>
+
+      <ComputerFilter />
 
       <LegendList
         contentContainerStyle={{

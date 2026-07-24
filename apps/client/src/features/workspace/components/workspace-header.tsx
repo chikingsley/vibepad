@@ -4,7 +4,6 @@ import { View } from "react-native";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
-import { HostConnectionControl } from "@/features/workspace/components/host-connection-control";
 import { SessionTitle } from "@/features/workspace/components/session-title";
 import {
   type SessionSurface,
@@ -15,7 +14,6 @@ import type { HostConnection } from "@/features/workspace/components/status-indi
 
 export function WorkspaceHeader({
   hostConnection,
-  hostName,
   onSelectSurface,
   onToggleSidebar,
   projectName,
@@ -27,7 +25,6 @@ export function WorkspaceHeader({
   sessionTitle,
 }: {
   readonly hostConnection: HostConnection;
-  readonly hostName: string;
   readonly onSelectSurface: (surface: SessionSurface) => void;
   readonly onToggleSidebar: () => void;
   readonly projectName: string | undefined;
@@ -42,7 +39,7 @@ export function WorkspaceHeader({
     <View className="h-12 flex-row items-center border-border border-b bg-background px-1">
       <Button
         accessibilityLabel="Toggle sidebar"
-        className="size-11 rounded-md sm:size-11"
+        className="size-11 sm:size-11"
         onPress={onToggleSidebar}
         size="icon"
         testID="sidebar-toggle"
@@ -60,13 +57,13 @@ export function WorkspaceHeader({
         ) : null}
         {projectName ? (
           <>
-            <Text className="text-xs leading-4" variant="muted">
+            <Text className="text-muted-foreground" variant="metadata">
               ·
             </Text>
             <Text
-              className="max-w-40 text-xs leading-4"
+              className="max-w-40 text-muted-foreground"
               numberOfLines={1}
-              variant="muted"
+              variant="metadata"
             >
               {projectName}
             </Text>
@@ -80,10 +77,10 @@ export function WorkspaceHeader({
         />
       ) : null}
       <View className="mx-1 h-5 w-px shrink-0 bg-border" />
-      <HostConnectionControl connection={hostConnection} hostName={hostName} />
       <StatusControl
-        healthy={providerHealthy}
+        hostConnection={hostConnection}
         loading={servicesLoading}
+        providerHealthy={providerHealthy}
         services={services}
       />
     </View>
