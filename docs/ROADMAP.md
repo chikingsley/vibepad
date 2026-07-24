@@ -27,10 +27,12 @@ product work visible without mixing it into the active build checklist.
 - Add mobile, tablet, and desktop CDP emulation presets.
 - Add exact target-side DOM hit testing, screenshots, downloads, profile
   isolation, and explicit profile clearing.
-- Add session-owned Browserless leases for parallel agents while retaining Kasm
-  as the visible authenticated handoff surface.
+- Add per-session headless Chromium workers managed by the host for parallel
+  agent browsing.
 - Add passive mini-live Preview when an agent starts browser work and explicit
   foreground requests for user input.
+- Explore canvas-first creation, where a review canvas begins blank and a
+  session builds toward the drawing.
 
 ## Voice and review
 
