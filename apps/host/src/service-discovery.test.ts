@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   assertSafeBindAddress,
   type CommandRunner,
+  discoverHostTools,
   discoverTailscaleIdentity,
   parseTailscaleIPv4,
+  selectLanIPv4,
 } from "./service-discovery";
 
 describe("VibePad Host network discovery", () => {
@@ -44,5 +46,41 @@ describe("VibePad Host network discovery", () => {
       "requires --allow-public-bind"
     );
     expect(() => assertSafeBindAddress("0.0.0.0", true)).not.toThrow();
+  });
+
+  it("selects a physical LAN address ahead of virtual interfaces", () => {
+    expect(
+      selectLanIPv4({
+        "br-container": [
+          {
+            address: "172.18.0.1",
+            cidr: "172.18.0.1/16",
+            family: "IPv4",
+            internal: false,
+            mac: "00:00:00:00:00:00",
+            netmask: "255.255.0.0",
+          },
+        ],
+        en0: [
+          {
+            address: "192.168.1.12",
+            cidr: "192.168.1.12/24",
+            family: "IPv4",
+            internal: false,
+            mac: "00:00:00:00:00:01",
+            netmask: "255.255.255.0",
+          },
+        ],
+      })
+    ).toBe("192.168.1.12");
+  });
+
+  it("keeps Tailscale optional in the host tool inventory", async () => {
+    const runner: CommandRunner = () =>
+      Promise.resolve({ exitCode: 1, stderr: "", stdout: "" });
+
+    await expect(discoverHostTools(runner, "/usr/bin/bun")).resolves.toEqual({
+      bun: "/usr/bin/bun",
+    });
   });
 });

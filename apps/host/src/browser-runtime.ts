@@ -8,7 +8,7 @@ import {
 } from "node:fs/promises";
 import { createServer } from "node:net";
 import { homedir, platform } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { type CommandRunner, runCommand } from "./service-discovery";
@@ -65,9 +65,10 @@ type BrowserFetch = (
   init?: RequestInit
 ) => Promise<Response>;
 
-const browserAssetsDirectory = fileURLToPath(
-  new URL("../browser", import.meta.url)
-);
+const { VIBEPAD_BROWSER_ASSETS_DIR: configuredBrowserAssets } = process.env;
+const browserAssetsDirectory = configuredBrowserAssets
+  ? resolve(configuredBrowserAssets)
+  : fileURLToPath(new URL("../browser", import.meta.url));
 const lineBreakPattern = /\r|\n/u;
 
 const validPort = (value: number, label: string) => {

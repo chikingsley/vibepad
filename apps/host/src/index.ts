@@ -16,11 +16,14 @@ import {
 import { loadHostConfig } from "./config";
 import { bearerFromWebSocketProtocol, HostAuthService } from "./host-auth";
 import { isTrustedLocalRequest } from "./host-auth-contract";
+import { startHostDiscovery } from "./host-discovery";
 import { createRequestHandler } from "./http";
 import { ManagedOpenCodeRuntime } from "./open-code-runtime";
 import { SqliteProviderEventStore } from "./provider-event-store";
 import { ProviderRouter } from "./provider-router";
 import { SqliteProviderSessionStore } from "./provider-session-store";
+import { OpenSshBootstrap } from "./ssh-bootstrap";
+import { OpenSshTargetDiscovery } from "./ssh-target-discovery";
 import { VoiceCredentialService } from "./voice-credentials";
 import { VoiceHttpService } from "./voice-http";
 import {
@@ -83,7 +86,6 @@ const hostAuth = new HostAuthService({
   hostId: config.hostId,
   hostName: config.hostName,
 });
-const pairingCode = hostAuth.createPairingCode();
 const voiceCredentials = new VoiceCredentialService({
   baseUrl: config.voiceBaseUrl,
   hostId: config.hostId,
@@ -99,12 +101,16 @@ const browser = new BrowserService({
   enabled: config.browserEnabled,
   ...(config.browserSurfaceUrl ? { surfaceUrl: config.browserSurfaceUrl } : {}),
 });
+const sshTargets = new OpenSshTargetDiscovery();
+const sshBootstrap = new OpenSshBootstrap({ targets: sshTargets });
 const requestHandler = createRequestHandler(
   providers,
   config.hostName,
   voiceHttp,
   hostAuth,
-  browser
+  browser,
+  sshTargets,
+  sshBootstrap
 );
 const voiceRealtime = new VoiceRealtimeBridge({
   baseUrl: config.voiceBaseUrl,
@@ -206,11 +212,13 @@ const server = serve<HostSocketData>({
   port: config.port,
   websocket: hostWebSocket,
 });
+const discovery = startHostDiscovery({
+  hostId: config.hostId,
+  hostName: config.hostName,
+  port: config.port,
+});
 
 console.info(`VibePad host listening at ${server.url}`);
-console.info(
-  `VibePad pairing code ${pairingCode.code} expires at ${pairingCode.expiresAt}`
-);
 
 let shuttingDown = false;
 const shutdown = async () => {
@@ -218,6 +226,7 @@ const shutdown = async () => {
     return;
   }
   shuttingDown = true;
+  discovery.stop();
   server.stop(true);
   try {
     await providers.dispose();

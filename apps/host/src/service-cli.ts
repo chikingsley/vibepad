@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 
 import { VibePadBrowserRuntime } from "./browser-runtime";
+import { renderPairingOutput } from "./pairing-output";
 import { serviceLabel, systemdUnitName } from "./service-files";
 import { HostServiceManager } from "./service-manager";
 
@@ -16,9 +17,9 @@ Usage:
   bun run --filter @vibepad/host service uninstall
 
 Install options:
-  --bind <address>       Override automatic Tailscale IPv4 binding
+  --bind <address>       Override automatic network binding
   --allow-public-bind    Permit an explicit 0.0.0.0 binding
-  --host-name <name>     Override the short Tailscale machine name
+  --host-name <name>     Override the computer name
   --port <port>          Host port (default 4100)
   --project-root <path>  Add a Codex project root; repeat as needed
   --no-start             Write service files without starting the service
@@ -147,7 +148,7 @@ const main = async () => {
     return;
   }
   if (command === "pair") {
-    console.info(JSON.stringify(await manager.createPairingCode(), null, 2));
+    console.info(await renderPairingOutput(await manager.createPairingCode()));
     return;
   }
   if (command === "restart") {

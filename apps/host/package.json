@@ -1,11 +1,12 @@
 {
   "name": "@vibepad/host",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "private": true,
   "type": "module",
   "scripts": {
     "browser": "bun src/browser-cli.ts",
     "bootstrap": "bun src/bootstrap-cli.ts",
+    "release": "bun ../../scripts/build-host-release.ts",
     "dev": "bun --watch src/index.ts",
     "service": "bun src/service-cli.ts",
     "start": "bun src/index.ts",
@@ -14,14 +15,18 @@
   },
   "dependencies": {
     "@chikingsley/peacockery-voice-client": "workspace:*",
+    "@vibepad/protocol": "workspace:*",
     "@vibepad/provider-codex": "workspace:*",
     "@vibepad/provider-opencode": "workspace:*",
-    "@vibepad/protocol": "workspace:*",
+    "bonjour": "^3.5.1",
+    "qrcode": "^1.5.4",
     "zod": "4.4.3"
   },
   "devDependencies": {
     "@opencode-ai/sdk": "1.18.3",
+    "@types/bonjour": "^3.5.13",
     "@types/bun": "1.3.14",
+    "@types/qrcode": "^1.5.6",
     "typescript": "7.0.2",
     "vitest": "4.1.10"
   }

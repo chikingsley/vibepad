@@ -7,14 +7,15 @@ import {
   rm,
   writeFile,
 } from "node:fs/promises";
-import { homedir, platform } from "node:os";
+import { homedir, networkInterfaces, platform } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import { pairingInvitationUrl } from "@vibepad/protocol/auth";
 import { HostAuthService, type PairingCode } from "./host-auth";
 import {
   assertSafeBindAddress,
   type CommandRunner,
+  discoverHostNetworkIdentity,
   discoverHostTools,
-  discoverTailscaleIdentity,
   type HostNetworkIdentity,
   type HostToolInventory,
   runCommand,
@@ -34,6 +35,7 @@ import {
 
 const defaultPort = 4100;
 const repoRoot = resolve(import.meta.dir, "../../..");
+const sourceHostEntry = join(repoRoot, "apps", "host", "src", "index.ts");
 const serviceHostNamePattern = /^[A-Za-z0-9._-]+$/u;
 
 export interface InstallHostServiceOptions {
@@ -83,9 +85,38 @@ export interface HostServiceStatus {
 
 export interface HostPairingCode extends PairingCode {
   readonly clientUrl: string;
+  readonly endpoints: readonly string[];
   readonly hostId: string;
   readonly hostName: string;
+  readonly invitationUrl: string;
 }
+
+const localIpv4Addresses = () =>
+  Object.entries(networkInterfaces())
+    .filter(
+      ([name]) =>
+        !(
+          name.startsWith("br-") ||
+          name.startsWith("docker") ||
+          name.startsWith("podman") ||
+          name.startsWith("veth") ||
+          name.startsWith("virbr")
+        )
+    )
+    .flatMap(([, addresses]) => addresses ?? [])
+    .filter((address) => address.family === "IPv4" && !address.internal)
+    .map((address) => address.address);
+
+const hostEndpoints = (hostname: string, hostName: string, port: number) => {
+  const addresses = hostname === "0.0.0.0" ? localIpv4Addresses() : [hostname];
+  return [
+    ...new Set([
+      ...addresses.map((address) => `http://${address}:${port}`),
+      `http://${hostName}.local:${port}`,
+      `http://${hostName}:${port}`,
+    ]),
+  ];
+};
 
 const readIfPresent = async (path: string) => {
   try {
@@ -134,7 +165,7 @@ const pathForService = (
     tools.agentBrowser ? dirname(tools.agentBrowser) : undefined,
     tools.codex ? dirname(tools.codex) : undefined,
     tools.opencode ? dirname(tools.opencode) : undefined,
-    dirname(tools.tailscale),
+    tools.tailscale ? dirname(tools.tailscale) : undefined,
     `${homeDirectory}/.local/bin`,
     `${homeDirectory}/.bun/bin`,
     "/opt/homebrew/bin",
@@ -310,15 +341,17 @@ const resolveHarnessConfiguration = (
 
 const createServiceConfiguration = (input: {
   readonly bindAddress: string;
-  readonly bunExecutable: string;
   readonly existingTools: HostToolInventory;
   readonly harnesses: ResolvedHarnessConfiguration;
   readonly homeDirectory: string;
+  readonly hostArguments: readonly string[];
+  readonly hostExecutable: string;
   readonly hostName: string;
   readonly options: InstallHostServiceOptions;
   readonly paths: ReturnType<typeof hostServicePaths>;
   readonly port: number;
   readonly projectRoots: readonly string[];
+  readonly workingDirectory: string;
 }): HostServiceConfiguration => ({
   ...(input.options.agentBrowserConfig
     ? { agentBrowserConfig: input.options.agentBrowserConfig }
@@ -334,9 +367,10 @@ const createServiceConfiguration = (input: {
   ...(input.options.browserSurfaceUrl
     ? { browserSurfaceUrl: input.options.browserSurfaceUrl }
     : {}),
-  bunExecutable: input.bunExecutable,
   ...input.harnesses,
   environmentFile: input.paths.environmentFile,
+  hostArguments: input.hostArguments,
+  hostExecutable: input.hostExecutable,
   hostId: input.hostName,
   hostName: input.hostName,
   logDirectory: input.paths.logDirectory,
@@ -347,31 +381,40 @@ const createServiceConfiguration = (input: {
   ]),
   port: input.port,
   projectRoots: input.projectRoots,
-  repoRoot,
   runnerFile: input.paths.runnerFile,
   stateDirectory: input.paths.stateDirectory,
+  workingDirectory: input.workingDirectory,
 });
 
 export class HostServiceManager {
   readonly #bunExecutable: string;
   readonly #homeDirectory: string;
+  readonly #hostArguments: readonly string[];
+  readonly #hostExecutable: string;
   readonly #platform: NodeJS.Platform;
   readonly #runner: CommandRunner;
+  readonly #workingDirectory: string;
 
   constructor(options?: {
     readonly bunExecutable?: string;
     readonly homeDirectory?: string;
+    readonly hostArguments?: readonly string[];
+    readonly hostExecutable?: string;
     readonly platform?: NodeJS.Platform;
     readonly runner?: CommandRunner;
+    readonly workingDirectory?: string;
   }) {
     this.#bunExecutable = options?.bunExecutable ?? process.execPath;
     this.#homeDirectory = options?.homeDirectory ?? homedir();
+    this.#hostArguments = options?.hostArguments ?? [sourceHostEntry];
+    this.#hostExecutable = options?.hostExecutable ?? this.#bunExecutable;
     this.#platform = options?.platform ?? platform();
     this.#runner = options?.runner ?? runCommand;
+    this.#workingDirectory = options?.workingDirectory ?? repoRoot;
   }
 
   async inspect(): Promise<HostServiceInspection> {
-    const identity = await discoverTailscaleIdentity(this.#runner);
+    const identity = await discoverHostNetworkIdentity(this.#runner);
     const tools = await discoverHostTools(this.#runner, this.#bunExecutable);
     const paths = hostServicePaths(this.#platform, this.#homeDirectory);
     return {
@@ -387,10 +430,13 @@ export class HostServiceManager {
   async install(
     options: InstallHostServiceOptions = {}
   ): Promise<HostServiceInstallResult> {
-    const discoveredIdentity = await discoverTailscaleIdentity(this.#runner);
+    const discoveredIdentity = await discoverHostNetworkIdentity(this.#runner);
     const tools = await discoverHostTools(this.#runner, this.#bunExecutable);
-    const bindAddress = options.bindAddress ?? discoveredIdentity.bindAddress;
-    assertSafeBindAddress(bindAddress, options.allowPublicBind ?? false);
+    const bindAddress = options.bindAddress ?? "0.0.0.0";
+    assertSafeBindAddress(
+      bindAddress,
+      options.bindAddress === undefined || (options.allowPublicBind ?? false)
+    );
     const port = resolvePort(options.port);
     const hostName = resolveHostName(options.hostName, discoveredIdentity);
     const projectRoots = resolveProjectRoots(
@@ -414,15 +460,17 @@ export class HostServiceManager {
     );
     const configuration = createServiceConfiguration({
       bindAddress,
-      bunExecutable: this.#bunExecutable,
       existingTools: tools,
       harnesses,
       homeDirectory: this.#homeDirectory,
+      hostArguments: this.#hostArguments,
+      hostExecutable: this.#hostExecutable,
       hostName,
       options,
       paths,
       port,
       projectRoots,
+      workingDirectory: this.#workingDirectory,
     });
     await Promise.all([
       mkdir(paths.logDirectory, { recursive: true }),
@@ -447,10 +495,12 @@ export class HostServiceManager {
     if (shouldStart) {
       await this.#activate();
     }
-    const healthUrl = `http://${bindAddress}:${port}/health`;
+    const healthAddress =
+      bindAddress === "0.0.0.0" ? discoveredIdentity.bindAddress : bindAddress;
+    const healthUrl = `http://${healthAddress}:${port}/health`;
     const healthy = shouldStart ? await waitForHealth(healthUrl) : false;
     return {
-      clientUrl: `http://${hostName}:${port}`,
+      clientUrl: `http://${healthAddress}:${port}`,
       healthUrl,
       healthy,
       identity: { ...discoveredIdentity, bindAddress, hostName },
@@ -496,6 +546,8 @@ export class HostServiceManager {
     const port = Number(
       readHostEnvironmentValue(environment, "VIBEPAD_PORT") ?? defaultPort
     );
+    const hostname =
+      readHostEnvironmentValue(environment, "VIBEPAD_HOSTNAME") ?? "127.0.0.1";
     const stateDirectory =
       readHostEnvironmentValue(environment, "VIBEPAD_STATE_DIR") ??
       paths.stateDirectory;
@@ -505,11 +557,22 @@ export class HostServiceManager {
       hostName,
     });
     try {
+      const pairing = auth.createPairingCode();
+      const endpoints = hostEndpoints(hostname, hostName, port);
       return {
-        ...auth.createPairingCode(),
-        clientUrl: `http://${hostName}:${port}`,
+        ...pairing,
+        clientUrl: endpoints[0] ?? `http://${hostName}:${port}`,
+        endpoints,
         hostId,
         hostName,
+        invitationUrl: pairingInvitationUrl({
+          code: pairing.code,
+          endpoints,
+          expiresAt: pairing.expiresAt,
+          hostId,
+          hostName,
+          version: 1,
+        }),
       };
     } finally {
       auth.close();
@@ -602,8 +665,9 @@ export class HostServiceManager {
       readHostEnvironmentValue(environment, "VIBEPAD_PORT") ?? defaultPort
     );
     const bindAddress =
-      configuredAddress ??
-      (await discoverTailscaleIdentity(this.#runner)).bindAddress;
+      configuredAddress && configuredAddress !== "0.0.0.0"
+        ? configuredAddress
+        : (await discoverHostNetworkIdentity(this.#runner)).bindAddress;
     const port =
       Number.isInteger(configuredPort) && configuredPort > 0
         ? configuredPort

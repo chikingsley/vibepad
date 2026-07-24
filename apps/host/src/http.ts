@@ -5,6 +5,11 @@ import {
 } from "@vibepad/protocol/auth";
 import type { HarnessAdapter } from "@vibepad/protocol/provider";
 import {
+  sshBootstrapPath,
+  sshBootstrapRequestSchema,
+  sshTargetsPath,
+} from "@vibepad/protocol/remote";
+import {
   createSessionRequestSchema,
   permissionReplyRequestSchema,
   questionReplyRequestSchema,
@@ -27,6 +32,8 @@ import {
   isTrustedLocalRequest,
 } from "./host-auth-contract";
 import type { ProviderRouter } from "./provider-router";
+import type { SshBootstrap } from "./ssh-bootstrap";
+import type { SshTargetDiscovery } from "./ssh-target-discovery";
 import { VoiceServiceError } from "./voice-error";
 import type { VoiceHttpService } from "./voice-http";
 
@@ -102,19 +109,34 @@ const hostHealth = async (
   });
 };
 
-const handleGet = async (
+const handleHostGet = async (
   adapter: HarnessAdapter | ProviderRouter,
   hostName: string,
-  url: URL
-) => {
+  url: URL,
+  sshTargets?: SshTargetDiscovery
+): Promise<Response | undefined> => {
   if (url.pathname === "/health") {
     return hostHealth(adapter, hostName);
   }
-
   if (url.pathname === "/v1/providers") {
     return json({
       data: "manifests" in adapter ? adapter.manifests : [adapter.manifest],
     });
+  }
+  if (url.pathname === sshTargetsPath) {
+    return json({ data: (await sshTargets?.listTargets()) ?? [] });
+  }
+};
+
+const handleGet = async (
+  adapter: HarnessAdapter | ProviderRouter,
+  hostName: string,
+  url: URL,
+  sshTargets?: SshTargetDiscovery
+) => {
+  const hostResponse = await handleHostGet(adapter, hostName, url, sshTargets);
+  if (hostResponse) {
+    return hostResponse;
   }
 
   if (url.pathname === "/v1/projects") {
@@ -496,7 +518,9 @@ const routeRequest = async (
   server?: RequestTimeoutController,
   voiceHttp?: VoiceHttpService,
   hostAuth?: HostAuthController,
-  browser?: BrowserService
+  browser?: BrowserService,
+  sshTargets?: SshTargetDiscovery,
+  sshBootstrap?: SshBootstrap
 ) => {
   const url = new URL(request.url);
   if (browser?.isViewAssetRequest(url.pathname)) {
@@ -545,9 +569,22 @@ const routeRequest = async (
         url.searchParams.get("after") ?? undefined
       );
     }
-    return handleGet(adapter, hostName, url);
+    return handleGet(adapter, hostName, url, sshTargets);
   }
   if (request.method === "POST") {
+    if (url.pathname === sshBootstrapPath) {
+      if (!sshBootstrap) {
+        return json(
+          {
+            error: "ssh_bootstrap_unavailable",
+            message: "SSH bootstrap is unavailable on this controller",
+          },
+          503
+        );
+      }
+      const input = sshBootstrapRequestSchema.parse(await request.json());
+      return json({ data: await sshBootstrap.installAndStart(input.alias) });
+    }
     return handlePost(adapter, request, url);
   }
   if (request.method === "PATCH") {
@@ -597,7 +634,9 @@ export const createRequestHandler =
     hostName: string,
     voiceHttp?: VoiceHttpService,
     hostAuth?: HostAuthController,
-    browser?: BrowserService
+    browser?: BrowserService,
+    sshTargets?: SshTargetDiscovery,
+    sshBootstrap?: SshBootstrap
   ) =>
   async (request: Request, server?: RequestTimeoutController) => {
     if (request.method === "OPTIONS") {
@@ -612,7 +651,9 @@ export const createRequestHandler =
         server,
         voiceHttp,
         hostAuth,
-        browser
+        browser,
+        sshTargets,
+        sshBootstrap
       );
     } catch (error) {
       return requestErrorResponse(error);

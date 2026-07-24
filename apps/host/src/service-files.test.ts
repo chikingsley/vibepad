@@ -19,11 +19,12 @@ const configuration: HostServiceConfiguration = {
   browserCdpUrl: "http://127.0.0.1:19223",
   browserEnabled: true,
   browserSurfaceUrl: "http://127.0.0.1:16901",
-  bunExecutable: "/home/simon/.bun/bin/bun",
   codexEnabled: true,
   codexExecutable:
     "/home/simon/.local/share/vibepad/tools/node_modules/.bin/codex",
   environmentFile: "/home/simon/.config/vibepad/host.env",
+  hostArguments: ["serve"],
+  hostExecutable: "/home/simon/.local/share/vibepad/current/vibepad-host",
   hostId: "gmk",
   hostName: "gmk",
   logDirectory: "/home/simon/.local/state/vibepad",
@@ -37,9 +38,9 @@ const configuration: HostServiceConfiguration = {
   path: "/home/simon/.bun/bin:/usr/bin:/bin",
   port: 4100,
   projectRoots: ["/home/simon/github"],
-  repoRoot: "/home/simon/github/vibepad",
   runnerFile: "/home/simon/.local/share/vibepad/run-host.sh",
   stateDirectory: "/home/simon/.local/state/vibepad",
+  workingDirectory: "/home/simon",
 };
 
 describe("VibePad Host service files", () => {
@@ -65,7 +66,7 @@ describe("VibePad Host service files", () => {
 
   it("renders a service runner and hardened Linux user unit", () => {
     expect(renderHostRunner(configuration)).toContain(
-      "exec '/home/simon/.bun/bin/bun' '/home/simon/github/vibepad/apps/host/src/index.ts'"
+      "exec '/home/simon/.local/share/vibepad/current/vibepad-host' 'serve'"
     );
     const unit = renderSystemdUnit(configuration);
     expect(unit).toContain("NoNewPrivileges=true");
@@ -80,10 +81,10 @@ describe("VibePad Host service files", () => {
       environmentFile:
         "/Users/simon/Library/Application Support/VibePad/host.env",
       logDirectory: "/Users/simon/Library/Logs/VibePad",
-      repoRoot: "/Users/simon/GitHub/vibepad",
       runnerFile:
         "/Users/simon/Library/Application Support/VibePad/run-host.sh",
       stateDirectory: "/Users/simon/Library/Application Support/VibePad",
+      workingDirectory: "/Users/simon",
     });
     expect(launchAgent).toContain("studio.peacockery.vibepad.host");
     expect(launchAgent).toContain(

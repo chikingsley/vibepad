@@ -1,3 +1,4 @@
+import { homedir } from "node:os";
 import { stdin, stdout } from "node:process";
 import { createInterface } from "node:readline/promises";
 
@@ -16,12 +17,17 @@ import {
   managedToolVersions,
   providerAuthenticationStatus,
 } from "./managed-toolchain";
+import { renderPairingOutput } from "./pairing-output";
 import { HostServiceManager } from "./service-manager";
 
+const { VIBEPAD_HOST_EXECUTABLE: configuredHostExecutable } = process.env;
+const setupCommand = configuredHostExecutable
+  ? "vibepad-host setup"
+  : "bun apps/host/src/bootstrap-cli.ts";
 const usage = `VibePad blank-host bootstrap
 
 Usage:
-  bun apps/host/src/bootstrap-cli.ts [options]
+  ${setupCommand} [options]
 
 Options:
   --yes                       Consent to all selected managed-tool installs
@@ -31,9 +37,9 @@ Options:
   --browser-cdp-port <port>   Loopback CDP port (default 19223)
   --browser-surface-port <port> Loopback KasmVNC port (default 16901)
   --allow-unauthenticated     Install providers before their provider-owned login
-  --bind <address>            Override automatic Tailscale IPv4 binding
+  --bind <address>            Override automatic network binding
   --allow-public-bind         Permit an explicit 0.0.0.0 binding
-  --host-name <name>          Override the short Tailscale machine name
+  --host-name <name>          Override the computer name
   --port <port>               Host port (default 4100)
   --project-root <path>       Add a Codex project root; repeat as needed
   --no-start                  Install without starting the host service
@@ -297,8 +303,19 @@ const installHostService = (
 
 const main = async () => {
   const options = parseOptions(process.argv.slice(2));
-  const manager = new HostServiceManager({ bunExecutable: process.execPath });
-  const before = await manager.inspect();
+  const { VIBEPAD_BUN_BIN, VIBEPAD_HOST_EXECUTABLE } = process.env;
+  const bunExecutable = VIBEPAD_BUN_BIN ?? process.execPath;
+  const installedHostExecutable = VIBEPAD_HOST_EXECUTABLE;
+  const manager = new HostServiceManager({
+    bunExecutable,
+    ...(installedHostExecutable
+      ? {
+          hostArguments: ["serve"],
+          hostExecutable: installedHostExecutable,
+          workingDirectory: homedir(),
+        }
+      : {}),
+  });
   const alreadyReady = await managedToolchainReady(options.selection);
   if (!(alreadyReady || options.yes)) {
     const consented = await promptForConsent(
@@ -309,15 +326,12 @@ const main = async () => {
     }
   }
   const toolchain = await installManagedToolchain({
-    bunExecutable: process.execPath,
+    bunExecutable,
     installBrowser: false,
     selection: options.selection,
   });
   const browser = await installBrowserRuntime(options, toolchain);
-  const authentication = await verifyProviderAuthentications(
-    options,
-    toolchain
-  );
+  await verifyProviderAuthentications(options, toolchain);
   const service = await installHostService(
     manager,
     options,
@@ -330,26 +344,8 @@ const main = async () => {
     );
   }
   const pairing = await manager.createPairingCode();
-  console.info(
-    JSON.stringify(
-      {
-        authentication: authentication.map((status) => ({
-          authenticated: status.authenticated,
-          provider: status.provider,
-        })),
-        before: {
-          identity: before.identity,
-          systemTools: before.tools,
-        },
-        browser,
-        managedTools: toolchain,
-        pairing,
-        service,
-      },
-      null,
-      2
-    )
-  );
+  console.info("\nVibePad Host is ready.");
+  console.info(await renderPairingOutput(pairing));
 };
 
 main().catch((error: unknown) => {

@@ -12,10 +12,11 @@ export interface HostServiceConfiguration {
   readonly browserCdpUrl?: string;
   readonly browserEnabled: boolean;
   readonly browserSurfaceUrl?: string;
-  readonly bunExecutable: string;
   readonly codexEnabled: boolean;
   readonly codexExecutable?: string;
   readonly environmentFile: string;
+  readonly hostArguments: readonly string[];
+  readonly hostExecutable: string;
   readonly hostId: string;
   readonly hostName: string;
   readonly logDirectory: string;
@@ -28,9 +29,9 @@ export interface HostServiceConfiguration {
   readonly path: string;
   readonly port: number;
   readonly projectRoots: readonly string[];
-  readonly repoRoot: string;
   readonly runnerFile: string;
   readonly stateDirectory: string;
+  readonly workingDirectory: string;
 }
 
 export interface HostServicePaths {
@@ -203,9 +204,9 @@ set -eu
 set -a
 . ${shellQuote(configuration.environmentFile)}
 set +a
-exec ${shellQuote(configuration.bunExecutable)} ${shellQuote(
-    join(configuration.repoRoot, "apps", "host", "src", "index.ts")
-  )}
+exec ${[configuration.hostExecutable, ...configuration.hostArguments]
+    .map(shellQuote)
+    .join(" ")}
 `;
 
 export const renderSystemdUnit = (configuration: HostServiceConfiguration) =>
@@ -216,7 +217,7 @@ After=network-online.target
 
 [Service]
 Type=simple
-WorkingDirectory=${configuration.repoRoot}
+WorkingDirectory=${configuration.workingDirectory}
 ExecStart=${configuration.runnerFile}
 Restart=on-failure
 RestartSec=3
@@ -243,7 +244,7 @@ export const renderLaunchAgent = (configuration: HostServiceConfiguration) => {
     <string>${xmlEscape(configuration.runnerFile)}</string>
   </array>
   <key>WorkingDirectory</key>
-  <string>${xmlEscape(configuration.repoRoot)}</string>
+  <string>${xmlEscape(configuration.workingDirectory)}</string>
   <key>RunAtLoad</key>
   <true/>
   <key>KeepAlive</key>

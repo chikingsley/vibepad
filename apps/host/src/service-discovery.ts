@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { isIP } from "node:net";
-import { hostname as systemHostname } from "node:os";
+import { networkInterfaces, hostname as systemHostname } from "node:os";
 import type { Readable } from "node:stream";
 
 const trailingDotPattern = /\.$/u;
@@ -28,7 +28,7 @@ export interface HostToolInventory {
   readonly bun: string;
   readonly codex?: string;
   readonly opencode?: string;
-  readonly tailscale: string;
+  readonly tailscale?: string;
 }
 
 interface TailscaleStatus {
@@ -112,17 +112,12 @@ export const discoverHostTools = async (
     optionalExecutable(runner, "opencode"),
     optionalExecutable(runner, "agent-browser"),
   ]);
-  if (!tailscale) {
-    throw new Error(
-      "Tailscale is required before installing VibePad Host on a private address"
-    );
-  }
   return {
     ...(agentBrowser ? { agentBrowser } : {}),
     bun: bunExecutable,
     ...(codex ? { codex } : {}),
     ...(opencode ? { opencode } : {}),
-    tailscale,
+    ...(tailscale ? { tailscale } : {}),
   };
 };
 
@@ -166,6 +161,37 @@ export const discoverTailscaleIdentity = async (
     bindAddress,
     ...(dnsName ? { dnsName } : {}),
     hostName,
+  };
+};
+
+const virtualInterfacePattern = /^(?:br-|docker|podman|veth|virbr)/u;
+
+export const selectLanIPv4 = (
+  interfaces: ReturnType<typeof networkInterfaces>
+) =>
+  Object.entries(interfaces)
+    .filter(([name]) => !virtualInterfacePattern.test(name))
+    .flatMap(([, addresses]) => addresses ?? [])
+    .find((address) => address.family === "IPv4" && !address.internal)?.address;
+
+export const discoverHostNetworkIdentity = async (
+  runner: CommandRunner
+): Promise<HostNetworkIdentity> => {
+  const tailscale = await optionalExecutable(runner, "tailscale");
+  if (tailscale) {
+    try {
+      return await discoverTailscaleIdentity(runner);
+    } catch {
+      // A stopped Tailscale daemon still leaves the local network available.
+    }
+  }
+  const bindAddress = selectLanIPv4(networkInterfaces());
+  if (!bindAddress) {
+    throw new Error("VibePad Host could not find a reachable IPv4 address");
+  }
+  return {
+    bindAddress,
+    hostName: shortHostName(systemHostname()) ?? "vibepad-host",
   };
 };
 
