@@ -1,0 +1,7 @@
+{
+  "platforms": ["apple"],
+  "apple": {
+    "modules": ["VibePadSshBootstrapModule"],
+    "podspecPath": "ios/VibePadSshBootstrap.podspec"
+  }
+}

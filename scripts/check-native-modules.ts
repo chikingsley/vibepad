@@ -38,22 +38,36 @@ const resolution = JSON.parse(autolinking.stdout) as {
     readonly pods?: readonly { readonly podName?: string }[];
   }[];
 };
-const secureSigner = resolution.modules?.find(
-  ({ packageName }) => packageName === "vibepad-secure-signer"
-);
-const resolvesPod = secureSigner?.pods?.some(
-  ({ podName }) => podName === "VibePadSecureSigner"
-);
-const resolvesModule = secureSigner?.modules?.some(
-  (module) => module.class === "VibePadSecureSignerModule"
-);
+const expectedModules = [
+  {
+    className: "VibePadSecureSignerModule",
+    packageName: "vibepad-secure-signer",
+    podName: "VibePadSecureSigner",
+  },
+  {
+    className: "VibePadSshBootstrapModule",
+    packageName: "vibepad-ssh-bootstrap",
+    podName: "VibePadSshBootstrap",
+  },
+] as const;
 
-if (!(resolvesPod && resolvesModule)) {
-  throw new Error(
-    "Expo Apple autolinking must resolve the VibePadSecureSigner pod and module."
+for (const expected of expectedModules) {
+  const resolved = resolution.modules?.find(
+    ({ packageName }) => packageName === expected.packageName
   );
+  const resolvesPod = resolved?.pods?.some(
+    ({ podName }) => podName === expected.podName
+  );
+  const resolvesModule = resolved?.modules?.some(
+    (module) => module.class === expected.className
+  );
+  if (!(resolvesPod && resolvesModule)) {
+    throw new Error(
+      `Expo Apple autolinking must resolve the ${expected.podName} pod and module.`
+    );
+  }
 }
 
 console.log(
-  "VibePadSecureSigner is tracked and available to Expo Apple autolinking."
+  "VibePad native modules are present and available to Expo Apple autolinking."
 );
