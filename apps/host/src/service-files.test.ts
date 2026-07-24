@@ -12,13 +12,11 @@ import {
 
 const configuration: HostServiceConfiguration = {
   agentBrowserConfig:
-    "/home/simon/.local/share/vibepad/browser/runtime/agent-browser.json",
+    "/home/simon/.local/share/vibepad/chromium/agent-browser/canonical.json",
   agentBrowserExecutable:
     "/home/simon/.local/share/vibepad/tools/node_modules/.bin/agent-browser",
   bindAddress: "100.121.185.11",
-  browserCdpUrl: "http://127.0.0.1:19223",
   browserEnabled: true,
-  browserSurfaceUrl: "http://127.0.0.1:16901",
   codexEnabled: true,
   codexExecutable:
     "/home/simon/.local/share/vibepad/tools/node_modules/.bin/codex",
@@ -54,7 +52,7 @@ describe("VibePad Host service files", () => {
     expect(rendered).toContain("VIBEPAD_OPENCODE_MANAGED='1'");
     expect(rendered).toContain("VIBEPAD_BROWSER_ENABLED='1'");
     expect(rendered).toContain(
-      "AGENT_BROWSER_CONFIG='/home/simon/.local/share/vibepad/browser/runtime/agent-browser.json'"
+      "AGENT_BROWSER_CONFIG='/home/simon/.local/share/vibepad/chromium/agent-browser/canonical.json'"
     );
     expect(rendered).toContain("OPENCODE_SERVER_PASSWORD='managed-secret'");
     expect(rendered).not.toContain("VIBEPAD_PORT='9999'");
@@ -62,6 +60,23 @@ describe("VibePad Host service files", () => {
       "100.121.185.11"
     );
     expect(readHostEnvironmentValue(rendered, "VIBEPAD_PORT")).toBe("4100");
+  });
+
+  it("scrubs Docker-era browser endpoint values from an upgraded host.env", () => {
+    const rendered = renderHostEnvironment(
+      configuration,
+      [
+        "VIBEPAD_BROWSER_CDP_URL='http://127.0.0.1:19223'",
+        "VIBEPAD_BROWSER_SURFACE_URL='http://127.0.0.1:16901'",
+        "VIBEPAD_CHROMIUM_EXECUTABLE='/usr/bin/chromium'",
+        "",
+      ].join("\n")
+    );
+    expect(rendered).not.toContain("VIBEPAD_BROWSER_CDP_URL");
+    expect(rendered).not.toContain("VIBEPAD_BROWSER_SURFACE_URL");
+    expect(rendered).toContain(
+      "VIBEPAD_CHROMIUM_EXECUTABLE='/usr/bin/chromium'"
+    );
   });
 
   it("renders a service runner and hardened Linux user unit", () => {

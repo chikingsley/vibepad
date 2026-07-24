@@ -41,6 +41,28 @@ const waitForFrame = (
     poll();
   });
 
+const waitForOrigin = async (
+  browser: ChromiumBrowser,
+  sessionId: string,
+  origin: string,
+  timeoutMilliseconds: number
+) => {
+  const deadline = Date.now() + timeoutMilliseconds;
+  while (Date.now() <= deadline) {
+    // biome-ignore lint/performance/noAwaitInLoops: The page is polled until its navigation commits.
+    const href = await browser.evaluate(sessionId, "location.href");
+    if (typeof href === "string" && href.startsWith(origin)) {
+      return;
+    }
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, 100);
+    });
+  }
+  throw new Error(
+    `Page did not reach ${origin} within ${timeoutMilliseconds}ms`
+  );
+};
+
 const waitForCookie = (
   browser: ChromiumBrowser,
   name: string,
@@ -167,12 +189,17 @@ describe.skipIf(!executable)("driving a real Chromium over CDP", () => {
     });
     cleanups.push(() => canonical.close());
     const canonicalTab = await canonical.createTab(origin);
+    // Setting document.cookie before the HTTP origin commits is a no-op on
+    // the initial blank document, so the navigation is awaited first.
+    await waitForOrigin(canonical, canonicalTab.sessionId, origin, 20_000);
     await canonical.evaluate(
       canonicalTab.sessionId,
       'document.cookie = "vibepad_login=canonical-secret; path=/"'
     );
 
-    const exported = await waitForCookie(canonical, "vibepad_login", 10_000);
+    // Cookie visibility through Storage.getCookies can lag well past ten
+    // seconds when other suites run beside this one on a loaded machine.
+    const exported = await waitForCookie(canonical, "vibepad_login", 30_000);
 
     const sessionProfile = await mkdtemp(join(tmpdir(), "vibepad-session-"));
     cleanups.push(() => rm(sessionProfile, { force: true, recursive: true }));
@@ -189,5 +216,5 @@ describe.skipIf(!executable)("driving a real Chromium over CDP", () => {
       "document.cookie"
     );
     expect(sessionCookie).toContain("vibepad_login=canonical-secret");
-  }, 45_000);
+  }, 90_000);
 });

@@ -43,9 +43,7 @@ export interface InstallHostServiceOptions {
   readonly agentBrowserExecutable?: string;
   readonly allowPublicBind?: boolean;
   readonly bindAddress?: string;
-  readonly browserCdpUrl?: string;
   readonly browserEnabled?: boolean;
-  readonly browserSurfaceUrl?: string;
   readonly codexEnabled?: boolean;
   readonly codexExecutable?: string;
   readonly hostName?: string;
@@ -360,13 +358,9 @@ const createServiceConfiguration = (input: {
     ? { agentBrowserExecutable: input.options.agentBrowserExecutable }
     : {}),
   bindAddress: input.bindAddress,
-  ...(input.options.browserCdpUrl
-    ? { browserCdpUrl: input.options.browserCdpUrl }
-    : {}),
-  browserEnabled: input.options.browserEnabled ?? false,
-  ...(input.options.browserSurfaceUrl
-    ? { browserSurfaceUrl: input.options.browserSurfaceUrl }
-    : {}),
+  // The CDP browser surface defaults on; the host disables itself at runtime
+  // when no Chrome or Chromium executable is found.
+  browserEnabled: input.options.browserEnabled ?? true,
   ...input.harnesses,
   environmentFile: input.paths.environmentFile,
   hostArguments: input.hostArguments,

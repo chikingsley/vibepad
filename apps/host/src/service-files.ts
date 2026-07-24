@@ -9,9 +9,7 @@ export interface HostServiceConfiguration {
   readonly agentBrowserConfig?: string;
   readonly agentBrowserExecutable?: string;
   readonly bindAddress: string;
-  readonly browserCdpUrl?: string;
   readonly browserEnabled: boolean;
-  readonly browserSurfaceUrl?: string;
   readonly codexEnabled: boolean;
   readonly codexExecutable?: string;
   readonly environmentFile: string;
@@ -56,6 +54,8 @@ const managedEnvironmentKeys = new Set([
   "VIBEPAD_HOSTNAME",
   "VIBEPAD_HOST_ID",
   "VIBEPAD_HOST_NAME",
+  // The Docker-era CDP and surface URL keys stay managed so upgrades scrub
+  // stale values from existing host.env files; they are no longer rendered.
   "VIBEPAD_BROWSER_CDP_URL",
   "VIBEPAD_BROWSER_ENABLED",
   "VIBEPAD_BROWSER_SURFACE_URL",
@@ -156,14 +156,6 @@ export const renderHostEnvironment = (
   const managed = [
     `PATH=${shellQuote(configuration.path)}`,
     `VIBEPAD_BROWSER_ENABLED=${shellQuote(configuration.browserEnabled ? "1" : "0")}`,
-    ...(configuration.browserCdpUrl
-      ? [`VIBEPAD_BROWSER_CDP_URL=${shellQuote(configuration.browserCdpUrl)}`]
-      : []),
-    ...(configuration.browserSurfaceUrl
-      ? [
-          `VIBEPAD_BROWSER_SURFACE_URL=${shellQuote(configuration.browserSurfaceUrl)}`,
-        ]
-      : []),
     `VIBEPAD_CODEX_ENABLED=${shellQuote(configuration.codexEnabled ? "1" : "0")}`,
     ...(configuration.codexExecutable
       ? [`CODEX_BIN=${shellQuote(configuration.codexExecutable)}`]

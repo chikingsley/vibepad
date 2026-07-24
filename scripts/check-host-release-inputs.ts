@@ -3,9 +3,6 @@ import { join, resolve } from "node:path";
 
 const repositoryRoot = resolve(import.meta.dir, "..");
 const requiredFiles = [
-  "apps/host/browser/chrome-entrypoint.sh",
-  "apps/host/browser/compose.yaml",
-  "apps/host/browser/surface-proxy.conf",
   "packages/peacockery-voice-client/dist/index.d.ts",
   "packages/peacockery-voice-client/dist/index.js",
   "packages/peacockery-voice-client/dist/schema.d.ts",

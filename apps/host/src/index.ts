@@ -13,6 +13,7 @@ import {
 } from "bun";
 
 import { BrowserService } from "./browser-service";
+import { BrowserSupervisor } from "./browser-supervisor";
 import {
   BrowserViewBridge,
   type BrowserViewSocketData,
@@ -138,10 +139,10 @@ const voiceHttp = new VoiceHttpService({
   baseUrl: config.voiceBaseUrl,
   credentials: voiceCredentials,
 });
+const browserSupervisor = new BrowserSupervisor();
 const browser = new BrowserService({
-  ...(config.browserCdpUrl ? { cdpUrl: config.browserCdpUrl } : {}),
   enabled: config.browserEnabled,
-  ...(config.browserSurfaceUrl ? { surfaceUrl: config.browserSurfaceUrl } : {}),
+  supervisor: browserSupervisor,
 });
 const sshTargets = new OpenSshTargetDiscovery();
 const sshBootstrap = new OpenSshBootstrap({ targets: sshTargets });
@@ -270,6 +271,11 @@ const shutdown = async () => {
   shuttingDown = true;
   discovery.stop();
   server.stop(true);
+  try {
+    await browserSupervisor.stopAll();
+  } catch (error) {
+    console.error("VibePad browser shutdown failed", error);
+  }
   try {
     await providers.dispose();
   } finally {

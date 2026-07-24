@@ -13,7 +13,6 @@
     "dev": "bun run --filter @vibepad/client start",
     "dev:host": "bun run --filter @vibepad/host dev",
     "fix": "ultracite fix",
-    "host:browser": "bun run --filter @vibepad/host browser",
     "host:bootstrap": "bun run --filter @vibepad/host bootstrap",
     "host:release": "bun run scripts/build-host-release.ts",
     "host:service": "bun run --filter @vibepad/host service",

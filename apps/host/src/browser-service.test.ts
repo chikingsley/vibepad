@@ -1,30 +1,196 @@
 import type { HarnessAdapter } from "@vibepad/protocol/provider";
 import { describe, expect, it } from "vitest";
 
-import { BrowserService } from "./browser-service";
+import {
+  type BrokeredBrowser,
+  type BrokeredSupervisor,
+  BrowserService,
+  type BrowserViewClient,
+} from "./browser-service";
+import type { ChromiumScreencastFrame } from "./chromium-browser";
 import { createRequestHandler } from "./http";
 
-const target = {
-  id: "target-1",
-  title: "Example Domain",
-  type: "page",
-  url: "https://example.com/",
+interface FakeTarget {
+  targetId: string;
+  title: string;
+  type: string;
+  url: string;
+}
+
+interface RecordedCommand {
+  readonly method: string;
+  readonly params: Record<string, unknown>;
+  readonly sessionId: string | undefined;
+}
+
+class FakeBrowser implements BrokeredBrowser {
+  readonly commands: RecordedCommand[] = [];
+  frameSink: ((frame: ChromiumScreencastFrame) => void) | undefined;
+  screencastStarts: Record<string, unknown>[] = [];
+  screencastStops = 0;
+  targets: FakeTarget[] = [];
+  #nextId = 1;
+
+  createTab(url: string) {
+    const id = this.#nextId;
+    this.#nextId += 1;
+    this.targets.push({
+      targetId: `target-${id}`,
+      title: "",
+      type: "page",
+      url,
+    });
+    return Promise.resolve({
+      sessionId: `session-${id}`,
+      targetId: `target-${id}`,
+    });
+  }
+
+  listTargets() {
+    // Chromium enumerates targets in a non-deterministic order; the broker
+    // must not depend on it, so the fake reports newest-first.
+    return Promise.resolve([...this.targets].reverse());
+  }
+
+  send<T = Record<string, unknown>>(
+    method: string,
+    params: Record<string, unknown> = {},
+    sessionId?: string
+  ): Promise<T> {
+    this.commands.push({ method, params, sessionId });
+    // biome-ignore lint/complexity/useLiteralKeys: strict index-signature access is required by the shared TypeScript config.
+    const paramTargetId = params["targetId"];
+    if (method === "Target.getTargetInfo") {
+      const target = this.targets.find(
+        (candidate) => candidate.targetId === paramTargetId
+      );
+      return Promise.resolve({
+        targetInfo: { title: target?.title ?? "", url: target?.url ?? "" },
+      } as T);
+    }
+    if (method === "Target.attachToTarget") {
+      return Promise.resolve({
+        sessionId: `attached-${String(paramTargetId)}`,
+      } as T);
+    }
+    if (method === "Target.closeTarget") {
+      this.targets = this.targets.filter(
+        (candidate) => candidate.targetId !== paramTargetId
+      );
+      return Promise.resolve({} as T);
+    }
+    if (method === "Page.getNavigationHistory") {
+      return Promise.resolve({
+        currentIndex: 1,
+        entries: [{ id: 11 }, { id: 22 }, { id: 33 }],
+      } as T);
+    }
+    return Promise.resolve({} as T);
+  }
+
+  startScreencast(
+    _sessionId: string,
+    onFrame: (frame: ChromiumScreencastFrame) => void,
+    options: Record<string, unknown> = {}
+  ) {
+    this.screencastStarts.push(options);
+    this.frameSink = onFrame;
+    return Promise.resolve(() => {
+      this.screencastStops += 1;
+      return Promise.resolve();
+    });
+  }
+}
+
+class FakeSupervisor implements BrokeredSupervisor {
+  readonly browser: FakeBrowser;
+  executable: string | undefined = "/usr/bin/fake-chromium";
+  findExecutableCalls = 0;
+  readonly snapshots: (readonly string[] | undefined)[] = [];
+
+  constructor(browser = new FakeBrowser()) {
+    this.browser = browser;
+  }
+
+  browserFor(_ownerId: string): Promise<BrokeredBrowser> {
+    return Promise.resolve(this.browser);
+  }
+
+  findExecutable() {
+    this.findExecutableCalls += 1;
+    return Promise.resolve(this.executable);
+  }
+
+  restoredTargets(_ownerId: string): readonly string[] {
+    return [];
+  }
+
+  snapshotTargets(_ownerId: string, targetIdOrder?: readonly string[]) {
+    this.snapshots.push(targetIdOrder);
+    return Promise.resolve();
+  }
+}
+
+class FakeViewClient implements BrowserViewClient {
+  closes: { code: number | undefined; reason: string | undefined }[] = [];
+  sent: string[] = [];
+
+  close(code?: number, reason?: string) {
+    this.closes.push({ code, reason });
+  }
+
+  send(data: string) {
+    this.sent.push(data);
+  }
+
+  frames() {
+    return this.sent
+      .map((raw) => JSON.parse(raw) as { type: string; data?: string })
+      .filter((message) => message.type === "frame");
+  }
+}
+
+const service = (
+  overrides: {
+    readonly enabled?: boolean;
+    readonly now?: () => number;
+    readonly supervisor?: FakeSupervisor;
+    readonly viewSessionTtl?: number;
+  } = {}
+) => {
+  const supervisor = overrides.supervisor ?? new FakeSupervisor();
+  return {
+    browser: supervisor.browser,
+    service: new BrowserService({
+      enabled: overrides.enabled ?? true,
+      ...(overrides.now ? { now: overrides.now } : {}),
+      supervisor,
+      ...(overrides.viewSessionTtl
+        ? { viewSessionTtl: overrides.viewSessionTtl }
+        : {}),
+    }),
+    supervisor,
+  };
+};
+
+const wait = (milliseconds: number) =>
+  new Promise<void>((resolve) => {
+    setTimeout(resolve, milliseconds);
+  });
+
+const leaseToken = (path: string) => {
+  const [, , , , token] = path.split("/");
+  return token ?? "";
 };
 
 describe("VibePad Browser broker", () => {
   it("adds browser responses to the host CORS contract", async () => {
-    const service = new BrowserService({
-      cdpUrl: "http://127.0.0.1:19223",
-      enabled: true,
-      fetcher: () => Promise.resolve(Response.json([])),
-      surfaceUrl: "http://127.0.0.1:16901",
-    });
     const handler = createRequestHandler(
       {} as HarnessAdapter,
       "vibepad-test",
       undefined,
       undefined,
-      service
+      service().service
     );
 
     const response = await handler(
@@ -36,17 +202,12 @@ describe("VibePad Browser broker", () => {
   });
 
   it("reports malformed browser input as a client request error", async () => {
-    const service = new BrowserService({
-      cdpUrl: "http://127.0.0.1:19223",
-      enabled: true,
-      surfaceUrl: "http://127.0.0.1:16901",
-    });
     const handler = createRequestHandler(
       {} as HarnessAdapter,
       "vibepad-test",
       undefined,
       undefined,
-      service
+      service().service
     );
 
     const response = await handler(
@@ -63,69 +224,76 @@ describe("VibePad Browser broker", () => {
     });
   });
 
-  it("reports an intentionally disabled browser without probing upstream", async () => {
-    const requests: string[] = [];
-    const service = new BrowserService({
-      enabled: false,
-      fetcher: (input) => {
-        requests.push(String(input));
-        return Promise.resolve(Response.json([]));
-      },
-    });
+  it("reports an intentionally disabled browser without probing the supervisor", async () => {
+    const { service: browser, supervisor } = service({ enabled: false });
 
-    await expect(service.state()).resolves.toEqual({
+    await expect(browser.state()).resolves.toEqual({
       available: false,
       canGoBack: false,
       canGoForward: false,
       healthy: false,
       targets: [],
     });
-    expect(requests).toEqual([]);
+    expect(supervisor.findExecutableCalls).toBe(0);
   });
 
-  it("proxies Kasm assets only through a live VibePad view session", async () => {
-    let now = 1000;
-    const requests: string[] = [];
-    const service = new BrowserService({
-      cdpUrl: "http://127.0.0.1:19223",
-      enabled: true,
-      fetcher: (input) => {
-        requests.push(String(input));
-        return Promise.resolve(
-          new Response("<html>VibePad Browser</html>", {
-            headers: { "Content-Type": "text/html" },
-          })
-        );
-      },
-      now: () => now,
-      surfaceUrl: "http://127.0.0.1:16901",
+  it("reports a missing Chromium as unavailable and refuses view leases", async () => {
+    const supervisor = new FakeSupervisor();
+    supervisor.executable = undefined;
+    const { service: browser } = service({ supervisor });
+
+    await expect(browser.state()).resolves.toMatchObject({ available: false });
+    await expect(browser.createViewSession()).rejects.toMatchObject({
+      code: "browser_not_available",
+      status: 503,
     });
-    const session = service.createViewSession();
+  });
+
+  it("serves the self-contained viewer only through a live view lease", async () => {
+    let now = 1000;
+    const { service: browser } = service({ now: () => now });
+    const session = await browser.createViewSession();
+
+    expect(session.path.startsWith("/v1/browser/view/")).toBe(true);
+    expect(session.path.endsWith("/index.html")).toBe(true);
+
     const url = new URL(session.path, "http://vibepad.test");
-
-    expect(url.searchParams.get("resize")).toBe("remote");
-
-    const response = await service.handleViewAsset(new Request(url), url);
-
-    expect(await response.text()).toContain("VibePad Browser");
-    expect(requests).toEqual([`http://127.0.0.1:16901/vnc.html${url.search}`]);
+    const page = browser.handleViewAsset(new Request(url), url);
+    expect(page.headers.get("Content-Type")).toContain("text/html");
+    const html = await page.text();
+    expect(html).toContain("<canvas");
+    expect(html).toContain("/v1/browser/socket/");
+    expect(html).not.toContain("http://");
 
     now = Date.parse(session.expiresAt) + 1;
-    await expect(
-      service.handleViewAsset(new Request(url), url)
-    ).rejects.toMatchObject({
-      code: "browser_view_unauthorized",
-      status: 401,
-    });
+    expect(() => browser.handleViewAsset(new Request(url), url)).toThrow(
+      expect.objectContaining({
+        code: "browser_view_unauthorized",
+        status: 401,
+      })
+    );
   });
 
-  it("invalidates live browser views when their paired device is revoked", () => {
-    const service = new BrowserService({
-      cdpUrl: "http://127.0.0.1:19223",
-      enabled: true,
-      surfaceUrl: "http://127.0.0.1:16901",
-    });
-    const session = service.createViewSession({
+  it("expires view leases for socket authorization at their deadline", async () => {
+    let now = 5000;
+    const { service: browser } = service({ now: () => now });
+    const session = await browser.createViewSession();
+    const token = leaseToken(session.path);
+    const socketPath = `/v1/browser/socket/${token}`;
+
+    expect(browser.isSocketRequest(socketPath)).toBe(true);
+    expect(browser.authorizeSocket(socketPath)).toBe(true);
+
+    now = Date.parse(session.expiresAt) + 1;
+    expect(browser.authorizeSocket(socketPath)).toBe(false);
+    expect(browser.connectView(socketPath, new FakeViewClient())).toBe(
+      undefined
+    );
+  });
+
+  it("invalidates live browser views when their paired device is revoked", async () => {
+    const { service: browser } = service();
+    const session = await browser.createViewSession({
       clientMetadata: {
         appId: "studio.peacockery.vibepad",
         appVersion: "1.0.0",
@@ -138,159 +306,254 @@ describe("VibePad Browser broker", () => {
       deviceId: "device-1",
       deviceName: "Fixture iPad",
     });
-    const socketPath = new URL(
-      session.path,
-      "http://vibepad.test"
-    ).searchParams.get("path");
+    const token = leaseToken(session.path);
+    const socketPath = `/v1/browser/socket/${token}`;
+    const client = new FakeViewClient();
+    const connection = browser.connectView(socketPath, client);
 
-    expect(socketPath).toBeTruthy();
-    expect(service.authorizeSocket(`/${socketPath}`)).toBe(true);
+    expect(connection).toBeDefined();
+    expect(browser.authorizeSocket(socketPath)).toBe(true);
 
-    service.revokeDevice("device-1");
+    browser.revokeDevice("device-1");
 
-    expect(service.authorizeSocket(`/${socketPath}`)).toBe(false);
+    expect(browser.authorizeSocket(socketPath)).toBe(false);
+    expect(client.closes).toEqual([
+      { code: 1000, reason: "This device was revoked" },
+    ]);
   });
 
-  it("maps real CDP page targets and controls their lifecycle", async () => {
-    const requests: { readonly method: string; readonly url: string }[] = [];
-    const service = new BrowserService({
-      cdpUrl: "http://127.0.0.1:19223",
-      enabled: true,
-      fetcher: (input, init) => {
-        const url = String(input);
-        requests.push({ method: init?.method ?? "GET", url });
-        if (url.endsWith("/json/list")) {
-          return Promise.resolve(
-            Response.json([
-              target,
-              {
-                id: "worker-1",
-                title: "worker",
-                type: "service_worker",
-                url: "https://example.com/worker.js",
-              },
-            ])
-          );
-        }
-        if (url.includes("/json/new?")) {
-          return Promise.resolve(
-            Response.json({
-              ...target,
-              id: "target-2",
-              title: "Example Org",
-              url: "https://example.org/",
-            })
-          );
-        }
-        return Promise.resolve(new Response("ok"));
-      },
-      surfaceUrl: "http://127.0.0.1:16901",
-    });
+  it("closes a connected view when its lease reaches expiry", async () => {
+    const { service: browser } = service({ viewSessionTtl: 20 });
+    const session = await browser.createViewSession();
+    const token = leaseToken(session.path);
+    const client = new FakeViewClient();
+    const connection = browser.connectView(
+      `/v1/browser/socket/${token}`,
+      client
+    );
 
-    await expect(service.state()).resolves.toMatchObject({
-      activeTargetId: "target-1",
+    expect(connection).toBeDefined();
+    await wait(60);
+    expect(client.closes).toEqual([
+      { code: 1000, reason: "Browser view session expired" },
+    ]);
+  });
+
+  it("maps target operations onto supervised CDP tabs in creation order", async () => {
+    const { browser: fake, service: browser, supervisor } = service();
+
+    const first = await browser.createTarget("https://first.example/");
+    const second = await browser.createTarget("https://second.example/");
+    expect(first.url).toBe("https://first.example/");
+
+    // The fake enumerates newest-first; creation order must win.
+    await expect(browser.state()).resolves.toMatchObject({
+      activeTargetId: second.id,
+      available: true,
       healthy: true,
       targets: [
-        {
-          id: "target-1",
-          title: "Example Domain",
-          url: "https://example.com/",
-        },
+        { id: first.id, url: "https://first.example/" },
+        { id: second.id, url: "https://second.example/" },
       ],
     });
-    await expect(service.createTarget("https://example.org/")).resolves.toEqual(
-      {
-        id: "target-2",
-        title: "Example Org",
-        url: "https://example.org/",
-      }
-    );
-    await service.performAction("target-2", { action: "activate" });
-    await service.closeTarget("target-2");
 
-    expect(requests).toContainEqual({
-      method: "PUT",
-      url: "http://127.0.0.1:19223/json/new?https%3A%2F%2Fexample.org%2F",
+    await browser.performAction(first.id, { action: "activate" });
+    expect(fake.commands).toContainEqual({
+      method: "Target.activateTarget",
+      params: { targetId: first.id },
+      sessionId: undefined,
     });
-    expect(requests.some(({ url }) => url.endsWith("/activate/target-2"))).toBe(
-      true
-    );
-    expect(requests.some(({ url }) => url.endsWith("/close/target-2"))).toBe(
-      true
-    );
+
+    await browser.performAction(first.id, {
+      action: "navigate",
+      url: "https://third.example/",
+    });
+    // Targets created through the broker reuse their createTab session.
+    expect(fake.commands).toContainEqual({
+      method: "Page.navigate",
+      params: { url: "https://third.example/" },
+      sessionId: "session-1",
+    });
+
+    await browser.performAction(first.id, { action: "back" });
+    expect(fake.commands).toContainEqual({
+      method: "Page.navigateToHistoryEntry",
+      params: { entryId: 11 },
+      sessionId: "session-1",
+    });
+
+    await browser.closeTarget(second.id);
+    expect(fake.targets.map((target) => target.url)).toEqual([
+      "https://first.example/",
+    ]);
+    expect(supervisor.snapshots.length).toBeGreaterThan(0);
+    expect(supervisor.snapshots.at(-1)).toEqual([first.id]);
   });
 
   it("retains a blank target when the final page closes", async () => {
-    const requests: { readonly method: string; readonly url: string }[] = [];
-    const service = new BrowserService({
-      cdpUrl: "http://127.0.0.1:19223",
-      enabled: true,
-      fetcher: (input, init) => {
-        const url = String(input);
-        requests.push({ method: init?.method ?? "GET", url });
-        return Promise.resolve(
-          url.endsWith("/json/list")
-            ? Response.json([target])
-            : new Response("ok")
-        );
-      },
-      surfaceUrl: "http://127.0.0.1:16901",
-    });
+    const { browser: fake, service: browser } = service();
+    const only = await browser.createTarget("https://only.example/");
 
-    await service.closeTarget(target.id);
+    await browser.closeTarget(only.id);
 
-    expect(requests).toContainEqual({
-      method: "PUT",
-      url: "http://127.0.0.1:19223/json/new?about%3Ablank",
+    expect(fake.targets.map((target) => target.url)).toEqual(["about:blank"]);
+    await expect(
+      browser.performAction(only.id, { action: "reload" })
+    ).rejects.toMatchObject({
+      code: "browser_target_not_found",
+      status: 404,
     });
-    expect(requests.at(-1)?.url).toBe(
-      "http://127.0.0.1:19223/json/close/target-1"
-    );
   });
 
-  it("keeps browser tabs in creation order across newest-first CDP polls", async () => {
-    const first = {
-      ...target,
-      id: "target-1",
-      title: "First",
-      url: "https://first.example/",
-    };
-    const second = {
-      ...target,
-      id: "target-2",
-      title: "Second",
-      url: "https://second.example/",
-    };
-    const third = {
-      ...target,
-      id: "target-3",
-      title: "Third",
-      url: "https://third.example/",
-    };
-    let targets = [second, first];
-    const service = new BrowserService({
-      cdpUrl: "http://127.0.0.1:19223",
-      enabled: true,
-      fetcher: (input) => {
-        const url = String(input);
-        if (url.endsWith("/json/list")) {
-          return Promise.resolve(Response.json(targets));
-        }
-        if (url.includes("/json/new?")) {
-          targets = [third, ...targets];
-          return Promise.resolve(Response.json(third));
-        }
-        return Promise.resolve(new Response("ok"));
-      },
-      surfaceUrl: "http://127.0.0.1:16901",
-    });
+  it("streams ack-paced frames and forwards input over a view connection", async () => {
+    const { browser: fake, service: browser } = service();
+    await browser.createTarget("https://viewed.example/");
+    const session = await browser.createViewSession();
+    const token = leaseToken(session.path);
+    const client = new FakeViewClient();
+    const connection = browser.connectView(
+      `/v1/browser/socket/${token}`,
+      client
+    );
+    expect(connection).toBeDefined();
+    if (!connection) {
+      return;
+    }
 
-    await expect(service.state()).resolves.toMatchObject({
-      targets: [{ id: "target-1" }, { id: "target-2" }],
+    connection.message(
+      JSON.stringify({
+        deviceScaleFactor: 2,
+        height: 480,
+        type: "viewport",
+        width: 640,
+      })
+    );
+    await wait(20);
+
+    expect(fake.commands).toContainEqual(
+      expect.objectContaining({
+        method: "Emulation.setDeviceMetricsOverride",
+        params: {
+          deviceScaleFactor: 2,
+          height: 480,
+          mobile: false,
+          width: 640,
+        },
+      })
+    );
+    expect(fake.screencastStarts).toEqual([
+      { maxHeight: 960, maxWidth: 1280, quality: 60 },
+    ]);
+
+    const frame = (data: string): ChromiumScreencastFrame => ({
+      data,
+      metadata: {
+        deviceHeight: 480,
+        deviceWidth: 640,
+        offsetTop: 0,
+        pageScaleFactor: 1,
+        scrollOffsetX: 0,
+        scrollOffsetY: 0,
+      },
     });
-    await service.createTarget(third.url);
-    await expect(service.state()).resolves.toMatchObject({
-      targets: [{ id: "target-1" }, { id: "target-2" }, { id: "target-3" }],
-    });
+    fake.frameSink?.(frame("first"));
+    fake.frameSink?.(frame("second"));
+    fake.frameSink?.(frame("third"));
+    expect(client.frames().map((message) => message.data)).toEqual(["first"]);
+
+    connection.message(JSON.stringify({ type: "ack" }));
+    expect(client.frames().map((message) => message.data)).toEqual([
+      "first",
+      "third",
+    ]);
+
+    connection.message(
+      JSON.stringify({
+        input: {
+          button: "left",
+          clickCount: 1,
+          kind: "mouse",
+          modifiers: 0,
+          type: "mousePressed",
+          x: 100,
+          y: 120,
+        },
+        type: "input",
+      })
+    );
+    connection.message(
+      JSON.stringify({
+        input: {
+          code: "KeyA",
+          key: "a",
+          kind: "key",
+          modifiers: 0,
+          text: "a",
+          type: "keyDown",
+        },
+        type: "input",
+      })
+    );
+    connection.message(
+      JSON.stringify({
+        input: {
+          kind: "touch",
+          modifiers: 0,
+          touchPoints: [{ id: 0, x: 10, y: 20 }],
+          type: "touchStart",
+        },
+        type: "input",
+      })
+    );
+    await wait(10);
+
+    expect(fake.commands).toContainEqual(
+      expect.objectContaining({
+        method: "Input.dispatchMouseEvent",
+        params: expect.objectContaining({
+          button: "left",
+          type: "mousePressed",
+          x: 100,
+          y: 120,
+        }),
+      })
+    );
+    expect(fake.commands).toContainEqual(
+      expect.objectContaining({
+        method: "Input.dispatchKeyEvent",
+        params: expect.objectContaining({
+          key: "a",
+          text: "a",
+          type: "keyDown",
+          windowsVirtualKeyCode: 65,
+        }),
+      })
+    );
+    expect(fake.commands).toContainEqual(
+      expect.objectContaining({
+        method: "Input.dispatchTouchEvent",
+        params: expect.objectContaining({ type: "touchStart" }),
+      })
+    );
+
+    connection.closed();
+    expect(fake.screencastStops).toBe(1);
+  });
+
+  it("rejects malformed view messages by closing the connection", async () => {
+    const { service: browser } = service();
+    const session = await browser.createViewSession();
+    const token = leaseToken(session.path);
+    const client = new FakeViewClient();
+    const connection = browser.connectView(
+      `/v1/browser/socket/${token}`,
+      client
+    );
+
+    connection?.message('{"type":"viewport","width":-5}');
+
+    expect(client.closes).toEqual([
+      { code: 1008, reason: "Invalid browser view message" },
+    ]);
   });
 });

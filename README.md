@@ -30,7 +30,7 @@ curl -fsSL https://vibepad.peacockery.studio/downloads/host/install.sh | \
   bash -s -- --yes --project-root "$PWD"
 ```
 
-That command installs the selected version-matched Codex and OpenCode tools, verifies their provider-owned authentication, installs the dedicated VibePad browser runtime, installs and starts the host service, checks its health endpoint, and prints one QR invitation plus a ten-minute pairing code. VibePad owns the provider and browser process lifecycle from that point.
+That command installs the selected version-matched Codex and OpenCode tools, verifies their provider-owned authentication, installs Agent Browser, installs and starts the host service, checks its health endpoint, and prints one QR invitation plus a ten-minute pairing code. VibePad owns the provider and browser process lifecycle from that point.
 
 On iPad, open the TestFlight build and scan the QR invitation with Camera. The invitation opens VibePad and connects immediately. The short-code path uses local discovery: enter the displayed code in VibePad, then choose Connect. The interface asks for one code and handles the computer address automatically.
 
@@ -87,14 +87,7 @@ curl -fsSL https://vibepad.peacockery.studio/downloads/host/install.sh | \
 
 Without `--yes`, an interactive terminal asks before installing Bun or any managed tools. Use `--without-codex`, `--without-opencode`, or `--without-browser` to omit a component. The installer also supports `--install-dir`, `--release-base-url`, `--version`, and the checkout-only `--source` override; run `./scripts/install-host.sh --help` for the complete surface.
 
-The browser option requires a running Docker engine and Compose plugin. It creates a dedicated `vibepad-browser` Compose project with VibePad-only profile, cache, download, and runtime paths. A personal Kasm stack remains separate and intact. Its explicit lifecycle commands are:
-
-```sh
-bun run host:browser -- install
-bun run host:browser -- status
-bun run host:browser -- stop
-bun run host:browser -- start
-```
+The browser surface is CDP-native: the host supervises the Google Chrome or Chromium already installed on the computer, with VibePad-only profiles under its own data directory. Nothing else is required — no Docker engine, no shipped browser image — and a personal Kasm stack remains separate and intact. Set `VIBEPAD_CHROMIUM_EXECUTABLE` to point the host at a specific browser build.
 
 An existing checkout can also inspect and install the lower-level host service directly:
 

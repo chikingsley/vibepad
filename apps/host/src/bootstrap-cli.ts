@@ -2,12 +2,8 @@ import { homedir } from "node:os";
 import { stdin, stdout } from "node:process";
 import { createInterface } from "node:readline/promises";
 
-import {
-  type BrowserRuntimeStatus,
-  defaultBrowserCdpPort,
-  defaultBrowserSurfacePort,
-  VibePadBrowserRuntime,
-} from "./browser-runtime";
+import { agentBrowserConfigPath } from "./browser-supervisor";
+import { findChromiumExecutable } from "./chromium-browser";
 import {
   authenticateProvider,
   installManagedToolchain,
@@ -33,9 +29,7 @@ Options:
   --yes                       Consent to all selected managed-tool installs
   --without-codex             Do not install or enable Codex
   --without-opencode          Do not install or enable OpenCode
-  --without-browser           Do not install Agent Browser or VibePad Browser
-  --browser-cdp-port <port>   Loopback CDP port (default 19223)
-  --browser-surface-port <port> Loopback KasmVNC port (default 16901)
+  --without-browser           Do not install Agent Browser or enable the browser surface
   --allow-unauthenticated     Install providers before their provider-owned login
   --bind <address>            Override automatic network binding
   --allow-public-bind         Permit an explicit 0.0.0.0 binding
@@ -52,8 +46,6 @@ interface BootstrapOptions {
   readonly allowPublicBind?: boolean;
   readonly allowUnauthenticated?: boolean;
   readonly bindAddress?: string;
-  readonly browserCdpPort?: number;
-  readonly browserSurfacePort?: number;
   readonly hostName?: string;
   readonly port?: number;
   readonly projectRoots?: string[];
@@ -79,8 +71,6 @@ interface BootstrapParserState {
     allowPublicBind?: boolean;
     allowUnauthenticated?: boolean;
     bindAddress?: string;
-    browserCdpPort?: number;
-    browserSurfacePort?: number;
     hostName?: string;
     port?: number;
     start?: boolean;
@@ -142,16 +132,6 @@ const applyValue = (
   }
   if (argument === "--port") {
     state.options.port = Number(requiredValue(args, index, argument));
-    return true;
-  }
-  if (argument === "--browser-cdp-port") {
-    state.options.browserCdpPort = Number(requiredValue(args, index, argument));
-    return true;
-  }
-  if (argument === "--browser-surface-port") {
-    state.options.browserSurfacePort = Number(
-      requiredValue(args, index, argument)
-    );
     return true;
   }
   if (argument === "--project-root") {
@@ -243,17 +223,24 @@ const verifyProviderAuthentication = async (
   return status;
 };
 
-const installBrowserRuntime = (
-  options: BootstrapOptions,
+interface BrowserSurfaceStatus {
+  readonly agentBrowserConfig?: string;
+  readonly enabled: boolean;
+}
+
+const detectBrowserSurface = async (
   toolchain: ManagedToolchain
-) => {
+): Promise<BrowserSurfaceStatus> => {
   if (!toolchain.agentBrowser) {
-    return;
+    return { enabled: false };
   }
-  return new VibePadBrowserRuntime({
-    cdpPort: options.browserCdpPort ?? defaultBrowserCdpPort,
-    surfacePort: options.browserSurfacePort ?? defaultBrowserSurfacePort,
-  }).install({ start: options.start ?? true });
+  const chromium = await findChromiumExecutable();
+  if (!chromium) {
+    console.info(
+      "VibePad found no Google Chrome or Chromium; the browser surface stays enabled and activates once a browser is installed (or set VIBEPAD_CHROMIUM_EXECUTABLE)"
+    );
+  }
+  return { agentBrowserConfig: agentBrowserConfigPath(), enabled: true };
 };
 
 const verifyProviderAuthentications = (
@@ -273,22 +260,18 @@ const installHostService = (
   manager: HostServiceManager,
   options: BootstrapOptions,
   toolchain: ManagedToolchain,
-  browser: BrowserRuntimeStatus | undefined
+  browser: BrowserSurfaceStatus
 ) =>
   manager.install({
-    ...(browser ? { agentBrowserConfig: browser.agentBrowserConfig } : {}),
+    ...(browser.agentBrowserConfig
+      ? { agentBrowserConfig: browser.agentBrowserConfig }
+      : {}),
     ...(toolchain.agentBrowser
       ? { agentBrowserExecutable: toolchain.agentBrowser }
       : {}),
     ...(options.allowPublicBind ? { allowPublicBind: true } : {}),
     ...(options.bindAddress ? { bindAddress: options.bindAddress } : {}),
-    ...(browser
-      ? {
-          browserCdpUrl: browser.cdpUrl,
-          browserEnabled: true,
-          browserSurfaceUrl: browser.surfaceUrl,
-        }
-      : { browserEnabled: false }),
+    browserEnabled: browser.enabled,
     codexEnabled: options.selection.codex,
     ...(toolchain.codex ? { codexExecutable: toolchain.codex } : {}),
     ...(options.hostName ? { hostName: options.hostName } : {}),
@@ -330,7 +313,7 @@ const main = async () => {
     installBrowser: false,
     selection: options.selection,
   });
-  const browser = await installBrowserRuntime(options, toolchain);
+  const browser = await detectBrowserSurface(toolchain);
   await verifyProviderAuthentications(options, toolchain);
   const service = await installHostService(
     manager,

@@ -5,50 +5,72 @@ import {
   type BrowserTargetActionRequest,
   type BrowserViewSession,
   browserPath,
-  browserSocketPathPrefix,
   browserTargetActionRequestSchema,
   browserTargetsPath,
   browserViewPathPrefix,
   browserViewSessionsPath,
   createBrowserTargetRequestSchema,
 } from "@vibepad/protocol/browser";
+import { z } from "zod";
 
+import { canonicalOwnerId } from "./browser-supervisor";
+import { renderBrowserViewPage } from "./browser-view-page";
+import type { ChromiumScreencastFrame } from "./chromium-browser";
 import type { HostAuthPrincipal } from "./host-auth-contract";
 
 const browserViewAssetPathPattern = /^\/v1\/browser\/view\/([^/]+)\/(.+)$/u;
 const browserSocketPathPattern = /^\/v1\/browser\/socket\/([^/]+)$/u;
-const trailingSlashPattern = /\/$/u;
 const viewSessionTtlMs = 10 * 60 * 1000;
-const cdpRequestTimeoutMs = 5000;
-const unsafeProxyHeaders = new Set([
-  "connection",
-  "keep-alive",
-  "proxy-authenticate",
-  "proxy-authorization",
-  "te",
-  "trailer",
-  "transfer-encoding",
-  "upgrade",
-]);
+const maxScreencastDimension = 4096;
+const screencastQuality = 60;
 
-interface CdpTarget extends BrowserTarget {
-  readonly type: string;
-  readonly webSocketDebuggerUrl?: string;
+/** The slice of a supervised Chromium the broker drives over CDP. */
+export interface BrokeredBrowser {
+  createTab: (url: string) => Promise<{ sessionId: string; targetId: string }>;
+  listTargets: () => Promise<
+    readonly {
+      targetId: string;
+      title: string;
+      type: string;
+      url: string;
+    }[]
+  >;
+  send: <T = Record<string, unknown>>(
+    method: string,
+    params?: Record<string, unknown>,
+    sessionId?: string
+  ) => Promise<T>;
+  startScreencast: (
+    sessionId: string,
+    onFrame: (frame: ChromiumScreencastFrame) => void,
+    options?: {
+      readonly maxHeight?: number;
+      readonly maxWidth?: number;
+      readonly quality?: number;
+    }
+  ) => Promise<() => Promise<void>>;
 }
 
-interface ViewSessionRecord {
-  readonly deviceId: string;
-  readonly expiresAt: number;
+/** The slice of the BrowserSupervisor the broker depends on. */
+export interface BrokeredSupervisor {
+  browserFor: (ownerId: string) => Promise<BrokeredBrowser>;
+  findExecutable: () => Promise<string | undefined>;
+  restoredTargets: (ownerId: string) => readonly string[];
+  snapshotTargets: (
+    ownerId: string,
+    targetIdOrder?: readonly string[]
+  ) => Promise<void>;
 }
 
-type BrowserFetch = (
-  input: string | URL | Request,
-  init?: RequestInit
-) => Promise<Response>;
+export interface BrowserViewClient {
+  close: (code?: number, reason?: string) => void;
+  send: (data: string) => void;
+}
 
-type BrowserWebSocket = Pick<WebSocket, "addEventListener" | "close" | "send">;
-
-type BrowserWebSocketFactory = (url: string) => BrowserWebSocket;
+export interface BrowserViewConnectionHandle {
+  closed: () => void;
+  message: (raw: string) => void;
+}
 
 export type BrowserServiceErrorCode =
   | "browser_not_available"
@@ -60,8 +82,13 @@ export class BrowserServiceError extends Error {
   readonly code: BrowserServiceErrorCode;
   readonly status: number;
 
-  constructor(code: BrowserServiceErrorCode, message: string, status: number) {
-    super(message);
+  constructor(
+    code: BrowserServiceErrorCode,
+    message: string,
+    status: number,
+    options?: { readonly cause?: unknown }
+  ) {
+    super(message, options);
     this.name = "BrowserServiceError";
     this.code = code;
     this.status = status;
@@ -69,37 +96,408 @@ export class BrowserServiceError extends Error {
 }
 
 export interface BrowserServiceConfig {
-  readonly cdpUrl?: string;
   readonly enabled: boolean;
-  readonly fetcher?: BrowserFetch;
   readonly now?: () => number;
-  readonly surfaceUrl?: string;
-  readonly webSocketFactory?: BrowserWebSocketFactory;
+  readonly supervisor: BrokeredSupervisor;
+  readonly viewSessionTtl?: number;
+}
+
+interface ViewSessionRecord {
+  readonly deviceId: string;
+  readonly expiresAt: number;
+}
+
+interface PageTargetInfo {
+  readonly targetId: string;
+  readonly title: string;
+  readonly url: string;
+}
+
+interface NavigationHistory {
+  readonly currentIndex: number;
+  readonly entries: readonly { readonly id: number }[];
+}
+
+const coordinateSchema = z.number().min(-32_768).max(32_768);
+const modifiersSchema = z.number().int().min(0).max(15).default(0);
+
+const mouseInputSchema = z
+  .object({
+    button: z.enum(["left", "middle", "none", "right"]),
+    clickCount: z.number().int().min(0).max(8).default(0),
+    kind: z.literal("mouse"),
+    modifiers: modifiersSchema,
+    type: z.enum(["mousePressed", "mouseReleased", "mouseMoved"]),
+    x: coordinateSchema,
+    y: coordinateSchema,
+  })
+  .strict();
+
+const wheelInputSchema = z
+  .object({
+    deltaX: z.number().min(-4096).max(4096),
+    deltaY: z.number().min(-4096).max(4096),
+    kind: z.literal("wheel"),
+    modifiers: modifiersSchema,
+    x: coordinateSchema,
+    y: coordinateSchema,
+  })
+  .strict();
+
+const touchPointSchema = z
+  .object({
+    force: z.number().min(0).max(1).optional(),
+    id: z.number().int().min(0).max(32).default(0),
+    x: coordinateSchema,
+    y: coordinateSchema,
+  })
+  .strict();
+
+const touchInputSchema = z
+  .object({
+    kind: z.literal("touch"),
+    modifiers: modifiersSchema,
+    touchPoints: z.array(touchPointSchema).max(10),
+    type: z.enum(["touchStart", "touchMove", "touchEnd", "touchCancel"]),
+  })
+  .strict();
+
+const keyInputSchema = z
+  .object({
+    code: z.string().max(64),
+    key: z.string().max(64),
+    kind: z.literal("key"),
+    modifiers: modifiersSchema,
+    text: z.string().max(16).default(""),
+    type: z.enum(["keyDown", "keyUp", "char"]),
+  })
+  .strict();
+
+const viewInputSchema = z.discriminatedUnion("kind", [
+  keyInputSchema,
+  mouseInputSchema,
+  touchInputSchema,
+  wheelInputSchema,
+]);
+
+type ViewInput = z.infer<typeof viewInputSchema>;
+
+const viewClientMessageSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("ack") }).strict(),
+  z
+    .object({
+      deviceScaleFactor: z.number().min(0.25).max(4).default(1),
+      height: z.number().min(1).max(8192),
+      type: z.literal("viewport"),
+      width: z.number().min(1).max(8192),
+    })
+    .strict(),
+  z.object({ input: viewInputSchema, type: z.literal("input") }).strict(),
+]);
+
+interface ViewViewport {
+  readonly deviceScaleFactor: number;
+  readonly height: number;
+  readonly width: number;
+}
+
+const namedVirtualKeyCodes: Record<string, number> = {
+  " ": 32,
+  Alt: 18,
+  ArrowDown: 40,
+  ArrowLeft: 37,
+  ArrowRight: 39,
+  ArrowUp: 38,
+  Backspace: 8,
+  Control: 17,
+  Delete: 46,
+  End: 35,
+  Enter: 13,
+  Escape: 27,
+  Home: 36,
+  Meta: 91,
+  PageDown: 34,
+  PageUp: 33,
+  Shift: 16,
+  Tab: 9,
+};
+
+const singleCharacterPattern = /^[\p{L}\p{N}]$/u;
+
+const virtualKeyCode = (key: string) => {
+  const named = namedVirtualKeyCodes[key];
+  if (named !== undefined) {
+    return named;
+  }
+  if (singleCharacterPattern.test(key)) {
+    return key.toUpperCase().charCodeAt(0);
+  }
+  return 0;
+};
+
+const keyEventParams = (input: z.infer<typeof keyInputSchema>) => {
+  const text = input.key === "Enter" ? "\r" : input.text;
+  const code = virtualKeyCode(input.key);
+  return {
+    code: input.code,
+    key: input.key,
+    modifiers: input.modifiers,
+    type: input.type,
+    ...(text ? { text, unmodifiedText: text } : {}),
+    ...(code
+      ? { nativeVirtualKeyCode: code, windowsVirtualKeyCode: code }
+      : {}),
+  };
+};
+
+const inputCommand = (
+  input: ViewInput
+): { readonly method: string; readonly params: Record<string, unknown> } => {
+  if (input.kind === "mouse") {
+    return {
+      method: "Input.dispatchMouseEvent",
+      params: {
+        button: input.button,
+        clickCount: input.clickCount,
+        modifiers: input.modifiers,
+        type: input.type,
+        x: input.x,
+        y: input.y,
+      },
+    };
+  }
+  if (input.kind === "wheel") {
+    return {
+      method: "Input.dispatchMouseEvent",
+      params: {
+        deltaX: input.deltaX,
+        deltaY: input.deltaY,
+        modifiers: input.modifiers,
+        type: "mouseWheel",
+        x: input.x,
+        y: input.y,
+      },
+    };
+  }
+  if (input.kind === "touch") {
+    return {
+      method: "Input.dispatchTouchEvent",
+      params: {
+        modifiers: input.modifiers,
+        touchPoints: input.touchPoints,
+        type: input.type,
+      },
+    };
+  }
+  return { method: "Input.dispatchKeyEvent", params: keyEventParams(input) };
+};
+
+interface ViewAttachment {
+  readonly browser: BrokeredBrowser;
+  readonly sessionId: string;
+  readonly targetId: string;
+}
+
+interface ViewConnectionOptions {
+  readonly attach: () => Promise<ViewAttachment>;
+  readonly client: BrowserViewClient;
+  readonly deviceId: string;
+  readonly release: (connection: ViewConnection) => void;
+  readonly ttlMs: number;
+}
+
+class ViewConnection implements BrowserViewConnectionHandle {
+  readonly deviceId: string;
+  #attachment: ViewAttachment | undefined;
+  readonly #attach: () => Promise<ViewAttachment>;
+  readonly #client: BrowserViewClient;
+  #closed: boolean;
+  readonly #expiryTimer: ReturnType<typeof setTimeout>;
+  #pendingFrame: ChromiumScreencastFrame | undefined;
+  #readyForFrame: boolean;
+  readonly #release: (connection: ViewConnection) => void;
+  #stopScreencast: (() => Promise<void>) | undefined;
+  #viewport: ViewViewport | undefined;
+  #work: Promise<void> = Promise.resolve();
+
+  constructor(options: ViewConnectionOptions) {
+    this.deviceId = options.deviceId;
+    this.#attach = options.attach;
+    this.#client = options.client;
+    this.#closed = false;
+    this.#readyForFrame = true;
+    this.#release = options.release;
+    this.#expiryTimer = setTimeout(() => {
+      this.expire("Browser view session expired");
+    }, options.ttlMs);
+  }
+
+  get viewedTargetId() {
+    return this.#attachment?.targetId;
+  }
+
+  closed() {
+    if (this.#closed) {
+      return;
+    }
+    this.#closed = true;
+    clearTimeout(this.#expiryTimer);
+    this.#release(this);
+    const stop = this.#stopScreencast;
+    this.#stopScreencast = undefined;
+    stop?.().catch(() => undefined);
+  }
+
+  expire(reason: string) {
+    if (this.#closed) {
+      return;
+    }
+    this.#client.close(1000, reason);
+    this.closed();
+  }
+
+  message(raw: string) {
+    if (this.#closed) {
+      return;
+    }
+    let parsed: z.infer<typeof viewClientMessageSchema>;
+    try {
+      parsed = viewClientMessageSchema.parse(JSON.parse(raw));
+    } catch {
+      this.#client.close(1008, "Invalid browser view message");
+      this.closed();
+      return;
+    }
+    if (parsed.type === "ack") {
+      this.#acknowledgeFrame();
+      return;
+    }
+    if (parsed.type === "viewport") {
+      const viewport: ViewViewport = {
+        deviceScaleFactor: parsed.deviceScaleFactor,
+        height: Math.round(parsed.height),
+        width: Math.round(parsed.width),
+      };
+      this.#viewport = viewport;
+      this.#enqueue(() => this.#applyViewport(viewport));
+      return;
+    }
+    this.#dispatchInput(parsed.input);
+  }
+
+  /** Re-attach the screencast after the active browser target changed. */
+  retarget() {
+    const viewport = this.#viewport;
+    if (!viewport) {
+      return;
+    }
+    this.#enqueue(() => this.#applyViewport(viewport));
+  }
+
+  #acknowledgeFrame() {
+    const pending = this.#pendingFrame;
+    if (pending) {
+      this.#pendingFrame = undefined;
+      this.#sendFrame(pending);
+      return;
+    }
+    this.#readyForFrame = true;
+  }
+
+  async #applyViewport(viewport: ViewViewport) {
+    const attachment = await this.#attach();
+    if (this.#closed) {
+      return;
+    }
+    this.#attachment = attachment;
+    await attachment.browser.send(
+      "Emulation.setDeviceMetricsOverride",
+      {
+        deviceScaleFactor: viewport.deviceScaleFactor,
+        height: viewport.height,
+        mobile: false,
+        width: viewport.width,
+      },
+      attachment.sessionId
+    );
+    const previousStop = this.#stopScreencast;
+    this.#stopScreencast = undefined;
+    await previousStop?.().catch(() => undefined);
+    if (this.#closed) {
+      return;
+    }
+    const clamp = (value: number) =>
+      Math.min(
+        maxScreencastDimension,
+        Math.max(1, Math.round(value * viewport.deviceScaleFactor))
+      );
+    this.#stopScreencast = await attachment.browser.startScreencast(
+      attachment.sessionId,
+      (frame) => {
+        this.#handleFrame(frame);
+      },
+      {
+        maxHeight: clamp(viewport.height),
+        maxWidth: clamp(viewport.width),
+        quality: screencastQuality,
+      }
+    );
+  }
+
+  #dispatchInput(input: ViewInput) {
+    const attachment = this.#attachment;
+    if (!attachment) {
+      return;
+    }
+    const { method, params } = inputCommand(input);
+    attachment.browser.send(method, params, attachment.sessionId).catch(() => {
+      this.#fail("Browser input dispatch failed");
+    });
+  }
+
+  #enqueue(work: () => Promise<void>) {
+    this.#work = this.#work.then(work).catch(() => {
+      this.#fail("VibePad Browser is unavailable");
+    });
+  }
+
+  #fail(reason: string) {
+    if (this.#closed) {
+      return;
+    }
+    this.#client.close(1011, reason);
+    this.closed();
+  }
+
+  #handleFrame(frame: ChromiumScreencastFrame) {
+    if (this.#closed) {
+      return;
+    }
+    if (this.#readyForFrame) {
+      this.#readyForFrame = false;
+      this.#sendFrame(frame);
+      return;
+    }
+    this.#pendingFrame = frame;
+  }
+
+  #sendFrame(frame: ChromiumScreencastFrame) {
+    try {
+      this.#client.send(
+        JSON.stringify({
+          data: frame.data,
+          metadata: frame.metadata,
+          type: "frame",
+        })
+      );
+    } catch {
+      this.#fail("Browser view send failed");
+    }
+  }
 }
 
 const digest = (value: string) =>
   createHash("sha256").update(value, "utf8").digest("hex");
-
-const isCdpTarget = (value: unknown): value is CdpTarget => {
-  if (!(value && typeof value === "object")) {
-    return false;
-  }
-  const candidate = value as Partial<CdpTarget>;
-  return (
-    typeof candidate.id === "string" &&
-    typeof candidate.title === "string" &&
-    typeof candidate.type === "string" &&
-    typeof candidate.url === "string" &&
-    (candidate.webSocketDebuggerUrl === undefined ||
-      typeof candidate.webSocketDebuggerUrl === "string")
-  );
-};
-
-const publicTarget = ({ id, title, url }: CdpTarget): BrowserTarget => ({
-  id,
-  title,
-  url,
-});
 
 const json = (value: unknown, status = 200) => Response.json(value, { status });
 
@@ -122,30 +520,25 @@ const targetRoute = (pathname: string) => {
   };
 };
 
-const createDefaultWebSocket = (url: string) => new WebSocket(url);
-
 export class BrowserService {
-  readonly #cdpUrl: string | undefined;
-  readonly #enabled: boolean;
-  readonly #fetch: BrowserFetch;
-  readonly #now: () => number;
-  readonly #surfaceUrl: string | undefined;
-  readonly #viewSessions = new Map<string, ViewSessionRecord>();
-  readonly #webSocketFactory: BrowserWebSocketFactory;
   #activeTargetId: string | undefined;
+  #browserRef: BrokeredBrowser | undefined;
+  readonly #enabled: boolean;
+  readonly #now: () => number;
+  #orderSeeded: boolean;
+  readonly #sessions = new Map<string, string>();
+  readonly #supervisor: BrokeredSupervisor;
   #targetOrder: string[] = [];
+  readonly #views = new Set<ViewConnection>();
+  readonly #viewSessions = new Map<string, ViewSessionRecord>();
+  readonly #viewSessionTtl: number;
 
   constructor(config: BrowserServiceConfig) {
-    this.#cdpUrl = config.cdpUrl?.replace(trailingSlashPattern, "");
     this.#enabled = config.enabled;
-    this.#fetch = config.fetcher ?? fetch;
     this.#now = config.now ?? Date.now;
-    this.#surfaceUrl = config.surfaceUrl?.replace(trailingSlashPattern, "");
-    this.#webSocketFactory = config.webSocketFactory ?? createDefaultWebSocket;
-  }
-
-  get available() {
-    return Boolean(this.#enabled && this.#cdpUrl && this.#surfaceUrl);
+    this.#orderSeeded = false;
+    this.#supervisor = config.supervisor;
+    this.#viewSessionTtl = config.viewSessionTtl ?? viewSessionTtlMs;
   }
 
   isSocketRequest(pathname: string) {
@@ -161,44 +554,57 @@ export class BrowserService {
     return Boolean(token && this.#validViewToken(token));
   }
 
-  browserSocketUrl() {
-    this.#assertAvailable();
-    const url = new URL("/websockify", this.#surfaceUrl);
-    url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
-    return url.toString();
+  /**
+   * Opens a live view over an upgraded WebSocket. Returns undefined when the
+   * path does not carry a valid, unexpired view lease.
+   */
+  connectView(
+    pathname: string,
+    client: BrowserViewClient
+  ): BrowserViewConnectionHandle | undefined {
+    const token = browserSocketPathPattern.exec(pathname)?.[1];
+    if (!(token && this.#validViewToken(token))) {
+      return;
+    }
+    const record = this.#viewSessions.get(digest(token));
+    if (!record) {
+      return;
+    }
+    const connection = new ViewConnection({
+      attach: () => this.#attachActiveTarget(),
+      client,
+      deviceId: record.deviceId,
+      release: (released) => {
+        this.#views.delete(released);
+      },
+      ttlMs: Math.max(1, record.expiresAt - this.#now()),
+    });
+    this.#views.add(connection);
+    return connection;
   }
 
-  async handleViewAsset(request: Request, url: URL): Promise<Response> {
-    this.#assertAvailable();
+  handleViewAsset(request: Request, url: URL): Response {
     if (request.method !== "GET") {
       return json({ error: "method_not_allowed" }, 405);
     }
     const match = browserViewAssetPathPattern.exec(url.pathname);
     const token = match?.[1];
     const assetPath = match?.[2];
-    if (!(token && assetPath && this.#validViewToken(token))) {
+    if (!(token && this.#validViewToken(token))) {
       throw new BrowserServiceError(
         "browser_view_unauthorized",
         "The browser view session is invalid or expired",
         401
       );
     }
-    const upstreamUrl = new URL(`/${assetPath}`, `${this.#surfaceUrl}/`);
-    upstreamUrl.search = url.search;
-    const upstream = await this.#fetch(upstreamUrl, {
-      headers: { Accept: request.headers.get("accept") ?? "*/*" },
-      signal: request.signal,
-    });
-    const headers = new Headers();
-    upstream.headers.forEach((value, key) => {
-      if (!unsafeProxyHeaders.has(key.toLowerCase())) {
-        headers.set(key, value);
-      }
-    });
-    return new Response(upstream.body, {
-      headers,
-      status: upstream.status,
-      statusText: upstream.statusText,
+    if (assetPath !== "index.html") {
+      return json({ error: "not_found" }, 404);
+    }
+    return new Response(renderBrowserViewPage(), {
+      headers: {
+        "Cache-Control": "no-store",
+        "Content-Type": "text/html; charset=utf-8",
+      },
     });
   }
 
@@ -211,7 +617,7 @@ export class BrowserService {
       return json({ data: await this.state() });
     }
     if (request.method === "POST" && url.pathname === browserViewSessionsPath) {
-      return json({ data: this.createViewSession(principal) }, 201);
+      return json({ data: await this.createViewSession(principal) }, 201);
     }
     if (request.method === "POST" && url.pathname === browserTargetsPath) {
       const input = createBrowserTargetRequestSchema.parse(
@@ -234,7 +640,7 @@ export class BrowserService {
   }
 
   async state(): Promise<BrowserState> {
-    if (!this.available) {
+    if (!(this.#enabled && (await this.#supervisor.findExecutable()))) {
       return {
         available: false,
         canGoBack: false,
@@ -244,25 +650,22 @@ export class BrowserService {
       };
     }
     try {
-      const targets = await this.#targets();
-      const activeTargetId = targets.some(
-        (target) => target.id === this.#activeTargetId
-      )
-        ? this.#activeTargetId
-        : targets[0]?.id;
-      this.#activeTargetId = activeTargetId;
-      const activeTarget = targets.find(
-        (target) => target.id === activeTargetId
-      );
-      const navigation = activeTarget
-        ? await this.#navigationState(activeTarget)
+      const browser = await this.#browser();
+      const targets = await this.#inventory(browser);
+      const activeTargetId = this.#resolveActiveTarget(targets);
+      const navigation = activeTargetId
+        ? await this.#navigationState(browser, activeTargetId)
         : { canGoBack: false, canGoForward: false };
       return {
         ...(activeTargetId ? { activeTargetId } : {}),
         available: true,
         ...navigation,
         healthy: true,
-        targets: targets.map(publicTarget),
+        targets: targets.map((target) => ({
+          id: target.targetId,
+          title: target.title,
+          url: target.url,
+        })),
       };
     } catch {
       return {
@@ -275,26 +678,20 @@ export class BrowserService {
     }
   }
 
-  createViewSession(principal?: HostAuthPrincipal): BrowserViewSession {
-    this.#assertAvailable();
+  async createViewSession(
+    principal?: HostAuthPrincipal
+  ): Promise<BrowserViewSession> {
+    await this.#requireAvailable();
     this.#pruneViewSessions();
     const token = randomBytes(32).toString("base64url");
-    const expiresAt = this.#now() + viewSessionTtlMs;
+    const expiresAt = this.#now() + this.#viewSessionTtl;
     this.#viewSessions.set(digest(token), {
       deviceId: principal?.deviceId ?? "local",
       expiresAt,
     });
-    const query = new URLSearchParams({
-      autoconnect: "true",
-      path: `${browserSocketPathPrefix.slice(1)}/${token}`,
-      reconnect: "true",
-      reconnect_delay: "1000",
-      resize: "remote",
-      show_dot: "true",
-    });
     return {
       expiresAt: new Date(expiresAt).toISOString(),
-      path: `${browserViewPathPrefix}/${token}/vnc.html?${query}`,
+      path: `${browserViewPathPrefix}/${token}/index.html`,
     };
   }
 
@@ -304,90 +701,110 @@ export class BrowserService {
         this.#viewSessions.delete(token);
       }
     }
+    for (const view of [...this.#views]) {
+      if (view.deviceId === deviceId) {
+        view.expire("This device was revoked");
+      }
+    }
   }
 
   async createTarget(url: string): Promise<BrowserTarget> {
-    this.#assertAvailable();
-    const response = await this.#fetch(
-      `${this.#cdpUrl}/json/new?${encodeURIComponent(url)}`,
-      { method: "PUT", signal: AbortSignal.timeout(cdpRequestTimeoutMs) }
-    );
-    if (!response.ok) {
-      throw this.#upstreamError(`could not open ${url}`, response.status);
+    const browser = await this.#requireBrowser();
+    await this.#inventory(browser);
+    let tab: { sessionId: string; targetId: string };
+    try {
+      tab = await browser.createTab(url);
+    } catch (error) {
+      throw this.#upstreamError(`could not open ${url}`, error);
     }
-    const value = (await response.json()) as unknown;
-    if (!isCdpTarget(value)) {
-      throw this.#upstreamError("returned an invalid target");
-    }
-    this.#activeTargetId = value.id;
+    this.#sessions.set(tab.targetId, tab.sessionId);
     this.#targetOrder = [
-      ...this.#targetOrder.filter((targetId) => targetId !== value.id),
-      value.id,
+      ...this.#targetOrder.filter((targetId) => targetId !== tab.targetId),
+      tab.targetId,
     ];
-    return publicTarget(value);
+    this.#activeTargetId = tab.targetId;
+    this.#retargetViews();
+    await this.#snapshot();
+    const info = await browser
+      .send<{
+        targetInfo: { title: string; url: string };
+      }>("Target.getTargetInfo", { targetId: tab.targetId })
+      .catch(() => undefined);
+    return {
+      id: tab.targetId,
+      title: info?.targetInfo.title ?? "",
+      url: info?.targetInfo.url ?? url,
+    };
   }
 
   async closeTarget(targetId: string): Promise<void> {
-    this.#assertAvailable();
-    const targets = await this.#targets();
-    if (targets.length === 1 && targets[0]?.id === targetId) {
-      const replacement = await this.#fetch(
-        `${this.#cdpUrl}/json/new?${encodeURIComponent("about:blank")}`,
-        { method: "PUT", signal: AbortSignal.timeout(cdpRequestTimeoutMs) }
-      );
-      if (!replacement.ok) {
-        throw this.#upstreamError("could not retain a blank browser target");
-      }
-    }
-    const response = await this.#fetch(
-      `${this.#cdpUrl}/json/close/${encodeURIComponent(targetId)}`,
-      { signal: AbortSignal.timeout(cdpRequestTimeoutMs) }
-    );
-    if (!response.ok) {
+    const browser = await this.#requireBrowser();
+    const targets = await this.#inventory(browser);
+    if (!targets.some((target) => target.targetId === targetId)) {
       throw this.#targetError(targetId);
     }
-    if (this.#activeTargetId === targetId) {
-      this.#activeTargetId = undefined;
+    if (targets.length === 1) {
+      // The surface always retains one target so the view stays attachable.
+      const replacement = await browser
+        .createTab("about:blank")
+        .catch((error: unknown) => {
+          throw this.#upstreamError(
+            "could not retain a blank browser target",
+            error
+          );
+        });
+      this.#sessions.set(replacement.targetId, replacement.sessionId);
+      this.#targetOrder.push(replacement.targetId);
     }
+    try {
+      await browser.send("Target.closeTarget", { targetId });
+    } catch (error) {
+      throw this.#targetError(targetId, error);
+    }
+    this.#sessions.delete(targetId);
     this.#targetOrder = this.#targetOrder.filter(
       (orderedTargetId) => orderedTargetId !== targetId
     );
+    if (this.#activeTargetId === targetId) {
+      this.#activeTargetId = this.#targetOrder[0];
+      this.#retargetViews();
+    }
+    await this.#snapshot();
   }
 
   async performAction(
     targetId: string,
     action: BrowserTargetActionRequest
   ): Promise<void> {
-    this.#assertAvailable();
+    const browser = await this.#requireBrowser();
+    const targets = await this.#inventory(browser);
+    if (!targets.some((target) => target.targetId === targetId)) {
+      throw this.#targetError(targetId);
+    }
     if (action.action === "activate") {
-      const response = await this.#fetch(
-        `${this.#cdpUrl}/json/activate/${encodeURIComponent(targetId)}`,
-        { signal: AbortSignal.timeout(cdpRequestTimeoutMs) }
-      );
-      if (!response.ok) {
-        throw this.#targetError(targetId);
-      }
+      await browser
+        .send("Target.activateTarget", { targetId })
+        .catch(() => undefined);
       this.#activeTargetId = targetId;
+      this.#retargetViews();
       return;
     }
-    const target = await this.#target(targetId);
-    if (!target.webSocketDebuggerUrl) {
-      throw this.#upstreamError(`target ${targetId} has no debugger socket`);
-    }
+    const sessionId = await this.#sessionFor(browser, targetId);
     if (action.action === "navigate") {
-      await this.#cdpCommand(target.webSocketDebuggerUrl, "Page.navigate", {
+      await this.#sessionCommand(browser, sessionId, "Page.navigate", {
         url: action.url,
       });
       return;
     }
     if (action.action === "reload") {
-      await this.#cdpCommand(target.webSocketDebuggerUrl, "Page.reload");
+      await this.#sessionCommand(browser, sessionId, "Page.reload");
       return;
     }
-    const history = await this.#cdpCommand<{
-      readonly currentIndex: number;
-      readonly entries: readonly { readonly id: number }[];
-    }>(target.webSocketDebuggerUrl, "Page.getNavigationHistory");
+    const history = await this.#sessionCommand<NavigationHistory>(
+      browser,
+      sessionId,
+      "Page.getNavigationHistory"
+    );
     const nextIndex =
       action.action === "back"
         ? history.currentIndex - 1
@@ -396,129 +813,95 @@ export class BrowserService {
     if (!entry) {
       return;
     }
-    await this.#cdpCommand(
-      target.webSocketDebuggerUrl,
+    await this.#sessionCommand(
+      browser,
+      sessionId,
       "Page.navigateToHistoryEntry",
       { entryId: entry.id }
     );
   }
 
-  #cdpCommand<TResult = unknown>(
-    socketUrl: string,
-    method: string,
-    params: Record<string, unknown> = {}
-  ): Promise<TResult> {
-    const socket = this.#webSocketFactory(socketUrl);
-    return new Promise<TResult>((resolveCommand, rejectCommand) => {
-      const timeout = setTimeout(() => {
-        socket.close();
-        rejectCommand(this.#upstreamError(`${method} timed out`));
-      }, cdpRequestTimeoutMs);
-      socket.addEventListener("open", () => {
-        socket.send(JSON.stringify({ id: 1, method, params }));
-      });
-      socket.addEventListener("message", (event) => {
-        if (typeof event.data !== "string") {
-          return;
-        }
-        const response = JSON.parse(event.data) as {
-          readonly error?: { readonly message?: string };
-          readonly id?: number;
-          readonly result?: TResult;
-        };
-        if (response.id !== 1) {
-          return;
-        }
-        clearTimeout(timeout);
-        socket.close();
-        if (response.error) {
-          rejectCommand(
-            this.#upstreamError(response.error.message ?? `${method} failed`)
-          );
-          return;
-        }
-        resolveCommand(response.result as TResult);
-      });
-      socket.addEventListener("error", () => {
-        clearTimeout(timeout);
-        rejectCommand(this.#upstreamError(`${method} failed`));
-      });
+  async #attachActiveTarget(): Promise<ViewAttachment> {
+    const browser = await this.#requireBrowser();
+    const targets = await this.#inventory(browser);
+    const targetId = this.#resolveActiveTarget(targets);
+    if (!targetId) {
+      throw this.#upstreamError("has no viewable browser target");
+    }
+    const sessionId = await this.#sessionFor(browser, targetId);
+    return { browser, sessionId, targetId };
+  }
+
+  async #browser(): Promise<BrokeredBrowser> {
+    const browser = await this.#supervisor.browserFor(canonicalOwnerId);
+    if (this.#browserRef !== browser) {
+      // A relaunched browser invalidates sessions and the in-memory order.
+      this.#browserRef = browser;
+      this.#sessions.clear();
+      this.#targetOrder = [];
+      this.#orderSeeded = false;
+      this.#activeTargetId = undefined;
+    }
+    return browser;
+  }
+
+  async #inventory(browser: BrokeredBrowser): Promise<PageTargetInfo[]> {
+    let listed: Awaited<ReturnType<BrokeredBrowser["listTargets"]>>;
+    try {
+      listed = await browser.listTargets();
+    } catch (error) {
+      throw this.#upstreamError("target inventory failed", error);
+    }
+    const pages = listed.filter((target) => target.type === "page");
+    const byId = new Map(pages.map((target) => [target.targetId, target]));
+    if (this.#orderSeeded) {
+      this.#targetOrder = this.#targetOrder.filter((targetId) =>
+        byId.has(targetId)
+      );
+      const known = new Set(this.#targetOrder);
+      this.#targetOrder.push(
+        ...pages
+          .map((target) => target.targetId)
+          .filter((targetId) => !known.has(targetId))
+      );
+    } else {
+      // CDP target enumeration order is not deterministic. Creation order is
+      // the launch tab first, then journal-restored tabs in restore order.
+      const restored = this.#supervisor.restoredTargets(canonicalOwnerId);
+      const restoredSet = new Set(restored);
+      this.#targetOrder = [
+        ...pages
+          .map((target) => target.targetId)
+          .filter((targetId) => !restoredSet.has(targetId)),
+        ...restored.filter((targetId) => byId.has(targetId)),
+      ];
+      this.#orderSeeded = true;
+    }
+    for (const targetId of this.#sessions.keys()) {
+      if (!byId.has(targetId)) {
+        this.#sessions.delete(targetId);
+      }
+    }
+    return this.#targetOrder.flatMap((targetId) => {
+      const target = byId.get(targetId);
+      return target ? [target] : [];
     });
   }
 
-  async #target(targetId: string) {
-    const target = (await this.#targets()).find(
-      (candidate) => candidate.id === targetId
-    );
-    if (!target) {
-      throw this.#targetError(targetId);
-    }
-    return target;
-  }
-
-  async #navigationState(target: CdpTarget) {
-    if (!target.webSocketDebuggerUrl) {
-      return { canGoBack: false, canGoForward: false };
-    }
+  async #navigationState(browser: BrokeredBrowser, targetId: string) {
     try {
-      const history = await this.#cdpCommand<{
-        readonly currentIndex: number;
-        readonly entries: readonly { readonly id: number }[];
-      }>(target.webSocketDebuggerUrl, "Page.getNavigationHistory");
+      const sessionId = await this.#sessionFor(browser, targetId);
+      const history = await browser.send<NavigationHistory>(
+        "Page.getNavigationHistory",
+        {},
+        sessionId
+      );
       return {
         canGoBack: history.currentIndex > 0,
         canGoForward: history.currentIndex < history.entries.length - 1,
       };
     } catch {
       return { canGoBack: false, canGoForward: false };
-    }
-  }
-
-  async #targets(): Promise<readonly CdpTarget[]> {
-    this.#assertAvailable();
-    const response = await this.#fetch(`${this.#cdpUrl}/json/list`, {
-      signal: AbortSignal.timeout(cdpRequestTimeoutMs),
-    });
-    if (!response.ok) {
-      throw this.#upstreamError("target inventory failed", response.status);
-    }
-    const value = (await response.json()) as unknown;
-    if (!Array.isArray(value)) {
-      return [];
-    }
-    const targets = value.filter(
-      (target): target is CdpTarget =>
-        isCdpTarget(target) && target.type === "page"
-    );
-    const targetsById = new Map(targets.map((target) => [target.id, target]));
-    if (this.#targetOrder.length === 0) {
-      // Chrome reports page targets newest first. Product tabs read in creation
-      // order, so the initial inventory starts with Chrome's oldest target.
-      this.#targetOrder = targets.map((target) => target.id).reverse();
-    } else {
-      this.#targetOrder = this.#targetOrder.filter((targetId) =>
-        targetsById.has(targetId)
-      );
-      const known = new Set(this.#targetOrder);
-      const newTargets = targets
-        .filter((target) => !known.has(target.id))
-        .map((target) => target.id)
-        .reverse();
-      this.#targetOrder.push(...newTargets);
-    }
-    return this.#targetOrder.flatMap((targetId) => {
-      const target = targetsById.get(targetId);
-      return target ? [target] : [];
-    });
-  }
-
-  #assertAvailable() {
-    if (!this.available) {
-      throw new BrowserServiceError(
-        "browser_not_available",
-        "The VibePad Browser is not installed on this host",
-        503
-      );
     }
   }
 
@@ -531,24 +914,108 @@ export class BrowserService {
     }
   }
 
-  #validViewToken(token: string) {
-    this.#pruneViewSessions();
-    return this.#viewSessions.has(digest(token));
+  async #requireAvailable() {
+    if (!(this.#enabled && (await this.#supervisor.findExecutable()))) {
+      throw new BrowserServiceError(
+        "browser_not_available",
+        "The VibePad Browser needs Google Chrome or Chromium installed on this host",
+        503
+      );
+    }
   }
 
-  #targetError(targetId: string) {
+  async #requireBrowser(): Promise<BrokeredBrowser> {
+    await this.#requireAvailable();
+    try {
+      return await this.#browser();
+    } catch (error) {
+      throw this.#upstreamError("failed to start", error);
+    }
+  }
+
+  #resolveActiveTarget(targets: readonly PageTargetInfo[]) {
+    const activeTargetId = targets.some(
+      (target) => target.targetId === this.#activeTargetId
+    )
+      ? this.#activeTargetId
+      : targets[0]?.targetId;
+    this.#activeTargetId = activeTargetId;
+    return activeTargetId;
+  }
+
+  #retargetViews() {
+    for (const view of this.#views) {
+      if (view.viewedTargetId !== this.#activeTargetId) {
+        view.retarget();
+      }
+    }
+  }
+
+  async #sessionCommand<T = Record<string, unknown>>(
+    browser: BrokeredBrowser,
+    sessionId: string,
+    method: string,
+    params: Record<string, unknown> = {}
+  ): Promise<T> {
+    try {
+      return await browser.send<T>(method, params, sessionId);
+    } catch (error) {
+      throw this.#upstreamError(
+        error instanceof Error ? error.message : `${method} failed`,
+        error
+      );
+    }
+  }
+
+  async #sessionFor(browser: BrokeredBrowser, targetId: string) {
+    const cached = this.#sessions.get(targetId);
+    if (cached) {
+      return cached;
+    }
+    let attached: { sessionId: string };
+    try {
+      attached = await browser.send<{ sessionId: string }>(
+        "Target.attachToTarget",
+        { flatten: true, targetId }
+      );
+      await browser
+        .send("Page.enable", {}, attached.sessionId)
+        .catch(() => undefined);
+    } catch (error) {
+      throw this.#targetError(targetId, error);
+    }
+    this.#sessions.set(targetId, attached.sessionId);
+    return attached.sessionId;
+  }
+
+  async #snapshot() {
+    // Persist the surface's restorable targets in creation order so a host
+    // restart reopens the same tabs. Snapshot failures never fail the request.
+    await this.#supervisor
+      .snapshotTargets(canonicalOwnerId, [...this.#targetOrder])
+      .catch(() => undefined);
+  }
+
+  #targetError(targetId: string, cause?: unknown) {
     return new BrowserServiceError(
       "browser_target_not_found",
       `Browser target ${targetId} was not found`,
-      404
+      404,
+      cause === undefined ? undefined : { cause }
     );
   }
 
-  #upstreamError(detail: string, status = 503) {
+  #upstreamError(detail: string, cause?: unknown) {
     return new BrowserServiceError(
       "browser_upstream_unavailable",
       `VibePad Browser ${detail}`,
-      status === 404 ? 404 : 503
+      503,
+      cause === undefined ? undefined : { cause }
     );
+  }
+
+  #validViewToken(token: string) {
+    this.#pruneViewSessions();
+    return this.#viewSessions.has(digest(token));
   }
 }

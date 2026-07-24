@@ -256,28 +256,12 @@ mkdir -p "$install_dir/releases"
 if [[ ! -e "$release_dir" ]]; then
   mv "$payload" "$release_dir"
 fi
-previous_release=""
-if [[ -L "$install_dir/current" ]]; then
-  previous_release="$(readlink "$install_dir/current")"
-fi
 ln -sfn "$release_dir" "$install_dir/current"
 
 if [[ "$platform" == "macos" ]]; then
   host_bin="$install_dir/current/Contents/MacOS/vibepad-host"
-  browser_assets="$install_dir/current/Contents/Resources/browser"
 else
   host_bin="$install_dir/current/bin/vibepad-host"
-  browser_assets="$install_dir/current/browser"
-fi
-chmod 755 "$browser_assets" "$browser_assets/chrome-entrypoint.sh"
-chmod 644 "$browser_assets/compose.yaml" "$browser_assets/surface-proxy.conf"
-browser_environment="$install_dir/browser/runtime/compose.env"
-if [[ "$previous_release" != "$release_dir" && -f "$browser_environment" ]] && command -v docker >/dev/null 2>&1; then
-  docker compose \
-    --project-name vibepad-browser \
-    --env-file "$browser_environment" \
-    --file "$browser_assets/compose.yaml" \
-    down
 fi
 if [[ ! -x "$host_bin" ]]; then
   printf 'Installed VibePad Host executable is unavailable at %s\n' "$host_bin" >&2
@@ -288,7 +272,6 @@ command_dir="$HOME/.local/bin"
 mkdir -p "$command_dir"
 ln -sfn "$host_bin" "$command_dir/vibepad-host"
 
-export VIBEPAD_BROWSER_ASSETS_DIR="$browser_assets"
 export VIBEPAD_BUN_BIN="$bun_bin"
 export VIBEPAD_HOST_EXECUTABLE="$host_bin"
 "$host_bin" setup "${bootstrap_args[@]}"

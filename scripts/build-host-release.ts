@@ -1,7 +1,6 @@
 import { spawnSync } from "node:child_process";
 import {
   chmodSync,
-  cpSync,
   mkdirSync,
   readFileSync,
   rmSync,
@@ -89,16 +88,6 @@ const buildExecutable = (bunTarget: string, output: string) => {
   chmodSync(output, 0o755);
 };
 
-const copyBrowserAssets = (destination: string) => {
-  cpSync(join(repositoryRoot, "apps/host/browser"), destination, {
-    recursive: true,
-  });
-  chmodSync(destination, 0o755);
-  chmodSync(join(destination, "chrome-entrypoint.sh"), 0o755);
-  chmodSync(join(destination, "compose.yaml"), 0o644);
-  chmodSync(join(destination, "surface-proxy.conf"), 0o644);
-};
-
 const writeMetadata = (directory: string) => {
   writeFileSync(
     join(directory, "release.json"),
@@ -140,7 +129,6 @@ if (target.startsWith("linux-")) {
     `bun-linux-${architecture}`,
     join(payloadRoot, "bin/vibepad-host")
   );
-  copyBrowserAssets(join(payloadRoot, "browser"));
   writeMetadata(payloadRoot);
   artifact = join(outputDirectory, `${artifactBase}.tar.gz`);
   rmSync(artifact, { force: true });
@@ -167,7 +155,6 @@ if (target.startsWith("linux-")) {
   mkdirSync(dirname(executable), { recursive: true });
   run("lipo", ["-create", armExecutable, x64Executable, "-output", executable]);
   chmodSync(executable, 0o755);
-  copyBrowserAssets(join(contents, "Resources/browser"));
   writeMetadata(contents);
   writeFileSync(
     join(contents, "Info.plist"),

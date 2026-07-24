@@ -21,7 +21,8 @@
 ### Files, changes, and Preview
 
 - Added session-local Files and Changes surfaces with file tabs, structured diffs, aggregate line counts, and virtualized content.
-- Added persistent host-owned browser targets, VibePad-owned browser tabs and navigation, exact Kasm surface streaming, and independent profile storage.
+- Added persistent host-owned browser targets, VibePad-owned browser tabs and navigation, and independent profile storage.
+- Replaced the Docker/Kasm browser backend with a CDP-native supervisor: the host drives the machine's own Chrome or Chromium, serves a self-contained viewer page at each leased view path, streams ack-paced JPEG screencast frames over the authenticated WebSocket, translates viewer pointer, touch, wheel, and keyboard input into CDP events, and applies device-metrics reflow from the reported viewport.
 - Added Browse, Select, and Draw modes with normalized vector and selection data, timestamps, and one shared review draft.
 - Rendered review moments as attachment cards in the existing composer or the expanded Preview tray.
 
@@ -36,7 +37,7 @@
 - Added trust-on-first-use SSH host-key persistence and changed-key rejection to the native iOS bootstrap path.
 - Removed startup-generated orphan codes, host-address controls, device-name controls, duplicate authorization panels, and bootstrap diagnostic output from the activation journey.
 - Added installation-scoped Peacockery Voice child tokens, metadata provenance, DPoP contracts, nonce and replay protection, and generated clients.
-- Added blank-host bootstrap, user services, provider discovery, Agent Browser, Chrome for Testing, and dedicated Kasm browser setup.
+- Added blank-host bootstrap, user services, provider discovery, and Agent Browser setup; the browser surface uses the computer's installed Chrome or Chromium with no Docker requirement.
 
 ### Quality and tooling
 

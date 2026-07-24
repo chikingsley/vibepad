@@ -12,9 +12,7 @@ const defaultStateDirectory =
 const hostConfigSchema = z.object({
   agentBrowserExecutable: z.string().min(1).optional(),
   agyEnabled: z.boolean(),
-  browserCdpUrl: z.url().optional(),
   browserEnabled: z.boolean(),
-  browserSurfaceUrl: z.url().optional(),
   claudeCodeEnabled: z.boolean(),
   claudeCodeExecutable: z.string().min(1).optional(),
   codexEnabled: z.boolean(),
@@ -49,9 +47,7 @@ export const loadHostConfig = () => {
     VIBEPAD_AGY_ENABLED,
     VIBEPAD_CLAUDE_CODE_ENABLED,
     VIBEPAD_CODEX_ENABLED,
-    VIBEPAD_BROWSER_CDP_URL,
     VIBEPAD_BROWSER_ENABLED,
-    VIBEPAD_BROWSER_SURFACE_URL,
     VIBEPAD_CODEX_PROJECT_ROOTS,
     VIBEPAD_HOST_ID,
     VIBEPAD_HOST_NAME,
@@ -67,9 +63,9 @@ export const loadHostConfig = () => {
   return hostConfigSchema.parse({
     agentBrowserExecutable: AGENT_BROWSER_BIN,
     agyEnabled: VIBEPAD_AGY_ENABLED !== "0",
-    browserCdpUrl: VIBEPAD_BROWSER_CDP_URL,
-    browserEnabled: VIBEPAD_BROWSER_ENABLED === "1",
-    browserSurfaceUrl: VIBEPAD_BROWSER_SURFACE_URL,
+    // The CDP browser surface defaults on; availability still requires a
+    // detected Chrome or Chromium executable at runtime.
+    browserEnabled: VIBEPAD_BROWSER_ENABLED !== "0",
     claudeCodeEnabled: VIBEPAD_CLAUDE_CODE_ENABLED !== "0",
     claudeCodeExecutable: CLAUDE_BIN,
     codexEnabled: VIBEPAD_CODEX_ENABLED !== "0",

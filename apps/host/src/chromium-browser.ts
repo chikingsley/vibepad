@@ -229,7 +229,12 @@ export class ChromiumBrowser {
 
   async listTargets() {
     const listed = await this.send<{
-      targetInfos: { targetId: string; type: string; url: string }[];
+      targetInfos: {
+        targetId: string;
+        title: string;
+        type: string;
+        url: string;
+      }[];
     }>("Target.getTargets");
     return listed.targetInfos;
   }

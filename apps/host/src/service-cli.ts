@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 
-import { VibePadBrowserRuntime } from "./browser-runtime";
+import { agentBrowserConfigPath } from "./browser-supervisor";
+import { findChromiumExecutable } from "./chromium-browser";
 import { renderPairingOutput } from "./pairing-output";
 import { serviceLabel, systemdUnitName } from "./service-files";
 import { HostServiceManager } from "./service-manager";
@@ -104,19 +105,14 @@ const streamLogs = () => {
 };
 
 const installedBrowserOptions = async () => {
-  try {
-    const browser = await new VibePadBrowserRuntime().status();
-    return browser.healthy
-      ? {
-          agentBrowserConfig: browser.agentBrowserConfig,
-          browserCdpUrl: browser.cdpUrl,
-          browserEnabled: true,
-          browserSurfaceUrl: browser.surfaceUrl,
-        }
-      : { browserEnabled: false };
-  } catch {
+  const chromium = await findChromiumExecutable();
+  if (!chromium) {
     return { browserEnabled: false };
   }
+  return {
+    agentBrowserConfig: agentBrowserConfigPath(),
+    browserEnabled: true,
+  };
 };
 
 const main = async () => {
