@@ -56,6 +56,76 @@ describe("versioned app settings", () => {
     expect(decodeAppSettings(versionTwo)).toEqual(current);
   });
 
+  it("migrates version three hosts with automatic startup disabled", () => {
+    const current = createDefaultAppSettings();
+    const versionThree = {
+      ...current,
+      connections: {
+        activeHostId: "hojo",
+        hosts: [{ id: "hojo", name: "hojo", url: "http://hojo:4100" }],
+      },
+      schemaVersion: 3,
+    } as const;
+
+    expect(decodeAppSettings(versionThree)).toEqual({
+      ...versionThree,
+      connections: {
+        ...versionThree.connections,
+        hosts: [
+          {
+            ...versionThree.connections.hosts[0],
+            automaticStart: {
+              enabled: false,
+              recoveryKeyId: null,
+              ssh: null,
+            },
+          },
+        ],
+      },
+      schemaVersion: appSettingsSchemaVersion,
+    });
+  });
+
+  it("migrates version four recovery keys to a safe disabled state", () => {
+    const current = createDefaultAppSettings();
+    const versionFour = {
+      ...current,
+      connections: {
+        activeHostId: "hojo",
+        hosts: [
+          {
+            automaticStart: {
+              enabled: true,
+              recoveryKeyId: "key-from-v4",
+            },
+            id: "hojo",
+            name: "hojo",
+            url: "http://hojo:4100",
+          },
+        ],
+      },
+      schemaVersion: 4,
+    } as const;
+
+    expect(decodeAppSettings(versionFour)).toEqual({
+      ...versionFour,
+      connections: {
+        ...versionFour.connections,
+        hosts: [
+          {
+            ...versionFour.connections.hosts[0],
+            automaticStart: {
+              enabled: false,
+              recoveryKeyId: "key-from-v4",
+              ssh: null,
+            },
+          },
+        ],
+      },
+      schemaVersion: appSettingsSchemaVersion,
+    });
+  });
+
   it("accepts only stable, non-negative message checkpoints", () => {
     const checkpoint = {
       anchorId: "message-final",

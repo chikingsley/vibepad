@@ -5,6 +5,64 @@ export const pairingCodeSchema = z
   .trim()
   .regex(/^[A-HJ-NP-Z2-9]{4}-?[A-HJ-NP-Z2-9]{4}$/iu);
 
+const httpEndpointSchema = z.url().refine((value) => {
+  const { protocol } = new URL(value);
+  return protocol === "http:" || protocol === "https:";
+}, "Pairing endpoints must use HTTP or HTTPS");
+
+export const pairingInvitationSchema = z
+  .object({
+    code: pairingCodeSchema,
+    endpoints: z.array(httpEndpointSchema).min(1).max(8),
+    expiresAt: z.iso.datetime(),
+    hostId: z.string().regex(/^[A-Za-z0-9._-]+$/u),
+    hostName: z.string().trim().min(1).max(100),
+    version: z.literal(1),
+  })
+  .strict();
+
+export type PairingInvitation = z.infer<typeof pairingInvitationSchema>;
+
+export const pairingInvitationUrl = (invitation: PairingInvitation) => {
+  const parsed = pairingInvitationSchema.parse(invitation);
+  const url = new URL("vibepad://pair");
+  url.searchParams.set("c", parsed.code);
+  url.searchParams.set("e", parsed.expiresAt);
+  url.searchParams.set("h", parsed.hostId);
+  url.searchParams.set("n", parsed.hostName);
+  url.searchParams.set("v", String(parsed.version));
+  for (const endpoint of parsed.endpoints) {
+    url.searchParams.append("u", endpoint);
+  }
+  return url.toString();
+};
+
+export const decodePairingInvitationUrl = (
+  candidate: string
+): PairingInvitation | undefined => {
+  try {
+    const url = new URL(candidate);
+    const customScheme = url.protocol === "vibepad:" && url.hostname === "pair";
+    const webRoute =
+      (url.protocol === "http:" || url.protocol === "https:") &&
+      url.pathname === "/pair";
+    if (!(customScheme || webRoute)) {
+      return;
+    }
+    const parsed = pairingInvitationSchema.safeParse({
+      code: url.searchParams.get("c"),
+      endpoints: url.searchParams.getAll("u"),
+      expiresAt: url.searchParams.get("e"),
+      hostId: url.searchParams.get("h"),
+      hostName: url.searchParams.get("n"),
+      version: Number(url.searchParams.get("v")),
+    });
+    return parsed.success ? parsed.data : undefined;
+  } catch {
+    // Malformed external URLs are outside the invitation contract.
+  }
+};
+
 export const clientInstallationMetadataSchema = z
   .object({
     appId: z.string().trim().min(1).max(256),
