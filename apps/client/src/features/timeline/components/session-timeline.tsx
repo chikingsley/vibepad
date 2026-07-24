@@ -3,7 +3,9 @@ import { View } from "react-native";
 
 import { Text } from "@/components/ui/text";
 import { HarnessIcon } from "@/features/harness/components/harness-icon";
+import { RichMarkdown } from "@/features/timeline/components/rich-markdown";
 import { TimelineWorkLog } from "@/features/timeline/components/timeline-work-log";
+import { isStreamingMessageBlock } from "@/features/timeline/model/rich-markdown-mode";
 import type { ProjectedTimelineBlock } from "@/features/timeline/model/timeline-projection";
 
 function HarnessAvatar({ harnessId }: { readonly harnessId: HarnessId }) {
@@ -20,11 +22,24 @@ function HarnessAvatar({ harnessId }: { readonly harnessId: HarnessId }) {
 
 function TimelineMessageContent({
   parts,
+  rich,
+  streaming,
 }: {
   readonly parts: Extract<ProjectedTimelineBlock, { type: "message" }>["parts"];
+  readonly rich: boolean;
+  readonly streaming: boolean;
 }) {
   return parts.map((part) => {
     if (part.type === "text") {
+      if (rich) {
+        return (
+          <RichMarkdown
+            content={part.text}
+            key={part.id}
+            streaming={streaming}
+          />
+        );
+      }
       return (
         <Text className="text-[15px] leading-6" key={part.id} selectable>
           {part.text}
@@ -68,7 +83,11 @@ function TimelineMessage({
     return (
       <View className="items-end" testID={`timeline-item-${block.id}`}>
         <View className="max-w-[88%] gap-2 rounded-2xl rounded-br-md bg-muted px-4 py-3">
-          <TimelineMessageContent parts={block.parts} />
+          <TimelineMessageContent
+            parts={block.parts}
+            rich={false}
+            streaming={false}
+          />
         </View>
       </View>
     );
@@ -81,7 +100,11 @@ function TimelineMessage({
     >
       <HarnessAvatar harnessId={harnessId} />
       <View className="min-w-0 flex-1 gap-2">
-        <TimelineMessageContent parts={block.parts} />
+        <TimelineMessageContent
+          parts={block.parts}
+          rich={block.role === "assistant"}
+          streaming={isStreamingMessageBlock(block)}
+        />
       </View>
     </View>
   );
