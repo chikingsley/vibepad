@@ -399,6 +399,10 @@ public final class VibePadSshBootstrapModule: Module {
     VIBEPAD_RECOVERY_SCRIPT
     chmod 700 "$recovery_script"
     touch "$authorized_keys"
+    if grep -q ' vibepad-recovery:' "$authorized_keys"; then
+      grep -v ' vibepad-recovery:' "$authorized_keys" > "$authorized_keys.vibepad-tmp" || true
+      mv "$authorized_keys.vibepad-tmp" "$authorized_keys"
+    fi
     chmod 600 "$authorized_keys"
     printf '%s\n' 'restrict,command="$HOME/.vibepad/recover-host" \#(publicKey) vibepad-recovery:\#(keyId)' >> "$authorized_keys"
     printf 'VIBEPAD_RECOVERY_PROVISIONED\n'
