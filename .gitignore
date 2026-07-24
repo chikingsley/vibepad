@@ -5,11 +5,15 @@ node_modules/
 # Expo and React Native
 .expo/
 dist/
+!packages/peacockery-voice-client/dist/
+!packages/peacockery-voice-client/dist/**
 web-build/
 android/
 ios/
 !apps/client/modules/vibepad-secure-signer/ios/
 !apps/client/modules/vibepad-secure-signer/ios/**
+!apps/client/modules/vibepad-ssh-bootstrap/ios/
+!apps/client/modules/vibepad-ssh-bootstrap/ios/**
 *.jks
 *.p8
 *.p12
@@ -23,6 +27,7 @@ playwright-report/
 
 # Local runtime state
 .vibepad/
+.wrangler/
 .env
 .env.*
 !.env.example
