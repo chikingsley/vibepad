@@ -82,10 +82,12 @@ import { mapCodexTurns } from "./timeline";
 import { mergeCodexTurn } from "./turn-reconciliation";
 
 const codexTurnPageSize = 3;
+const defaultInterruptGraceMs = 3000;
 
 export interface CodexAdapterOptions extends CodexAppServerClientOptions {
   readonly client?: CodexAppServerClient;
   readonly eventStore?: ProviderEventStore;
+  readonly interruptGraceMs?: number;
   readonly projectRoots?: readonly string[];
   readonly sessionControlStore?: SessionControlStore;
 }
@@ -142,6 +144,26 @@ const nativeTurnId = (params: unknown) => {
   }
 };
 
+const threadStatusIsIdle = (params: unknown) => {
+  if (!isRecord(params)) {
+    return false;
+  }
+  const status = property(params, "status");
+  return isRecord(status) && property(status, "type") === "idle";
+};
+
+const isFinalAgentMessage = (params: unknown) => {
+  if (!isRecord(params)) {
+    return false;
+  }
+  const item = property(params, "item");
+  return (
+    isRecord(item) &&
+    property(item, "type") === "agentMessage" &&
+    property(item, "phase") === "final_answer"
+  );
+};
+
 const pendingType = (
   pending: Iterable<PendingCodexInteraction>,
   sessionId: string
@@ -195,12 +217,15 @@ export class CodexAdapter implements HarnessAdapter {
   readonly #freshThreadGenerations = new Map<string, number>();
   readonly #freshThreads = new Map<string, Thread>();
   readonly #initialTimelinePages = new Map<string, ThreadTurnsListResponse>();
+  readonly #interruptGraceMs: number;
   readonly #loadedThreads = new Set<string>();
   readonly #pending = new Map<string, PendingCodexInteraction>();
   readonly #richTurns = new Map<string, Map<string, Turn>>();
   readonly #sessionControlStore: SessionControlStore | undefined;
   readonly #sessionState = new Map<string, CodexSessionState>();
+  readonly #settledTurns = new Map<string, string>();
   readonly #threadProjects = new Map<string, string>();
+  readonly #turnSettlementWaiters = new Map<string, Set<() => void>>();
   readonly #unsubscribeConnection: () => void;
   readonly #unsubscribeNotification: () => void;
   readonly #unsubscribeRequest: () => void;
@@ -224,6 +249,8 @@ export class CodexAdapter implements HarnessAdapter {
         )
       ),
     ];
+    this.#interruptGraceMs =
+      options.interruptGraceMs ?? defaultInterruptGraceMs;
     this.#sessionControlStore = options.sessionControlStore;
     this.#unsubscribeNotification = this.#client.onNotification(
       (notification) => {
@@ -445,8 +472,21 @@ export class CodexAdapter implements HarnessAdapter {
     if (!turnId) {
       throw new Error(`Codex thread has no active turn: ${threadId}`);
     }
+    // Track the turn (it may have been discovered via thread/turns/list) so
+    // the completion signals — real turn/completed or the idle/final_answer
+    // fallbacks — settle it instead of an optimistic delete.
+    this.#activeTurns.set(threadId, turnId);
+    const settlement = this.#awaitTurnSettlement(
+      threadId,
+      this.#interruptGraceMs
+    );
     await this.#client.request("turn/interrupt", { threadId, turnId });
-    this.#activeTurns.delete(threadId);
+    if (await settlement) {
+      return;
+    }
+    throw new Error(
+      `Codex turn ${turnId} on thread ${threadId} did not stop within ${this.#interruptGraceMs}ms of turn/interrupt; the turn may still be running`
+    );
   }
 
   async listCatalog(projectId: string): Promise<ProviderCatalog> {
@@ -925,6 +965,79 @@ export class CodexAdapter implements HarnessAdapter {
     this.#pending.clear();
     this.#richTurns.clear();
     this.#sessionState.clear();
+    this.#settledTurns.clear();
+    for (const threadId of [...this.#turnSettlementWaiters.keys()]) {
+      // The app-server child is gone, so no turn is running anymore.
+      this.#settleTurnWaiters(threadId);
+    }
+  }
+
+  #synthesizeTurnCompletion(threadId: string, source: string, turnId?: string) {
+    const activeTurnId = this.#activeTurns.get(threadId);
+    if (!activeTurnId || (turnId && turnId !== activeTurnId)) {
+      return;
+    }
+    this.#activeTurns.delete(threadId);
+    this.#freshThreadGenerations.delete(threadId);
+    this.#freshThreads.delete(threadId);
+    this.#settledTurns.set(threadId, activeTurnId);
+    const cached = this.#richTurns.get(threadId)?.get(activeTurnId);
+    const turn: Turn = {
+      completedAt: cached?.completedAt ?? null,
+      durationMs: cached?.durationMs ?? null,
+      error: cached?.error ?? null,
+      id: activeTurnId,
+      items: cached?.items ?? [],
+      itemsView: "full",
+      startedAt: cached?.startedAt ?? null,
+      status: "completed",
+    };
+    const params = { threadId, turn };
+    this.#rememberNotificationTurn(threadId, params);
+    this.#emit(threadId, "turn.completed", {
+      method: "turn/completed",
+      params,
+      synthesizedFrom: source,
+    });
+    this.#settleTurnWaiters(threadId);
+  }
+
+  #settleTurnWaiters(threadId: string) {
+    const waiters = this.#turnSettlementWaiters.get(threadId);
+    if (!waiters) {
+      return;
+    }
+    this.#turnSettlementWaiters.delete(threadId);
+    for (const waiter of waiters) {
+      waiter();
+    }
+  }
+
+  #awaitTurnSettlement(threadId: string, timeoutMs: number): Promise<boolean> {
+    if (!this.#activeTurns.has(threadId)) {
+      return Promise.resolve(true);
+    }
+    return new Promise<boolean>((resolveSettlement) => {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const waiter = () => {
+        if (timer !== undefined) {
+          clearTimeout(timer);
+        }
+        resolveSettlement(true);
+      };
+      timer = setTimeout(() => {
+        const waiters = this.#turnSettlementWaiters.get(threadId);
+        waiters?.delete(waiter);
+        if (waiters?.size === 0) {
+          this.#turnSettlementWaiters.delete(threadId);
+        }
+        resolveSettlement(false);
+      }, timeoutMs);
+      const waiters =
+        this.#turnSettlementWaiters.get(threadId) ?? new Set<() => void>();
+      waiters.add(waiter);
+      this.#turnSettlementWaiters.set(threadId, waiters);
+    });
   }
 
   #handleNotification(notification: CodexServerNotification) {
@@ -946,6 +1059,7 @@ export class CodexAdapter implements HarnessAdapter {
     }
     const turnId = nativeTurnId(notification.params);
     if (notification.method === "turn/started") {
+      this.#settledTurns.delete(threadId);
       if (turnId) {
         this.#activeTurns.set(threadId, turnId);
       }
@@ -954,26 +1068,70 @@ export class CodexAdapter implements HarnessAdapter {
       return;
     }
     if (notification.method === "turn/completed") {
-      this.#activeTurns.delete(threadId);
-      this.#freshThreadGenerations.delete(threadId);
-      this.#freshThreads.delete(threadId);
-      this.#rememberNotificationTurn(threadId, notification.params);
-      this.#emit(threadId, "turn.completed", notification);
+      this.#handleTurnCompleted(threadId, turnId, notification);
       return;
+    }
+    if (
+      notification.method === "thread/status/changed" &&
+      threadStatusIsIdle(notification.params)
+    ) {
+      // Codex can skip turn/completed entirely for fast turns; an idle
+      // thread status is the fallback completion signal for the active turn.
+      this.#synthesizeTurnCompletion(threadId, "thread/status/changed");
     }
     if (this.#handleSessionNotification(threadId, notification)) {
       return;
     }
     if (isTimelineNotification(notification.method)) {
-      if (notification.method === "item/started") {
-        this.#rememberNotificationItem(threadId, notification.params, false);
-      } else if (notification.method === "item/completed") {
-        this.#rememberNotificationItem(threadId, notification.params, true);
-      }
-      this.#emit(threadId, "timeline.item.upserted", notification);
+      this.#handleTimelineNotification(threadId, turnId, notification);
       return;
     }
     this.#emit(threadId, "provider.event", notification);
+  }
+
+  #handleTurnCompleted(
+    threadId: string,
+    turnId: string | undefined,
+    notification: CodexServerNotification
+  ) {
+    if (turnId && this.#settledTurns.get(threadId) === turnId) {
+      // A fallback signal already synthesized this turn's completion;
+      // absorb the late real notification without double-firing.
+      this.#settledTurns.delete(threadId);
+      this.#rememberNotificationTurn(threadId, notification.params);
+      return;
+    }
+    this.#activeTurns.delete(threadId);
+    this.#freshThreadGenerations.delete(threadId);
+    this.#freshThreads.delete(threadId);
+    this.#rememberNotificationTurn(threadId, notification.params);
+    this.#emit(threadId, "turn.completed", notification);
+    this.#settleTurnWaiters(threadId);
+  }
+
+  #handleTimelineNotification(
+    threadId: string,
+    turnId: string | undefined,
+    notification: CodexServerNotification
+  ) {
+    if (notification.method === "item/started") {
+      this.#rememberNotificationItem(threadId, notification.params, false);
+    } else if (notification.method === "item/completed") {
+      this.#rememberNotificationItem(threadId, notification.params, true);
+    }
+    this.#emit(threadId, "timeline.item.upserted", notification);
+    if (
+      notification.method === "item/completed" &&
+      isFinalAgentMessage(notification.params)
+    ) {
+      // A final_answer agent message ends the turn even when Codex skips
+      // the turn/completed notification.
+      this.#synthesizeTurnCompletion(
+        threadId,
+        "item/completed:final_answer",
+        turnId
+      );
+    }
   }
 
   #handleSessionNotification(

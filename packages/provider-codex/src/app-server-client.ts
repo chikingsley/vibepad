@@ -78,6 +78,34 @@ export class CodexAppServerConnectionError extends Error {
   }
 }
 
+export class CodexNotInstalledError extends CodexAppServerConnectionError {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = "CodexNotInstalledError";
+  }
+}
+
+const errorCode = (error: unknown) => {
+  if (!isRecord(error)) {
+    return;
+  }
+  const code = property(error, "code");
+  return typeof code === "string" ? code : undefined;
+};
+
+const notInstalledError = (executable: string, cause?: unknown) =>
+  new CodexNotInstalledError(
+    `Codex CLI is not installed ("${executable}" was not found on PATH). Install Codex CLI 0.130 or newer — for example \`npm install -g @openai/codex\` — and retry.`,
+    cause instanceof Error ? { cause } : undefined
+  );
+
+type ExecutableVersionProbe =
+  | { readonly kind: "missing" }
+  | { readonly kind: "unknown" }
+  | { readonly kind: "version"; readonly version: string };
+
+const versionProbeTimeoutMs = 2000;
+
 const connectionError = (reason: unknown) => {
   if (reason instanceof CodexAppServerConnectionError) {
     return reason;
@@ -168,10 +196,12 @@ export class CodexAppServerClient {
     }
     try {
       const connection = this.#spawnConnection();
-      const promise = this.#initialize(connection).catch((error: unknown) => {
-        this.#disconnect(connection, error, true);
-        throw error;
-      });
+      const promise = this.#initialize(connection).catch(
+        async (error: unknown) => {
+          this.#disconnect(connection, error, true);
+          throw await this.#classifyInitializeFailure(error);
+        }
+      );
       this.#initialization = {
         generation: connection.generation,
         promise,
@@ -264,7 +294,13 @@ export class CodexAppServerClient {
     });
     this.#consumeStderr(connection).catch(() => undefined);
     child.once("error", (error) => {
-      this.#disconnect(connection, error, false);
+      this.#disconnect(
+        connection,
+        errorCode(error) === "ENOENT"
+          ? notInstalledError(executable, error)
+          : error,
+        false
+      );
     });
     child.stdin.once("error", (error) => {
       this.#disconnect(connection, error, true);
@@ -309,6 +345,78 @@ export class CodexAppServerClient {
       kind: "connected",
     });
     return initialized;
+  }
+
+  async #classifyInitializeFailure(reason: unknown): Promise<Error> {
+    if (reason instanceof CodexNotInstalledError || disposedClients.has(this)) {
+      return connectionError(reason);
+    }
+    const [executable] = this.#command;
+    const detail = reason instanceof Error ? reason.message : String(reason);
+    const probe = await this.#probeExecutableVersion();
+    if (probe.kind === "missing") {
+      return notInstalledError(executable ?? "codex", reason);
+    }
+    const versionNote =
+      probe.kind === "version"
+        ? ` (installed Codex CLI reports "${probe.version}")`
+        : "";
+    return new CodexAppServerConnectionError(
+      `Codex app-server initialize failed${versionNote}: ${detail}. VibePad requires Codex CLI 0.130 or newer; upgrade with \`npm install -g @openai/codex@latest\` if the installed version is older.`,
+      reason instanceof Error ? { cause: reason } : undefined
+    );
+  }
+
+  #probeExecutableVersion(): Promise<ExecutableVersionProbe> {
+    const [executable] = this.#command;
+    if (!executable) {
+      return Promise.resolve({ kind: "unknown" });
+    }
+    return new Promise<ExecutableVersionProbe>((resolveProbe) => {
+      let settled = false;
+      const finish = (result: ExecutableVersionProbe) => {
+        if (!settled) {
+          settled = true;
+          resolveProbe(result);
+        }
+      };
+      let child: ReturnType<typeof spawn>;
+      try {
+        child = spawn(executable, ["--version"], {
+          ...(this.#cwd ? { cwd: this.#cwd } : {}),
+          env: this.#env,
+          stdio: ["ignore", "pipe", "ignore"],
+        });
+      } catch {
+        finish({ kind: "unknown" });
+        return;
+      }
+      const timer = setTimeout(() => {
+        child.kill();
+        finish({ kind: "unknown" });
+      }, versionProbeTimeoutMs);
+      let output = "";
+      child.stdout?.on("data", (chunk: Buffer) => {
+        output += chunk.toString("utf8");
+      });
+      child.once("error", (error) => {
+        clearTimeout(timer);
+        finish(
+          errorCode(error) === "ENOENT"
+            ? { kind: "missing" }
+            : { kind: "unknown" }
+        );
+      });
+      child.once("close", (code) => {
+        clearTimeout(timer);
+        const version = output.trim();
+        finish(
+          code === 0 && version
+            ? { kind: "version", version }
+            : { kind: "unknown" }
+        );
+      });
+    });
   }
 
   #requestRaw<Result>(

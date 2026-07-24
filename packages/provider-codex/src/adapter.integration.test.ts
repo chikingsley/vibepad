@@ -706,6 +706,7 @@ it("interrupts a real Codex turn paused on approval", async () => {
     client,
     projectRoots: [projectDirectory],
   });
+  const streamController = new AbortController();
   let sessionId: string | undefined;
 
   try {
@@ -721,12 +722,26 @@ it("interrupts a real Codex turn paused on approval", async () => {
       sessionId,
       text: `You must run this exact shell command using the shell tool: bash -lc 'printf VIBEPAD_INTERRUPT_GATE'. Then reply with exactly ${forbiddenMarker}.`,
     });
+    const completions: ProviderEvent[] = [];
+    const collectingSessionId = sessionId;
+    (async () => {
+      for await (const event of adapter.subscribe(
+        collectingSessionId,
+        streamController.signal
+      )) {
+        if (event.kind === "turn.completed") {
+          completions.push(event);
+        }
+      }
+    })().catch(() => undefined);
     await waitFor(
       () => adapter.listInteractions(sessionId as string),
       (items) => items.some((item) => item.kind === "permission"),
       "Codex interrupt approval gate"
     );
 
+    // abortTurn now resolves only after Codex confirms the turn stopped —
+    // via a real turn/completed or one of the fallback completion signals.
     await adapter.abortTurn(sessionId);
     await waitFor(
       () => adapter.listSessions(),
@@ -735,6 +750,8 @@ it("interrupts a real Codex turn paused on approval", async () => {
         "idle",
       "Codex interrupted thread"
     );
+    await delay(1500);
+    expect(completions).toHaveLength(1);
     const timeline = await adapter.listTimeline(sessionId);
     expect(
       timeline.items.some(
@@ -747,6 +764,69 @@ it("interrupts a real Codex turn paused on approval", async () => {
       )
     ).toBe(false);
   } finally {
+    streamController.abort();
+    await disposeDisposableThread(client, adapter, sessionId);
+  }
+}, 90_000);
+
+it("settles a real fast Codex turn with exactly one completion signal", async () => {
+  if (!enabled) {
+    return;
+  }
+
+  const client = new CodexAppServerClient();
+  const adapter = new CodexAdapter({
+    client,
+    projectRoots: [projectDirectory],
+  });
+  const streamController = new AbortController();
+  let sessionId: string | undefined;
+
+  try {
+    const project = (await adapter.listProjects()).find(
+      (candidate) => candidate.path === projectDirectory
+    );
+    expect(project).toBeDefined();
+    if (!project) {
+      return;
+    }
+    sessionId = (await adapter.createSession({ projectId: project.id })).id;
+    const completions: ProviderEvent[] = [];
+    const collectingSessionId = sessionId;
+    (async () => {
+      for await (const event of adapter.subscribe(
+        collectingSessionId,
+        streamController.signal
+      )) {
+        if (event.kind === "turn.completed") {
+          completions.push(event);
+        }
+      }
+    })().catch(() => undefined);
+
+    const marker = `VIBEPAD_CODEX_SINGLE_COMPLETION_${Date.now()}`;
+    await adapter.sendTurn({
+      sessionId,
+      text: `Reply with exactly ${marker}. Do not use tools.`,
+    });
+    await waitFor(
+      () => Promise.resolve(completions.length),
+      (count) => count >= 1,
+      "Codex completion signal"
+    );
+    // The thread goes idle after the turn; the idle status and any
+    // final_answer message must not synthesize a second completion.
+    await waitFor(
+      () => adapter.listSessions(),
+      (sessions) =>
+        sessions.find((candidate) => candidate.id === sessionId)?.activity ===
+        "idle",
+      "Codex idle after completion"
+    );
+    await delay(1500);
+    expect(completions).toHaveLength(1);
+  } finally {
+    streamController.abort();
     await disposeDisposableThread(client, adapter, sessionId);
   }
 }, 90_000);
