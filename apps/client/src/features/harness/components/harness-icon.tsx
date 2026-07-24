@@ -4,12 +4,14 @@ import type { ComponentProps } from "react";
 import { ProviderIcon, type ProviderIconName } from "@/components/ui/icon";
 
 const glyphForHarness = {
+  agy: "google",
   "claude-code": "anthropic",
   codex: "openai",
   opencode: "opencode",
 } as const satisfies Record<HarnessId, ProviderIconName>;
 
 const labelForHarness = {
+  agy: "Antigravity",
   "claude-code": "Claude Code",
   codex: "Codex",
   opencode: "OpenCode",

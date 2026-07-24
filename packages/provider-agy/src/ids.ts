@@ -6,12 +6,7 @@ const sessionPrefix = "agy:session:";
 const cachedKeyPrefix = "cached.";
 const liveKeyPrefix = "live.";
 
-/**
- * "agy" is not yet registered in @vibepad/protocol's harnessIdSchema. The
- * cast is confined to this constant so host/client integration only needs the
- * one-line enum addition (plus a client icon-map entry) to remove it.
- */
-export const agyHarnessId = "agy" as string as HarnessId;
+export const agyHarnessId: HarnessId = "agy";
 
 export const agyProjectId = (cwd: string) =>
   `${projectPrefix}${Buffer.from(cwd).toString("base64url")}`;

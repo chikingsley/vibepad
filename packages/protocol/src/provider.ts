@@ -18,7 +18,12 @@ import type {
 } from "./interactions";
 import type { TimelinePage } from "./timeline";
 
-export const harnessIdSchema = z.enum(["claude-code", "codex", "opencode"]);
+export const harnessIdSchema = z.enum([
+  "agy",
+  "claude-code",
+  "codex",
+  "opencode",
+]);
 export type HarnessId = z.infer<typeof harnessIdSchema>;
 
 export const projectSummarySchema = z.object({
