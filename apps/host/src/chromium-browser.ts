@@ -207,6 +207,17 @@ export class ChromiumBrowser {
     return { sessionId: attached.sessionId, targetId: created.targetId };
   }
 
+  async exportCookies() {
+    const exported = await this.send<{ cookies: Record<string, unknown>[] }>(
+      "Storage.getCookies"
+    );
+    return exported.cookies;
+  }
+
+  async importCookies(cookies: readonly Record<string, unknown>[]) {
+    await this.send("Storage.setCookies", { cookies });
+  }
+
   async evaluate(sessionId: string, expression: string) {
     const evaluated = await this.send<{ result?: { value?: unknown } }>(
       "Runtime.evaluate",

@@ -1,4 +1,6 @@
 import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
@@ -109,5 +111,59 @@ describe.skipIf(!executable)("driving a real Chromium over CDP", () => {
     const title = await browser.evaluate(tab.sessionId, "document.title");
     expect(title).toBe("scroll probe");
     await stopScreencast();
+  }, 45_000);
+
+  it("seeds a second browser's logins from the canonical cookie jar", async () => {
+    const server = createServer((_request, response) => {
+      response.writeHead(200, { "content-type": "text/html" });
+      response.end("<title>login probe</title><body>ok</body>");
+    });
+    await new Promise<void>((resolve) => {
+      server.listen(0, "127.0.0.1", resolve);
+    });
+    cleanups.push(
+      () =>
+        new Promise<void>((resolve) => {
+          server.close(() => resolve());
+        })
+    );
+    const origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}/`;
+
+    const canonicalProfile = await mkdtemp(
+      join(tmpdir(), "vibepad-canonical-")
+    );
+    cleanups.push(() => rm(canonicalProfile, { force: true, recursive: true }));
+    const canonical = await ChromiumBrowser.launch({
+      executable: executable as string,
+      profileDirectory: canonicalProfile,
+    });
+    cleanups.push(() => canonical.close());
+    const canonicalTab = await canonical.createTab(origin);
+    await canonical.evaluate(
+      canonicalTab.sessionId,
+      'document.cookie = "vibepad_login=canonical-secret; path=/"'
+    );
+
+    const exported = await canonical.exportCookies();
+    expect(
+      // biome-ignore lint/complexity/useLiteralKeys: strict index-signature access is required by the shared TypeScript config.
+      exported.some((cookie) => cookie["name"] === "vibepad_login")
+    ).toBe(true);
+
+    const sessionProfile = await mkdtemp(join(tmpdir(), "vibepad-session-"));
+    cleanups.push(() => rm(sessionProfile, { force: true, recursive: true }));
+    const sessionBrowser = await ChromiumBrowser.launch({
+      executable: executable as string,
+      profileDirectory: sessionProfile,
+    });
+    cleanups.push(() => sessionBrowser.close());
+    await sessionBrowser.importCookies(exported);
+
+    const sessionTab = await sessionBrowser.createTab(origin);
+    const sessionCookie = await sessionBrowser.evaluate(
+      sessionTab.sessionId,
+      "document.cookie"
+    );
+    expect(sessionCookie).toContain("vibepad_login=canonical-secret");
   }, 45_000);
 });
