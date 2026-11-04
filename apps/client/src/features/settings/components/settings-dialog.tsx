@@ -58,15 +58,15 @@ export function SettingsDialog({
         testID="settings-backdrop"
       />
       <View
-        className="max-h-full w-full max-w-5xl overflow-hidden rounded-2xl border border-border bg-background shadow-2xl shadow-black/30"
+        className="border-border bg-background max-h-full w-full max-w-5xl overflow-hidden rounded-2xl border shadow-2xl shadow-black/30"
         style={{ height: compact ? "94%" : "86%" }}
       >
-        <View className="h-14 flex-row items-center gap-3 border-border border-b px-4">
-          <View className="size-8 items-center justify-center rounded-lg bg-foreground">
+        <View className="border-border h-14 flex-row items-center gap-3 border-b px-4">
+          <View className="bg-foreground size-8 items-center justify-center rounded-lg">
             <Icon className="text-background" name="settings" size={16} />
           </View>
           <View className="min-w-0 flex-1">
-            <Text className="font-semibold text-sm">Settings</Text>
+            <Text className="text-sm font-semibold">Settings</Text>
             {errorMessage || persistenceLabel ? (
               <Text
                 className={cn(

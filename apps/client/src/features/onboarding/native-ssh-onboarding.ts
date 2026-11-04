@@ -12,6 +12,7 @@ import type {
   SshBootstrapResult,
   SshInspectionResult,
   SshInstallAndPairInput,
+  // biome-ignore lint/correctness/noUndeclaredDependencies: This local Expo module resolves through the tsconfig path alias, not package.json.
 } from "@vibepad/ssh-bootstrap";
 
 interface NativeSshModule {
@@ -24,7 +25,7 @@ interface NativeSshModule {
 }
 
 const wrappedNativeCausePattern =
-  /Caused by:\s*[^:\n]+:\s*(.+?)(?:\s+\(at|\n|$)/s;
+  /Caused by:\s*[^:\n]+:\s*(?<cause>.+?)(?:\s+\(at|\n|$)/su;
 
 export interface NativeSshOnboardingClient {
   readonly inspect: (input: SshConnectionInput) => Promise<ComputerInspection>;

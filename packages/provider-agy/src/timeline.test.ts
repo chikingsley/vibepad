@@ -1,4 +1,4 @@
-import { expect, it } from "vitest";
+import { expect, it as test } from "vitest";
 
 import { type AgyTurn, mapAgyTurns } from "./timeline";
 
@@ -11,7 +11,7 @@ const completedTurn: AgyTurn = {
   status: "completed",
 };
 
-it("projects a completed turn into a user and an assistant message", () => {
+test("projects a completed turn into a user and an assistant message", () => {
   const items = mapAgyTurns("agy:session:live.a", [completedTurn]);
   expect(items).toHaveLength(2);
   expect(items[0]).toMatchObject({
@@ -37,7 +37,7 @@ it("projects a completed turn into a user and an assistant message", () => {
   });
 });
 
-it("keeps a running turn's partial output visible", () => {
+test("keeps a running turn's partial output visible", () => {
   const items = mapAgyTurns("agy:session:live.a", [
     {
       id: "turn-2",
@@ -52,7 +52,7 @@ it("keeps a running turn's partial output visible", () => {
   expect(items[1]?.parts[0]).toMatchObject({ text: "Thinking" });
 });
 
-it("adds an error notice for failed turns and drops empty assistant output", () => {
+test("adds an error notice for failed turns and drops empty assistant output", () => {
   const items = mapAgyTurns("agy:session:live.a", [
     {
       completedAt: 1_700_000_001_000,
@@ -69,7 +69,7 @@ it("adds an error notice for failed turns and drops empty assistant output", () 
   expect(items[1]?.parts[0]).toMatchObject({ text: "agy exited with code 1" });
 });
 
-it("keeps partial output and the notice for failed turns with output", () => {
+test("keeps partial output and the notice for failed turns with output", () => {
   const items = mapAgyTurns("agy:session:live.a", [
     {
       completedAt: 1_700_000_001_000,

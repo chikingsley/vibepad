@@ -43,7 +43,7 @@ const defaultResolveRealPath = (path: string) => {
   }
 };
 
-const versionSegment = /^\d+\.\d+\.\d+/;
+const versionSegment = /^\d+\.\d+\.\d+/u;
 
 const versionFromPathSegments = (realPath: string) => {
   const segments = realPath.split(sep);

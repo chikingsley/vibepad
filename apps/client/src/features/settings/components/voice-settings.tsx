@@ -128,7 +128,7 @@ export function VoiceSettings() {
   return (
     <View className="gap-6">
       <View className="gap-1">
-        <Text className="font-semibold text-xl">Voice</Text>
+        <Text className="text-xl font-semibold">Voice</Text>
         <Text className="text-sm" variant="muted">
           Session dictation stays editable and separate from spoken alerts and
           the future conversational orchestrator.
@@ -137,7 +137,7 @@ export function VoiceSettings() {
 
       <View className="gap-3">
         <Text
-          className="font-medium text-xs uppercase tracking-wider"
+          className="text-xs font-medium tracking-wider uppercase"
           variant="muted"
         >
           Dictation
@@ -191,7 +191,7 @@ export function VoiceSettings() {
       <View className="gap-3">
         <View className="flex-row items-center gap-2">
           <Text
-            className="font-medium text-xs uppercase tracking-wider"
+            className="text-xs font-medium tracking-wider uppercase"
             variant="muted"
           >
             AI cleanup

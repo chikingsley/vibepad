@@ -10,7 +10,7 @@ import type { ProjectedTimelineBlock } from "@/features/timeline/model/timeline-
 
 function HarnessAvatar({ harnessId }: { readonly harnessId: HarnessId }) {
   return (
-    <View className="mt-0.5 size-7 items-center justify-center rounded-lg bg-muted">
+    <View className="bg-muted mt-0.5 size-7 items-center justify-center rounded-lg">
       <HarnessIcon
         className="text-foreground"
         harnessId={harnessId}
@@ -48,7 +48,7 @@ function TimelineMessageContent({
     }
     return (
       <View
-        className="self-start rounded-lg border border-border bg-card px-3 py-2"
+        className="border-border bg-card self-start rounded-lg border px-3 py-2"
         key={part.id}
       >
         <Text className="text-xs">{part.name ?? part.uri}</Text>
@@ -70,7 +70,7 @@ function TimelineMessage({
   if (block.itemKind === "notice" || block.itemKind === "compaction") {
     return (
       <View className="items-center py-1" testID={`timeline-item-${block.id}`}>
-        <View className="max-w-[90%] rounded-full bg-muted px-3 py-1.5">
+        <View className="bg-muted max-w-[90%] rounded-full px-3 py-1.5">
           <Text className="text-center text-[11px]" variant="muted">
             {block.parts.find((part) => part.type === "text")?.text}
           </Text>
@@ -82,7 +82,7 @@ function TimelineMessage({
   if (block.role === "user") {
     return (
       <View className="items-end" testID={`timeline-item-${block.id}`}>
-        <View className="max-w-[88%] gap-2 rounded-2xl rounded-br-md bg-muted px-4 py-3">
+        <View className="bg-muted max-w-[88%] gap-2 rounded-2xl rounded-br-md px-4 py-3">
           <TimelineMessageContent
             parts={block.parts}
             rich={false}

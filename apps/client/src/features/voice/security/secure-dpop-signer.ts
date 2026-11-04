@@ -1,5 +1,6 @@
 import SecureSignerModule, {
   type SecureSignerPublicKey,
+  // biome-ignore lint/correctness/noUndeclaredDependencies: This local Expo module resolves through the tsconfig path alias, not package.json.
 } from "@vibepad/secure-signer";
 import {
   CryptoDigestAlgorithm,

@@ -63,7 +63,7 @@ const durableItemKey = (item: ThreadItem) => {
   }
 };
 
-const connectionItemIdPattern = /^item-\d+$/;
+const connectionItemIdPattern = /^item-\d+$/u;
 
 const removeConnectionDuplicates = (items: readonly ThreadItem[]) => {
   const durableKeys = new Set(

@@ -8,7 +8,7 @@ import { NativeSshOnboardingFlow } from "@/features/onboarding/components/native
 
 export function SettingsLoadingScreen() {
   return (
-    <SafeAreaView className="flex-1 items-center justify-center bg-background">
+    <SafeAreaView className="bg-background flex-1 items-center justify-center">
       <View className="items-center gap-3" testID="settings-loading-screen">
         <VibePadMark className="size-12" />
         <Text className="text-sm" variant="muted">
@@ -28,14 +28,14 @@ export function HostActivationScreen({
 }) {
   if (errorMessage) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-background px-6">
+      <SafeAreaView className="bg-background flex-1 items-center justify-center px-6">
         <View
           className="w-full max-w-md items-center gap-5"
           testID="settings-load-error-screen"
         >
           <VibePadMark className="size-14" />
           <View className="items-center gap-2">
-            <Text className="text-center font-semibold text-2xl">
+            <Text className="text-center text-2xl font-semibold">
               VibePad needs another try
             </Text>
             <Text className="text-center" variant="muted">

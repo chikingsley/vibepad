@@ -1,5 +1,5 @@
 import { pairingInvitationUrl } from "@vibepad/protocol/auth";
-import { expect, it } from "vitest";
+import { expect, it as test } from "vitest";
 import type { CommandRunner } from "./service-discovery";
 import { OpenSshBootstrap } from "./ssh-bootstrap";
 
@@ -12,7 +12,7 @@ const invitation = {
   version: 1 as const,
 };
 
-it("bootstraps a discovered SSH target and returns its pairing invitation", async () => {
+test("bootstraps a discovered SSH target and returns its pairing invitation", async () => {
   const commands: Array<readonly [string, readonly string[]]> = [];
   const runner: CommandRunner = (executable, args) => {
     commands.push([executable, args]);
@@ -46,7 +46,7 @@ it("bootstraps a discovered SSH target and returns its pairing invitation", asyn
   );
 });
 
-it("rejects aliases outside the discovered controller targets", async () => {
+test("rejects aliases outside the discovered controller targets", async () => {
   const bootstrap = new OpenSshBootstrap({
     runner: () => Promise.reject(new Error("SSH should stay idle")),
     targets: { listTargets: () => Promise.resolve([]) },

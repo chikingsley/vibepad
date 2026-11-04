@@ -72,7 +72,7 @@ function OnboardingFrame({
   readonly testID: string;
 }) {
   return (
-    <SafeAreaView className="flex-1 bg-background">
+    <SafeAreaView className="bg-background flex-1">
       <ScrollView
         contentContainerClassName="min-h-full justify-center px-5 py-10 sm:px-10"
         keyboardShouldPersistTaps="handled"
@@ -108,7 +108,7 @@ function OnboardingHeading({
   return (
     <View className="items-center gap-3 text-center">
       <VibePadMark className="size-14" />
-      <Text className="text-center font-semibold text-3xl tracking-tight sm:text-4xl">
+      <Text className="text-center text-3xl font-semibold tracking-tight sm:text-4xl">
         {children}
       </Text>
       <Text
@@ -144,7 +144,7 @@ function ChoiceCard({
       testID={testID}
       variant="outline"
     >
-      <View className="size-10 items-center justify-center rounded-xl bg-muted">
+      <View className="bg-muted size-10 items-center justify-center rounded-xl">
         <Icon name={icon} size={18} />
       </View>
       <View className="min-w-0 flex-1 gap-1">
@@ -217,7 +217,7 @@ function ComputerResultRow({
   return (
     <Pressable
       accessibilityLabel={`Pair ${computer.name}`}
-      className="min-h-12 flex-row items-center gap-3 border-border border-b px-4 py-3 last:border-b-0 active:bg-accent"
+      className="border-border active:bg-accent min-h-12 flex-row items-center gap-3 border-b px-4 py-3 last:border-b-0"
       onPress={select}
       testID={`onboarding-computer-${computer.id}`}
     >
@@ -267,7 +267,7 @@ function ComputerChoiceScreen({ actions, state }: ScreenProps) {
       <View className="mx-auto w-full max-w-2xl gap-3 sm:flex-row">
         {severalComputers ? (
           <View
-            className="flex-1 overflow-hidden rounded-2xl border border-border bg-card"
+            className="border-border bg-card flex-1 overflow-hidden rounded-2xl border"
             testID="onboarding-computer-list"
           >
             {discovery.computers.map((computer) => (
@@ -298,7 +298,7 @@ function ComputerChoiceScreen({ actions, state }: ScreenProps) {
       {discovery.status === "permission-required" ||
       discovery.status === "error" ? (
         <Text
-          className="text-center text-red-600 text-sm"
+          className="text-center text-sm text-red-600"
           testID="onboarding-discovery-message"
         >
           {discovery.message}
@@ -353,13 +353,13 @@ function Field({
   const theme = THEME[colorScheme === "dark" ? "dark" : "light"];
   return (
     <View className={cn("min-w-0 gap-1.5", widthClass)}>
-      <Text className="font-medium text-sm">{label}</Text>
+      <Text className="text-sm font-medium">{label}</Text>
       <TextInput
         accessibilityLabel={label}
         autoCapitalize="none"
         autoComplete={label === "Password" ? "off" : undefined}
         autoCorrect={false}
-        className="h-12 rounded-xl border border-border bg-card px-3 text-foreground outline-none"
+        className="border-border bg-card text-foreground h-12 rounded-xl border px-3 outline-none"
         keyboardType={keyboardType}
         onChangeText={onChangeText}
         placeholder={placeholder}
@@ -418,7 +418,7 @@ function SshCredentialsScreen({
       </OnboardingHeading>
       <View className="mx-auto w-full max-w-2xl gap-4">
         {platform === "web" ? (
-          <View className="rounded-xl border border-border bg-card p-5">
+          <View className="border-border bg-card rounded-xl border p-5">
             <Text className="text-center leading-6" variant="muted">
               Browser security routes SSH through the computer-side installer.
             </Text>
@@ -490,7 +490,7 @@ function SshCredentialsScreen({
         </Button>
         {state.errorMessage ? (
           <Text
-            className="text-center text-red-600 text-sm"
+            className="text-center text-sm text-red-600"
             testID="onboarding-ssh-error"
           >
             {state.errorMessage}
@@ -537,7 +537,7 @@ function InspectionComponentRow({
       component.state === "missing-skip-selected");
   return (
     <View
-      className="flex-row items-center gap-3 border-border border-b px-4 py-4 last:border-b-0"
+      className="border-border flex-row items-center gap-3 border-b px-4 py-4 last:border-b-0"
       testID={`onboarding-component-${component.id}`}
     >
       <Icon
@@ -588,7 +588,7 @@ function InspectionScreen({ actions, state }: ScreenProps) {
       <OnboardingHeading detail="Choose the coding tools VibePad should prepare.">
         {state.report.computerName} is ready to set up
       </OnboardingHeading>
-      <View className="mx-auto w-full max-w-2xl overflow-hidden rounded-2xl border border-border bg-card">
+      <View className="border-border bg-card mx-auto w-full max-w-2xl overflow-hidden rounded-2xl border">
         {state.report.components.map((component) => (
           <InspectionComponentRow
             component={component}
@@ -633,7 +633,7 @@ function InstallationScreen({ state }: ScreenProps) {
       <OnboardingHeading detail="Keep VibePad open while setup finishes.">
         Setting up {state.progress.computerName}
       </OnboardingHeading>
-      <View className="mx-auto w-full max-w-xl gap-1 rounded-2xl border border-border bg-card p-3">
+      <View className="border-border bg-card mx-auto w-full max-w-xl gap-1 rounded-2xl border p-3">
         {state.progress.steps.map((step) => (
           <View
             className="flex-row items-center gap-3 rounded-xl px-3 py-3"
@@ -651,16 +651,16 @@ function InstallationScreen({ state }: ScreenProps) {
               <InstallationStepMark status={step.status} />
             </View>
             <View className="min-w-0 flex-1 gap-1">
-              <Text className="font-medium text-sm">{stepLabel[step.id]}</Text>
+              <Text className="text-sm font-medium">{stepLabel[step.id]}</Text>
               {step.detail ? (
                 <Text className="text-xs" variant="muted">
                   {step.detail}
                 </Text>
               ) : null}
               {step.progress === undefined ? null : (
-                <View className="h-1.5 overflow-hidden rounded-full bg-muted">
+                <View className="bg-muted h-1.5 overflow-hidden rounded-full">
                   <View
-                    className="h-full rounded-full bg-primary"
+                    className="bg-primary h-full rounded-full"
                     style={{ width: `${step.progress * 100}%` }}
                   />
                 </View>
@@ -680,11 +680,11 @@ function ReadyScreen({ actions, state }: ScreenProps) {
   return (
     <OnboardingFrame testID="onboarding-computer-ready">
       <View className="items-center gap-7">
-        <View className="size-16 items-center justify-center rounded-full bg-success">
+        <View className="bg-success size-16 items-center justify-center rounded-full">
           <Icon color="white" name="check" size={28} />
         </View>
         <View className="items-center gap-3">
-          <Text className="text-center font-semibold text-3xl tracking-tight">
+          <Text className="text-center text-3xl font-semibold tracking-tight">
             {state.computer.hostName} is connected
           </Text>
           <Text className="text-center leading-6" variant="muted">
@@ -724,7 +724,7 @@ function InstallationStepMark({
   if (status === "failed") {
     return <Icon color="white" name="x" size={13} />;
   }
-  return <View className="size-2 rounded-full bg-muted-foreground" />;
+  return <View className="bg-muted-foreground size-2 rounded-full" />;
 }
 
 export function OnboardingScreen({

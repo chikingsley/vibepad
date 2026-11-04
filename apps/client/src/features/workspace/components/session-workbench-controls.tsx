@@ -37,7 +37,7 @@ function SurfaceControl({
     <Pressable
       accessibilityLabel={`Show session ${surface.label}`}
       className={cn(
-        "size-11 items-center justify-center rounded-md active:bg-accent",
+        "active:bg-accent size-11 items-center justify-center rounded-md",
         selected && "bg-accent"
       )}
       onPress={select}
@@ -61,7 +61,7 @@ export function SessionWorkbenchControls({
 }) {
   return (
     <View
-      className="flex-row items-center border-border border-l pl-1"
+      className="border-border flex-row items-center border-l pl-1"
       testID="session-workbench-controls"
     >
       {surfaces.map((surface) => (

@@ -99,6 +99,11 @@ export class ClaudeCodeEventHub {
     this.#listeners.set(sessionId, listeners);
     signal?.addEventListener("abort", abort, { once: true });
 
+    const nextEvent = () =>
+      new Promise<void>((resolve) => {
+        wake = resolve;
+      });
+
     try {
       while (!signal?.aborted) {
         const event = queue.shift();
@@ -107,9 +112,7 @@ export class ClaudeCodeEventHub {
           continue;
         }
         // biome-ignore lint/performance/noAwaitInLoops: Each subscriber must wait for its next sequential event.
-        await new Promise<void>((resolve) => {
-          wake = resolve;
-        });
+        await nextEvent();
       }
     } finally {
       signal?.removeEventListener("abort", abort);

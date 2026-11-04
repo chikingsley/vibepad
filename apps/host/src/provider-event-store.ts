@@ -102,6 +102,7 @@ export class SqliteProviderEventStore implements ProviderEventStore {
         event.projectId,
         event.kind,
         event.timestamp,
+        // biome-ignore lint/suspicious/noUnnecessaryConditions: JSON.stringify returns undefined for undefined and functions, despite its declared type.
         JSON.stringify(event.native) ?? "null"
       );
   }

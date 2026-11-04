@@ -70,14 +70,14 @@ function StatusTabTrigger({
       <Text
         className={cn(
           "text-xs",
-          selected ? "font-medium text-foreground" : "text-muted-foreground"
+          selected ? "text-foreground font-medium" : "text-muted-foreground"
         )}
       >
         {count > 0 ? `${count} ` : ""}
         {label}
       </Text>
       {selected ? (
-        <View className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-foreground" />
+        <View className="bg-foreground absolute inset-x-0 bottom-0 h-0.5 rounded-full" />
       ) : null}
     </TabsTrigger>
   );
@@ -115,7 +115,7 @@ function ServiceList({
   const statusMessage = loading ? "Loading status…" : emptyMessage;
 
   return (
-    <View className="m-2 min-h-24 rounded-lg bg-muted/55 p-3">
+    <View className="bg-muted/55 m-2 min-h-24 rounded-lg p-3">
       {items.length === 0 ? (
         <View className="min-h-16 items-center justify-center px-3">
           <Text className="text-xs" variant="muted">
@@ -259,7 +259,7 @@ export function StatusControl({
           <OpenCodeStatusGlyph active={open} />
           <View
             className={cn(
-              "absolute top-1.5 right-1.5 size-2 rounded-full border border-background",
+              "border-background absolute top-1.5 right-1.5 size-2 rounded-full border",
               aggregateTone
             )}
           />
@@ -273,7 +273,7 @@ export function StatusControl({
       >
         <View
           className={cn(
-            "m-2 rounded-lg bg-muted/55 p-1.5",
+            "bg-muted/55 m-2 rounded-lg p-1.5",
             visibleTabs.length > 0 && "mb-0"
           )}
           testID="system-status-overview"

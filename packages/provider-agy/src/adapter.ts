@@ -126,7 +126,7 @@ const defaultSpawn: AgySpawnFn = (command, args, options) =>
  * Parse an agy duration string ("10m", "30s", "1h") to milliseconds,
  * defaulting to ten minutes (happy-cli/src/agy/AgyBackend.ts:51-57).
  */
-const printTimeoutPattern = /^(\d+)\s*(s|m|h)$/;
+const printTimeoutPattern = /^(?<amount>\d+)\s*(?<unit>s|m|h)$/u;
 
 export const parsePrintTimeoutMs = (value: string): number => {
   const match = printTimeoutPattern.exec(value.trim());
@@ -183,7 +183,7 @@ interface AgySessionState {
 }
 
 const approvalAgents = ["sandbox", "skip-permissions"] as const;
-const trailingSlash = /\/$/;
+const trailingSlash = /\/$/u;
 const defaultTitle = "New Antigravity session";
 const modelProviderId = "antigravity";
 const stderrTailLimit = 2000;

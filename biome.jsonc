@@ -16,6 +16,26 @@
   "linter": {
     "domains": {
       "reactNative": "all"
+    },
+    "rules": {
+      "correctness": {
+        "noReactNativeRawText": {
+          "level": "error",
+          "options": {
+            // These components render their children inside <Text>.
+            "skip": ["OnboardingHeading", "OptionLabel"]
+          }
+        }
+      },
+      "style": {
+        "useThisInClassMethods": {
+          "level": "error",
+          "options": {
+            // An `implements` contract requires instance methods, used or not.
+            "ignoreClassesWithImplements": "all"
+          }
+        }
+      }
     }
   }
 }

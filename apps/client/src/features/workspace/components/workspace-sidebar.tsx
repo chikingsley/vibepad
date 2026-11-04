@@ -67,7 +67,7 @@ function SidebarListFooter({
   if (errorMessage) {
     return (
       <View className="gap-3 rounded-lg border border-red-500/25 bg-red-500/5 px-3 py-3">
-        <Text className="text-red-600 text-xs" numberOfLines={3}>
+        <Text className="text-xs text-red-600" numberOfLines={3}>
           {errorMessage}
         </Text>
         <Button onPress={onRefresh} size="sm" variant="outline">
@@ -161,9 +161,9 @@ export function WorkspaceSidebar({
   );
 
   return (
-    <View className="h-full bg-card" testID="workspace-sidebar">
-      <View className="h-12 flex-row items-center gap-2.5 border-border border-b px-3">
-        <Text className="flex-1 font-semibold text-base">Chats</Text>
+    <View className="bg-card h-full" testID="workspace-sidebar">
+      <View className="border-border h-12 flex-row items-center gap-2.5 border-b px-3">
+        <Text className="flex-1 text-base font-semibold">Chats</Text>
         <Button
           accessibilityLabel="Open settings"
           onPress={onOpenSettings}

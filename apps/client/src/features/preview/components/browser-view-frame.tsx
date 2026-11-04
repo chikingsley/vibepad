@@ -7,6 +7,7 @@ export function BrowserViewFrame({ url }: { readonly url: string }) {
       <View className="flex-1 bg-black">
         <iframe
           allow="clipboard-read; clipboard-write"
+          sandbox="allow-same-origin allow-scripts"
           src={url}
           style={{ border: 0, height: "100%", width: "100%" }}
           title="VibePad Browser"

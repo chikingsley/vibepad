@@ -24,9 +24,11 @@ export default function OnboardingFixtureRoute() {
     fixture?: string;
     platform?: string;
   }>();
+  // biome-ignore lint/suspicious/noUnnecessaryConditions: Biome infers these params as required; tsc correctly sees string | undefined.
   const fixture = fixtureIds.has(parameters.fixture ?? "")
     ? (parameters.fixture as OnboardingFixtureId)
     : "welcome";
+  // biome-ignore lint/suspicious/noUnnecessaryConditions: Biome infers these params as required; tsc correctly sees string | undefined.
   const platform = ["iphone", "ipad", "web"].includes(parameters.platform ?? "")
     ? (parameters.platform as OnboardingPlatform)
     : defaultPlatform();

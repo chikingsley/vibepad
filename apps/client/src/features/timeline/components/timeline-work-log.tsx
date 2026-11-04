@@ -193,7 +193,7 @@ export function TimelineWorkLog({
         title={title}
       />
       <CollapsibleContent>
-        <View className="ml-7 border-border border-l pl-2">
+        <View className="border-border ml-7 border-l pl-2">
           <TimelineActivitySequence labelMode="action" parts={parts} />
         </View>
       </CollapsibleContent>

@@ -32,12 +32,12 @@ export function PreviewReviewTray({
 }) {
   return (
     <View
-      className="absolute right-3 bottom-3 left-3 gap-1.5 rounded-2xl border border-border bg-background/95 p-2 shadow-black/20 shadow-xl"
+      className="border-border bg-background/95 absolute right-3 bottom-3 left-3 gap-1.5 rounded-2xl border p-2 shadow-xl shadow-black/20"
       style={styles.tray}
       testID="preview-review-tray"
     >
       {errorMessage ? (
-        <Text className="px-1 text-red-600 text-xs">{errorMessage}</Text>
+        <Text className="px-1 text-xs text-red-600">{errorMessage}</Text>
       ) : null}
       <View className="min-w-0 flex-row items-end gap-2">
         <View className="min-w-0 flex-1">
@@ -56,7 +56,7 @@ export function PreviewReviewTray({
           </Button>
           <Button
             accessibilityLabel="Send preview feedback"
-            className={canSend ? "rounded-full bg-brand" : "rounded-full"}
+            className={canSend ? "bg-brand rounded-full" : "rounded-full"}
             disabled={!canSend}
             onPress={onSend}
             size="icon"

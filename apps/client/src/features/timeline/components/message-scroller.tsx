@@ -128,7 +128,7 @@ function EarlierTimelineControl({
       {error ? (
         <Text
           accessibilityLiveRegion="polite"
-          className="text-center text-red-600 text-xs"
+          className="text-center text-xs text-red-600"
         >
           {error}
         </Text>
@@ -227,6 +227,7 @@ export function MessageScroller({
     const preferenceChanged =
       previousOpeningPreference.current !== openingPreference;
 
+    // biome-ignore lint/suspicious/noUnnecessaryConditions: The ref changes between renders and across awaits, which flow typing cannot see.
     if (becameInactive || sessionChanged || preferenceChanged) {
       persistCheckpoint();
     }
@@ -440,7 +441,7 @@ export function MessageScroller({
           >
             <Button
               accessibilityLabel="Jump to latest"
-              className="pointer-events-auto size-9 rounded-full bg-background shadow-lg"
+              className="bg-background pointer-events-auto size-9 rounded-full shadow-lg"
               onPress={handleJumpToLatest}
               size="icon"
               testID="jump-to-latest"

@@ -45,7 +45,7 @@ function QuestionOptionButton({
       onPress={select}
       testID={`question-option-${index}-${option.label}`}
     >
-      <Text className="font-medium text-sm">{option.label}</Text>
+      <Text className="text-sm font-medium">{option.label}</Text>
       {option.description ? (
         <Text className="text-muted-foreground text-xs">
           {option.description}
@@ -74,7 +74,7 @@ function QuestionCustomAnswer({
 
   return (
     <TextInput
-      className="min-h-10 rounded-lg border border-border bg-background px-3 py-2 text-foreground text-sm outline-none"
+      className="border-border bg-background text-foreground min-h-10 rounded-lg border px-3 py-2 text-sm outline-none"
       onChangeText={change}
       placeholder="Other answer…"
       placeholderTextColor={colorScheme === "dark" ? "#9a9ea8" : "#666b75"}
@@ -173,7 +173,7 @@ export function QuestionCard({
       {interaction.questions.map((question, questionIndex) => (
         <View className="gap-2" key={`${interaction.id}:${question.header}`}>
           <View className="gap-1">
-            <Text className="font-semibold text-sm">{question.header}</Text>
+            <Text className="text-sm font-semibold">{question.header}</Text>
             <Text className="text-sm">{question.question}</Text>
           </View>
           <View className="flex-row flex-wrap gap-2">
@@ -201,7 +201,7 @@ export function QuestionCard({
         </View>
       ))}
       {response.errorMessage ? (
-        <Text className="text-red-600 text-xs">{response.errorMessage}</Text>
+        <Text className="text-xs text-red-600">{response.errorMessage}</Text>
       ) : null}
       <View className="flex-row justify-end gap-2">
         <Button

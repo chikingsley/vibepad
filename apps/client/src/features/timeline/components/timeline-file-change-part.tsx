@@ -73,7 +73,7 @@ function ChangePreview({ change }: { readonly change: TimelineFileChange }) {
   const preview = change.patch ?? change.content;
   return (
     <TimelineDetailPanel>
-      <View className="flex-row items-center gap-2 border-border border-b px-3 py-2">
+      <View className="border-border flex-row items-center gap-2 border-b px-3 py-2">
         <Text className="min-w-0 flex-1 text-[11px]" numberOfLines={1}>
           {change.previousPath
             ? `${change.previousPath} → ${change.path}`
@@ -184,7 +184,7 @@ export function TimelineFileChangePart({
         {single ? (
           <ChangePreview change={single} />
         ) : (
-          <View className="ml-7 gap-0.5 border-border border-l pl-2">
+          <View className="border-border ml-7 gap-0.5 border-l pl-2">
             {part.changes.map((change) => (
               <FileChangeRow
                 change={change}
@@ -195,7 +195,7 @@ export function TimelineFileChangePart({
           </View>
         )}
         {part.error ? (
-          <Text className="ml-7 px-3 py-2 text-red-600 text-xs">
+          <Text className="ml-7 px-3 py-2 text-xs text-red-600">
             {part.error}
           </Text>
         ) : null}

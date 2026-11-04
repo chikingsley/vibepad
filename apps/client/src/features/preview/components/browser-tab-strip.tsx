@@ -32,9 +32,9 @@ function BrowserTab({
   return (
     <View
       className={cn(
-        "h-11 min-w-36 max-w-56 flex-row items-center rounded-md border px-1",
+        "h-11 max-w-56 min-w-36 flex-row items-center rounded-md border px-1",
         active
-          ? "border-border bg-background shadow-black/5 shadow-sm"
+          ? "border-border bg-background shadow-sm shadow-black/5"
           : "border-border/55 bg-background/35"
       )}
       testID={`browser-tab-${tab.id}`}
@@ -102,7 +102,7 @@ export function BrowserTabStrip({
 
   return (
     <View
-      className="h-12 flex-row items-center border-border border-b bg-muted/45 pl-2"
+      className="border-border bg-muted/45 h-12 flex-row items-center border-b pl-2"
       testID="browser-tab-strip"
     >
       {tabs.length === 0 ? (

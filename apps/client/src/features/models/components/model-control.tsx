@@ -108,7 +108,7 @@ function ModelSelectionError({
   const selectionError = useValue(selection$.selectionError);
   const message = selectionError ?? catalogError;
   return message ? (
-    <Text className="px-2 text-red-600 text-xs">{message}</Text>
+    <Text className="px-2 text-xs text-red-600">{message}</Text>
   ) : null;
 }
 
@@ -188,7 +188,7 @@ function ModelResults({
     ({ item }: LegendListRenderItemProps<ModelListItem>) =>
       item.type === "provider" ? (
         <View className="px-2 pt-3 pb-1">
-          <Text className="font-semibold text-[10px] uppercase" variant="muted">
+          <Text className="text-[10px] font-semibold uppercase" variant="muted">
             {item.label}
           </Text>
         </View>

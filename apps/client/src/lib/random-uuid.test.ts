@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("expo-crypto", () => ({ getRandomBytes: vi.fn() }));
-
 import { uuidFromRandomBytes } from "./random-uuid";
+
+vi.mock("expo-crypto", () => ({ getRandomBytes: vi.fn() }));
 
 describe("uuidFromRandomBytes", () => {
   it("formats random bytes as an RFC 4122 version 4 UUID", () => {

@@ -152,10 +152,10 @@ export function FilesSurface({
         )}
         style={split ? { width: 284 } : { height: 220 }}
       >
-        <View className="h-11 flex-row items-center gap-2 border-border border-b px-2">
+        <View className="border-border h-11 flex-row items-center gap-2 border-b px-2">
           <Pressable
             accessibilityLabel="Go to parent folder"
-            className="rounded-md p-2 active:bg-accent"
+            className="active:bg-accent rounded-md p-2"
             disabled={!path}
             onPress={moveUp}
             testID="files-parent"
@@ -178,7 +178,7 @@ export function FilesSurface({
 
         {files.status === "error" ? (
           <View className="p-3">
-            <Text className="text-red-600 text-xs">{files.message}</Text>
+            <Text className="text-xs text-red-600">{files.message}</Text>
           </View>
         ) : (
           <FlatList
@@ -194,7 +194,7 @@ export function FilesSurface({
 
       <View className="min-h-0 min-w-0 flex-1">
         {openFiles.length > 0 ? (
-          <View className="h-9 max-h-9 border-border border-b">
+          <View className="border-border h-9 max-h-9 border-b">
             <LegendList
               data={openFiles}
               dataKey={`file-tabs:${sessionId}`}

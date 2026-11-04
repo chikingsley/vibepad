@@ -114,7 +114,7 @@ export function ReasoningEffortControl({
         testID="reasoning-effort-menu"
       >
         <View pointerEvents={selecting ? "none" : "auto"}>
-          <Text className="px-2 pt-1 pb-1 font-semibold text-xs">
+          <Text className="px-2 pt-1 pb-1 text-xs font-semibold">
             Reasoning effort
           </Text>
           {variants.map((variant) => {
@@ -130,7 +130,7 @@ export function ReasoningEffortControl({
           })}
         </View>
         {error ? (
-          <Text className="px-2 text-red-600 text-xs">{error}</Text>
+          <Text className="px-2 text-xs text-red-600">{error}</Text>
         ) : null}
       </PopoverContent>
     </Popover>

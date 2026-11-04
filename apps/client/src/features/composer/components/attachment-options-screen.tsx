@@ -24,13 +24,13 @@ function OptionLabel({
 }) {
   return (
     <View className="flex-row items-center gap-2">
-      <View className="size-6 items-center justify-center rounded-full bg-muted">
-        <Text className="font-semibold text-[11px]">{number}</Text>
+      <View className="bg-muted size-6 items-center justify-center rounded-full">
+        <Text className="text-[11px] font-semibold">{number}</Text>
       </View>
-      <Text className="font-semibold text-sm">{children}</Text>
+      <Text className="text-sm font-semibold">{children}</Text>
       {recommended ? (
         <View className="rounded-full bg-blue-500/10 px-2 py-1">
-          <Text className="font-medium text-[9px] text-blue-600">
+          <Text className="text-[9px] font-medium text-blue-600">
             Recommended
           </Text>
         </View>
@@ -41,7 +41,7 @@ function OptionLabel({
 
 function ComposerFrame({ children }: { readonly children: React.ReactNode }) {
   return (
-    <View className="rounded-2xl border border-border bg-background p-3">
+    <View className="border-border bg-background rounded-2xl border p-3">
       {children}
     </View>
   );
@@ -56,13 +56,13 @@ function DetailInspector({ option }: { readonly option: AttachmentOption }) {
 
   return (
     <View
-      className="gap-4 border-border bg-card p-4"
+      className="border-border bg-card gap-4 p-4"
       style={{ minWidth: 280, width: 320 }}
       testID="attachment-detail-inspector"
     >
       <View className="flex-row items-center gap-2">
         <Icon className="text-muted-foreground" name="browser" size={15} />
-        <Text className="min-w-0 flex-1 font-semibold text-sm">{title}</Text>
+        <Text className="min-w-0 flex-1 text-sm font-semibold">{title}</Text>
         <Button
           accessibilityLabel="Close inspector"
           size="icon"
@@ -71,8 +71,8 @@ function DetailInspector({ option }: { readonly option: AttachmentOption }) {
           <Icon className="text-muted-foreground" name="x" size={14} />
         </Button>
       </View>
-      <View className="gap-1 rounded-xl bg-muted/60 p-3">
-        <Text className="font-medium text-xs">Preview context</Text>
+      <View className="bg-muted/60 gap-1 rounded-xl p-3">
+        <Text className="text-xs font-medium">Preview context</Text>
         <Text className="text-[10px]" variant="muted">
           http://home-mac:8081/checkout
         </Text>
@@ -128,8 +128,8 @@ export function AttachmentOptionsScreen() {
   const showStrip = useCallback(() => setOption("strip"), []);
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
-      <View className="h-14 flex-row items-center border-border border-b px-5">
+    <SafeAreaView className="bg-background flex-1">
+      <View className="border-border h-14 flex-row items-center border-b px-5">
         <Text className="font-semibold">Review attachment directions</Text>
         <Text className="ml-3 text-xs" variant="muted">
           Real React Native components · tap any attachment for details
@@ -142,7 +142,7 @@ export function AttachmentOptionsScreen() {
           testID="attachment-options"
         >
           <View className="gap-2">
-            <Text className="font-semibold text-2xl">Composer attachments</Text>
+            <Text className="text-2xl font-semibold">Composer attachments</Text>
             <Text className="max-w-2xl text-sm leading-5" variant="muted">
               These keep the shadcn attachment anatomy while preserving the
               vector strokes, DOM anchors, and voice timestamps behind the

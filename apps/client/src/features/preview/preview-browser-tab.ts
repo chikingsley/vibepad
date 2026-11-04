@@ -1,4 +1,4 @@
-const leadingWwwPattern = /^www\./;
+const leadingWwwPattern = /^www\./u;
 
 export type PreviewBrowserTabOwner = "agent" | "page" | "user";
 

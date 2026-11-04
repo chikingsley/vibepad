@@ -17,6 +17,7 @@ const formatDetail = (value: unknown) => {
     return value;
   }
   try {
+    // biome-ignore lint/suspicious/noUnnecessaryConditions: JSON.stringify returns undefined for undefined and functions, despite its declared type.
     return JSON.stringify(value, null, 2) ?? String(value);
   } catch {
     return String(value);
@@ -60,7 +61,7 @@ function ToolDetail({
   return (
     <View className="gap-1.5 px-3 py-2.5">
       <Text
-        className="font-medium text-[10px] uppercase tracking-wider"
+        className="text-[10px] font-medium tracking-wider uppercase"
         variant="muted"
       >
         {label}

@@ -102,13 +102,13 @@ function SplitDivider({
       accessibilityLabel="Resize chat and workbench"
       accessibilityRole="adjustable"
       accessibilityValue={{ max: 68, min: 28, now: Math.round(ratio * 100) }}
-      className="items-center justify-center bg-background"
+      className="bg-background items-center justify-center"
       onAccessibilityAction={adjust}
       style={{ width: splitDividerWidth }}
       testID="session-split-divider"
       {...panResponder.panHandlers}
     >
-      <View className="h-full w-px bg-border" />
+      <View className="bg-border h-full w-px" />
     </View>
   );
 }
@@ -134,7 +134,7 @@ function SessionContent({
   if (errorMessage) {
     return (
       <View className="rounded-xl border border-red-500/25 bg-red-500/5 p-4">
-        <Text className="text-red-600 text-sm">{errorMessage}</Text>
+        <Text className="text-sm text-red-600">{errorMessage}</Text>
       </View>
     );
   }
@@ -145,7 +145,7 @@ function SessionContent({
     <View className="gap-6">
       {interactions.state.status === "error" ? (
         <View className="rounded-xl border border-red-500/25 bg-red-500/5 p-4">
-          <Text className="text-red-600 text-sm">
+          <Text className="text-sm text-red-600">
             {interactions.state.message}
           </Text>
         </View>
@@ -161,7 +161,7 @@ function SessionContent({
       ) : null}
       {timeline.status === "error" && timelineMatchesSession ? (
         <View className="rounded-xl border border-red-500/25 bg-red-500/5 p-4">
-          <Text className="text-red-600 text-sm">{timeline.message}</Text>
+          <Text className="text-sm text-red-600">{timeline.message}</Text>
         </View>
       ) : null}
     </View>
@@ -200,7 +200,7 @@ function ChatSurface({
     [blocks]
   );
   return (
-    <View className="min-h-0 flex-1 bg-background" testID="session-chat">
+    <View className="bg-background min-h-0 flex-1" testID="session-chat">
       <MessageScroller
         active={active}
         blocks={blocks}
@@ -304,7 +304,7 @@ export function SessionCanvas({
   );
   return (
     <View
-      className="min-h-0 flex-1 flex-row bg-background"
+      className="bg-background min-h-0 flex-1 flex-row"
       onLayout={measureCanvas}
       testID={session ? "session-canvas" : "empty-session-canvas"}
     >

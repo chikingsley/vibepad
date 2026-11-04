@@ -1,25 +1,6 @@
 import { requireOptionalNativeModule } from "expo";
 
-import type {
-  SshBootstrapInput,
-  SshBootstrapResult,
-  SshInspectionResult,
-  SshInstallAndPairInput,
-  SshRecoveryInput,
-  SshRecoveryResult,
-} from "./vibe-pad-ssh-bootstrap.types";
-
-interface SshBootstrapNativeModule {
-  readonly inspectAsync: (
-    input: SshBootstrapInput
-  ) => Promise<SshInspectionResult>;
-  readonly installAndPairAsync: (
-    input: SshInstallAndPairInput
-  ) => Promise<SshBootstrapResult>;
-  readonly recoverHostAsync: (
-    input: SshRecoveryInput
-  ) => Promise<SshRecoveryResult>;
-}
+import type { SshBootstrapNativeModule } from "./vibe-pad-ssh-bootstrap.types";
 
 const unavailable = () =>
   new Error("SSH setup is available in the VibePad iOS app");

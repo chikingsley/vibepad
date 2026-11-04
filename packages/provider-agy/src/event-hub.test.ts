@@ -2,7 +2,7 @@ import type {
   ProviderEvent,
   ProviderEventStore,
 } from "@vibepad/protocol/events";
-import { expect, it } from "vitest";
+import { expect, it as test } from "vitest";
 
 import { AgyEventHub } from "./event-hub";
 
@@ -37,7 +37,7 @@ class RecordingStore implements ProviderEventStore {
   }
 }
 
-it("stamps agy provider ids and monotonic sequences", () => {
+test("stamps agy provider ids and monotonic sequences", () => {
   const store = new RecordingStore();
   const hub = new AgyEventHub(store);
   const first = hub.emit({
@@ -58,7 +58,7 @@ it("stamps agy provider ids and monotonic sequences", () => {
   expect(store.events).toHaveLength(2);
 });
 
-it("continues the sequence from a persisted store", () => {
+test("continues the sequence from a persisted store", () => {
   const store = new RecordingStore();
   const hub = new AgyEventHub(store);
   hub.emit({
@@ -77,7 +77,7 @@ it("continues the sequence from a persisted store", () => {
   expect(next.sequence).toBe(2);
 });
 
-it("replays persisted events for a session after a cursor", () => {
+test("replays persisted events for a session after a cursor", () => {
   const store = new RecordingStore();
   const hub = new AgyEventHub(store);
   hub.emit({

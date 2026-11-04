@@ -65,7 +65,7 @@ export function WorkspaceProjectRow({
   const showAggregateState = !open && state !== "idle";
 
   return (
-    <View className="h-11 flex-row items-center rounded-lg active:bg-accent/70">
+    <View className="active:bg-accent/70 h-11 flex-row items-center rounded-lg">
       <Pressable
         accessibilityLabel={`${open ? "Collapse" : "Expand"} ${project.name}`}
         className="min-w-0 flex-1 flex-row items-center gap-2 px-2"
@@ -78,7 +78,7 @@ export function WorkspaceProjectRow({
           size={14}
         />
         <Icon className="text-foreground" name="folder" size={15} />
-        <Text className="min-w-0 flex-1 font-medium text-sm" numberOfLines={1}>
+        <Text className="min-w-0 flex-1 text-sm font-medium" numberOfLines={1}>
           {project.name}
         </Text>
         <Text className="max-w-20 text-xs" numberOfLines={1} variant="muted">
@@ -101,7 +101,7 @@ export function WorkspaceProjectRow({
       </View>
       <Pressable
         accessibilityLabel={`New chat in ${project.name}`}
-        className="size-11 items-center justify-center rounded-md active:bg-accent"
+        className="active:bg-accent size-11 items-center justify-center rounded-md"
         disabled={newSessionDisabled || creating}
         onPress={createSession}
         testID={`workspace-${project.id}-new-session`}

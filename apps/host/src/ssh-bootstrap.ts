@@ -6,7 +6,7 @@ import type { SshTargetDiscovery } from "./ssh-target-discovery";
 
 const installer =
   "curl -fsSL https://vibepad.peacockery.studio/downloads/host/install.sh | bash -s -- --yes --allow-unauthenticated";
-const invitationLine = /^Invitation:\s+(vibepad:\/\/pair\?\S+)$/mu;
+const invitationLine = /^Invitation:\s+(?<url>vibepad:\/\/pair\?\S+)$/mu;
 
 export interface SshBootstrap {
   readonly installAndStart: (alias: string) => Promise<PairingInvitation>;

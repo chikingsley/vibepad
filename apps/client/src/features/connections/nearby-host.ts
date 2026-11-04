@@ -9,7 +9,7 @@ export interface DiscoveredService {
   readonly hostName: string;
   readonly name: string;
   readonly port: number;
-  readonly txt: Readonly<Record<string, string>>;
+  readonly txt: Readonly<Record<string, string | undefined>>;
 }
 
 export const nearbyHostFromService = (

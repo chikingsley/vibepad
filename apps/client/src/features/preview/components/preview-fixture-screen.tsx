@@ -52,8 +52,8 @@ function FixtureButton({
       <Text
         className={
           variant === "primary"
-            ? "font-semibold text-sm text-white"
-            : "font-semibold text-slate-900 text-sm"
+            ? "text-sm font-semibold text-white"
+            : "text-sm font-semibold text-slate-900"
         }
       >
         {label}
@@ -127,7 +127,7 @@ export function PreviewFixtureScreen({
               <Icon color="#ffffff" name="sparkles" size={17} />
             </View>
             <View>
-              <Text className="font-bold text-slate-950 text-sm">
+              <Text className="text-sm font-bold text-slate-950">
                 Canvas Lab
               </Text>
               <Text className="text-[11px] text-slate-500">
@@ -136,12 +136,12 @@ export function PreviewFixtureScreen({
             </View>
           </View>
           <View className="flex-row items-center gap-5">
-            <Text className="font-medium text-slate-600 text-xs">
+            <Text className="text-xs font-medium text-slate-600">
               Components
             </Text>
-            <Text className="font-medium text-slate-600 text-xs">Tokens</Text>
+            <Text className="text-xs font-medium text-slate-600">Tokens</Text>
             <View className="rounded-full bg-emerald-100 px-3 py-1.5">
-              <Text className="font-semibold text-[10px] text-emerald-800">
+              <Text className="text-[10px] font-semibold text-emerald-800">
                 Interactive
               </Text>
             </View>
@@ -153,12 +153,12 @@ export function PreviewFixtureScreen({
           testID="fixture-hero"
         >
           <View className="max-w-2xl gap-4">
-            <Text className="font-bold text-[34px] text-slate-950 leading-[40px]">
+            <Text className="text-[34px] leading-[40px] font-bold text-slate-950">
               {detail
                 ? "A second route for real browser history."
                 : "Point at real components, not a picture of VibePad."}
             </Text>
-            <Text className="max-w-xl text-[15px] text-slate-600 leading-6">
+            <Text className="max-w-xl text-[15px] leading-6 text-slate-600">
               {detail
                 ? "Use the Preview back and forward buttons to verify navigation state, then select any labeled surface."
                 : "Interact can scroll and type. Select snaps to a meaningful control or region. Draw preserves freeform vector strokes."}
@@ -192,31 +192,31 @@ export function PreviewFixtureScreen({
           >
             <View className="flex-row items-start justify-between gap-4">
               <View className="gap-1">
-                <Text className="font-bold text-slate-950 text-xl">
+                <Text className="text-xl font-bold text-slate-950">
                   Studio plan
                 </Text>
-                <Text className="text-slate-500 text-sm">
+                <Text className="text-sm text-slate-500">
                   A selectable card boundary
                 </Text>
               </View>
               <View className="rounded-full bg-blue-50 px-3 py-1.5">
-                <Text className="font-semibold text-[10px] text-blue-700">
+                <Text className="text-[10px] font-semibold text-blue-700">
                   POPULAR
                 </Text>
               </View>
             </View>
             <View className="flex-row items-end gap-1">
-              <Text className="font-bold text-[34px] text-slate-950">
+              <Text className="text-[34px] font-bold text-slate-950">
                 {annual ? "$24" : "$30"}
               </Text>
-              <Text className="mb-1 text-slate-500 text-sm">/ month</Text>
+              <Text className="mb-1 text-sm text-slate-500">/ month</Text>
             </View>
             <View
               className="flex-row items-center justify-between rounded-xl bg-slate-50 px-4 py-3"
               testID="fixture-billing-control"
             >
               <View>
-                <Text className="font-semibold text-slate-900 text-sm">
+                <Text className="text-sm font-semibold text-slate-900">
                   Annual billing
                 </Text>
                 <Text className="text-[11px] text-slate-500">
@@ -238,7 +238,7 @@ export function PreviewFixtureScreen({
               ].map((feature) => (
                 <View className="flex-row items-center gap-2" key={feature}>
                   <Icon color="#16a34a" name="check" size={13} />
-                  <Text className="text-slate-700 text-sm">{feature}</Text>
+                  <Text className="text-sm text-slate-700">{feature}</Text>
                 </View>
               ))}
             </View>
@@ -249,21 +249,21 @@ export function PreviewFixtureScreen({
             testID="fixture-invite-card"
           >
             <View className="gap-1">
-              <Text className="font-bold text-slate-950 text-xl">
+              <Text className="text-xl font-bold text-slate-950">
                 Invite a reviewer
               </Text>
-              <Text className="text-slate-500 text-sm">
+              <Text className="text-sm text-slate-500">
                 Type here while Preview is in Interact mode.
               </Text>
             </View>
             <View className="gap-2">
-              <Text className="font-semibold text-[11px] text-slate-700">
+              <Text className="text-[11px] font-semibold text-slate-700">
                 Email address
               </Text>
               <TextInput
                 accessibilityLabel="Reviewer email"
                 autoCapitalize="none"
-                className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-slate-950 text-sm outline-none"
+                className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-950 outline-none"
                 keyboardType="email-address"
                 onChangeText={setEmail}
                 placeholder="reviewer@example.com"
@@ -284,7 +284,7 @@ export function PreviewFixtureScreen({
               className="mt-auto rounded-xl bg-slate-950 px-4 py-3"
               testID="fixture-live-status"
             >
-              <Text className="font-semibold text-[10px] text-slate-400">
+              <Text className="text-[10px] font-semibold text-slate-400">
                 LAST ACTION
               </Text>
               <Text className="mt-1 text-sm text-white">{notice}</Text>
@@ -293,13 +293,13 @@ export function PreviewFixtureScreen({
         </View>
 
         <View
-          className="rounded-2xl border border-slate-300 border-dashed bg-white px-6 py-8"
+          className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-8"
           testID="fixture-drawing-zone"
         >
-          <Text className="font-semibold text-slate-900 text-sm">
+          <Text className="text-sm font-semibold text-slate-900">
             Long-page drawing zone
           </Text>
-          <Text className="mt-1 max-w-2xl text-slate-500 text-sm leading-6">
+          <Text className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
             Scroll here in Interact, switch to Draw, and circle the spacing or
             any component above. The cue keeps normalized coordinates and its
             timestamp.

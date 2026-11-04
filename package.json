@@ -1,7 +1,6 @@
 {
   "name": "vibepad",
   "private": true,
-  "packageManager": "bun@1.3.14",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -24,11 +23,12 @@
     "typecheck": "bun run --filter '*' typecheck"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.4",
+    "@biomejs/biome": "2.6.5",
     "typescript": "7.0.2",
-    "ultracite": "7.9.4",
-    "vitest": "4.1.10"
+    "ultracite": "8.1.1",
+    "vitest": "5.1.0"
   },
+  "packageManager": "bun@1.4.4",
   "trustedDependencies": [
     "@shopify/react-native-skia"
   ]

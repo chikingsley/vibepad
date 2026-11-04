@@ -56,7 +56,7 @@ function ChangeRow({
     <Pressable
       accessibilityLabel={`Open change ${change.path}`}
       className={cn(
-        "min-h-11 flex-row items-center gap-2 px-3 py-2 active:bg-accent",
+        "active:bg-accent min-h-11 flex-row items-center gap-2 px-3 py-2",
         selected && "bg-accent/70"
       )}
       onPress={select}
@@ -64,7 +64,7 @@ function ChangeRow({
     >
       <Text
         className={cn(
-          "w-4 text-center font-semibold text-[10px]",
+          "w-4 text-center text-[10px] font-semibold",
           change.status === "added" && "text-emerald-600",
           change.status === "deleted" && "text-red-600",
           change.status === "modified" && "text-amber-600"
@@ -93,7 +93,7 @@ const renderPatchLine = ({
   index,
 }: LegendListRenderItemProps<string>) => (
   <View className={cn("min-h-5 flex-row", patchLineClass(item))}>
-    <Text className="w-12 shrink-0 px-2 text-right font-mono text-[10px] text-muted-foreground/60">
+    <Text className="text-muted-foreground/60 w-12 shrink-0 px-2 text-right font-mono text-[10px]">
       {index + 1}
     </Text>
     <Text
@@ -165,7 +165,7 @@ export function ChangesSurface({
   if (changes.status === "error") {
     changeList = (
       <View className="p-3">
-        <Text className="text-red-600 text-xs">{changes.message}</Text>
+        <Text className="text-xs text-red-600">{changes.message}</Text>
       </View>
     );
   } else if (changes.status === "loading" && changes.data.length === 0) {
@@ -207,8 +207,8 @@ export function ChangesSurface({
         )}
         style={split ? { width: 320 } : { height: 220 }}
       >
-        <View className="h-11 flex-row items-center border-border border-b px-3">
-          <Text className="font-medium text-xs">
+        <View className="border-border h-11 flex-row items-center border-b px-3">
+          <Text className="text-xs font-medium">
             {changes.data.length} changed
           </Text>
           <View className="ml-auto flex-row gap-1.5">
@@ -227,7 +227,7 @@ export function ChangesSurface({
       <View className="min-h-0 min-w-0 flex-1">
         {selectedChange ? (
           <>
-            <View className="h-11 flex-row items-center gap-3 border-border border-b px-4">
+            <View className="border-border h-11 flex-row items-center gap-3 border-b px-4">
               <Text className="min-w-0 flex-1 text-xs" numberOfLines={1}>
                 {selectedChange.path}
               </Text>

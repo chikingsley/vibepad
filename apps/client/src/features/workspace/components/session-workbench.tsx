@@ -119,9 +119,9 @@ export function SessionWorkbench({
   }, [onToggleExpanded]);
 
   return (
-    <View className="min-h-0 flex-1 bg-background" testID="session-workbench">
+    <View className="bg-background min-h-0 flex-1" testID="session-workbench">
       {surface === "preview" ? null : (
-        <View className="h-12 flex-row items-center gap-2 border-border border-b px-3">
+        <View className="border-border h-12 flex-row items-center gap-2 border-b px-3">
           <Icon
             className="text-muted-foreground"
             name={iconForSurface[surface]}
@@ -129,7 +129,7 @@ export function SessionWorkbench({
           />
           <Text variant="control">{titleForSurface[surface]}</Text>
           <Text
-            className="min-w-0 flex-1 text-muted-foreground"
+            className="text-muted-foreground min-w-0 flex-1"
             numberOfLines={1}
             variant="metadata"
           >

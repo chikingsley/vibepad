@@ -43,26 +43,30 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
 } as const;
 
-const projectSessionsPath = /^\/v1\/projects\/([^/]+)\/sessions$/;
-const projectServicesPath = /^\/v1\/projects\/([^/]+)\/services$/;
-const projectFilesPath = /^\/v1\/projects\/([^/]+)\/files$/;
-const projectFileContentPath = /^\/v1\/projects\/([^/]+)\/files\/content$/;
-const projectChangesPath = /^\/v1\/projects\/([^/]+)\/changes$/;
-const projectCatalogPath = /^\/v1\/projects\/([^/]+)\/catalog$/;
-const sessionTimelinePath = /^\/v1\/sessions\/([^/]+)\/timeline$/;
-const sessionBootstrapPath = /^\/v1\/sessions\/([^/]+)\/bootstrap$/;
-const sessionEventsPath = /^\/v1\/sessions\/([^/]+)\/events$/;
-const sessionArchivePath = /^\/v1\/sessions\/([^/]+)\/archive$/;
-const sessionPath = /^\/v1\/sessions\/([^/]+)$/;
-const sessionTurnsPath = /^\/v1\/sessions\/([^/]+)\/turns$/;
-const sessionTurnInterruptPath = /^\/v1\/sessions\/([^/]+)\/turns\/interrupt$/;
-const sessionInteractionsPath = /^\/v1\/sessions\/([^/]+)\/interactions$/;
+const projectSessionsPath = /^\/v1\/projects\/(?<projectId>[^/]+)\/sessions$/u;
+const projectServicesPath = /^\/v1\/projects\/(?<projectId>[^/]+)\/services$/u;
+const projectFilesPath = /^\/v1\/projects\/(?<projectId>[^/]+)\/files$/u;
+const projectFileContentPath =
+  /^\/v1\/projects\/(?<projectId>[^/]+)\/files\/content$/u;
+const projectChangesPath = /^\/v1\/projects\/(?<projectId>[^/]+)\/changes$/u;
+const projectCatalogPath = /^\/v1\/projects\/(?<projectId>[^/]+)\/catalog$/u;
+const sessionTimelinePath = /^\/v1\/sessions\/(?<sessionId>[^/]+)\/timeline$/u;
+const sessionBootstrapPath =
+  /^\/v1\/sessions\/(?<sessionId>[^/]+)\/bootstrap$/u;
+const sessionEventsPath = /^\/v1\/sessions\/(?<sessionId>[^/]+)\/events$/u;
+const sessionArchivePath = /^\/v1\/sessions\/(?<sessionId>[^/]+)\/archive$/u;
+const sessionPath = /^\/v1\/sessions\/(?<sessionId>[^/]+)$/u;
+const sessionTurnsPath = /^\/v1\/sessions\/(?<sessionId>[^/]+)\/turns$/u;
+const sessionTurnInterruptPath =
+  /^\/v1\/sessions\/(?<sessionId>[^/]+)\/turns\/interrupt$/u;
+const sessionInteractionsPath =
+  /^\/v1\/sessions\/(?<sessionId>[^/]+)\/interactions$/u;
 const sessionPermissionReplyPath =
-  /^\/v1\/sessions\/([^/]+)\/permissions\/([^/]+)\/reply$/;
+  /^\/v1\/sessions\/(?<sessionId>[^/]+)\/permissions\/(?<requestId>[^/]+)\/reply$/u;
 const sessionQuestionReplyPath =
-  /^\/v1\/sessions\/([^/]+)\/questions\/([^/]+)\/reply$/;
-const sessionModelPath = /^\/v1\/sessions\/([^/]+)\/model$/;
-const sessionAgentPath = /^\/v1\/sessions\/([^/]+)\/agent$/;
+  /^\/v1\/sessions\/(?<sessionId>[^/]+)\/questions\/(?<requestId>[^/]+)\/reply$/u;
+const sessionModelPath = /^\/v1\/sessions\/(?<sessionId>[^/]+)\/model$/u;
+const sessionAgentPath = /^\/v1\/sessions\/(?<sessionId>[^/]+)\/agent$/u;
 
 interface RequestTimeoutController {
   requestIP?: (

@@ -13,9 +13,9 @@ export function SettingsRow({
   readonly title: string;
 }) {
   return (
-    <View className="gap-4 border-border border-b px-4 py-4 last:border-b-0 sm:flex-row sm:items-center">
+    <View className="border-border gap-4 border-b px-4 py-4 last:border-b-0 sm:flex-row sm:items-center">
       <View className="min-w-0 flex-1 gap-1">
-        <Text className="font-medium text-sm">{title}</Text>
+        <Text className="text-sm font-medium">{title}</Text>
         <Text className="max-w-xl text-xs leading-5" variant="muted">
           {description}
         </Text>
@@ -27,7 +27,7 @@ export function SettingsRow({
 
 export function SettingsList({ children }: { readonly children: ReactNode }) {
   return (
-    <View className="overflow-hidden rounded-xl border border-border bg-card">
+    <View className="border-border bg-card overflow-hidden rounded-xl border">
       {children}
     </View>
   );

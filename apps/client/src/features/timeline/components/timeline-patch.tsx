@@ -62,7 +62,7 @@ export function TimelinePatch({
               )}
               key={id}
             >
-              <Text className="w-10 shrink-0 px-2 text-right font-mono text-[10px] text-muted-foreground/55">
+              <Text className="text-muted-foreground/55 w-10 shrink-0 px-2 text-right font-mono text-[10px]">
                 {index + 1}
               </Text>
               <Text className="font-mono text-[11px] leading-5" selectable>

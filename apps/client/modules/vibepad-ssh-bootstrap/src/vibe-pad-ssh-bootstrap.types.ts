@@ -48,3 +48,15 @@ export interface SshRecoveryInput {
 export interface SshRecoveryResult {
   readonly hostReady: boolean;
 }
+
+export interface SshBootstrapNativeModule {
+  readonly inspectAsync: (
+    input: SshBootstrapInput
+  ) => Promise<SshInspectionResult>;
+  readonly installAndPairAsync: (
+    input: SshInstallAndPairInput
+  ) => Promise<SshBootstrapResult>;
+  readonly recoverHostAsync: (
+    input: SshRecoveryInput
+  ) => Promise<SshRecoveryResult>;
+}

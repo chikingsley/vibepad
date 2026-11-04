@@ -259,7 +259,7 @@ export function SessionComposerDock({
 
   return (
     <View
-      className="border-border border-t bg-background px-3 pt-2 sm:px-6"
+      className="border-border bg-background border-t px-3 pt-2 sm:px-6"
       style={{ paddingBottom: Math.max(insets.bottom, 12) }}
     >
       <SessionComposer

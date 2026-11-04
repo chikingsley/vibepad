@@ -1,11 +1,17 @@
 import { NativeModule, registerWebModule } from "expo";
 
-import type { SecureSignerPublicKey } from "./vibe-pad-secure-signer.types";
+import type {
+  SecureSignerNativeModule,
+  SecureSignerPublicKey,
+} from "./vibe-pad-secure-signer.types";
 
 const unavailable = () =>
   new Error("Device-bound VibePad signing is only available on iOS");
 
-class SecureSignerWebModule extends NativeModule<Record<never, never>> {
+class SecureSignerWebModule
+  extends NativeModule<Record<never, never>>
+  implements SecureSignerNativeModule
+{
   readonly deleteKeyAsync = (_alias: string): Promise<void> =>
     Promise.reject(unavailable());
 

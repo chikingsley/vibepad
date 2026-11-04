@@ -7,7 +7,7 @@ import {
   voiceCleanupResponseSchema,
 } from "@vibepad/protocol/voice";
 import { OpenCodeAdapter } from "@vibepad/provider-opencode/adapter";
-import { expect, it } from "vitest";
+import { expect, it as test } from "vitest";
 
 import type {
   HostAuthController,
@@ -17,7 +17,7 @@ import { createRequestHandler } from "./http";
 import { VoiceCredentialService } from "./voice-credentials";
 import { VoiceHttpService } from "./voice-http";
 
-it("uses the generated Peacockery client for authenticated catalog and cleanup requests", async () => {
+test("uses the generated Peacockery client for authenticated catalog and cleanup requests", async () => {
   const childAuthorizations: string[] = [];
   let clientMetadataHeaders: Record<string, string | undefined> = {};
   let mintAuthorization = "";
@@ -266,7 +266,7 @@ it("uses the generated Peacockery client for authenticated catalog and cleanup r
   }
 });
 
-it("keeps Voice HTTP routes unavailable when the host has no credential", async () => {
+test("keeps Voice HTTP routes unavailable when the host has no credential", async () => {
   const credentials = new VoiceCredentialService({
     baseUrl: "https://voice-lab.peacockery.studio",
     hostId: "voice-unconfigured-host",

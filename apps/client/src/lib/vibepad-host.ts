@@ -90,7 +90,7 @@ import { getClientInstallationMetadata } from "@/features/connections/client-ins
 import { hostCredentialStore } from "@/features/connections/host-credential-store";
 import { VibePadHostTransport } from "./vibepad-host-transport";
 
-const trailingSlash = /\/$/;
+const trailingSlash = /\/$/u;
 const defaultBaseUrl =
   // biome-ignore lint/complexity/useLiteralKeys: strict index-signature access is required by the shared TypeScript config.
   process.env["EXPO_PUBLIC_VIBEPAD_HOST_URL"] ?? "http://127.0.0.1:4100";
@@ -162,6 +162,7 @@ export class VibePadHostClient {
     };
   }
 
+  // biome-ignore lint/style/useThisInClassMethods: Pairing is part of the client API that callers hold as an instance.
   async pair(
     baseUrl: string,
     input: PairVibePadHostInput

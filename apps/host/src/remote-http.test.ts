@@ -3,11 +3,11 @@ import {
   sshTargetListResponseSchema,
   sshTargetsPath,
 } from "@vibepad/protocol/remote";
-import { expect, it } from "vitest";
+import { expect, it as test } from "vitest";
 
 import { createRequestHandler } from "./http";
 
-it("exposes controller SSH targets through the authenticated host API", async () => {
+test("exposes controller SSH targets through the authenticated host API", async () => {
   const handler = createRequestHandler(
     {} as HarnessAdapter,
     "hojo",

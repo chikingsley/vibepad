@@ -6,7 +6,7 @@ import type {
   ReadySessionControls,
   SessionControlStore,
 } from "@vibepad/protocol/provider";
-import { expect, it, vi } from "vitest";
+import { expect, it as test, vi } from "vitest";
 
 import { ClaudeCodeAdapter } from "./adapter";
 import type { ClaudeCodeDetection } from "./detect";
@@ -223,7 +223,7 @@ const diskSession = (
   ...overrides,
 });
 
-it("declares the claude-code manifest the client already expects", () => {
+test("declares the claude-code manifest the client already expects", () => {
   expect(claudeCodeManifest.id).toBe("claude-code");
   expect(claudeCodeManifest.displayName).toBe("Claude Code");
   expect(claudeCodeManifest.protocolVersion).toBe(1);
@@ -234,7 +234,7 @@ it("declares the claude-code manifest the client already expects", () => {
   }
 });
 
-it("reports health from detection without invoking anything", async () => {
+test("reports health from detection without invoking anything", async () => {
   const { adapter } = createAdapter();
   await expect(adapter.health()).resolves.toEqual({
     healthy: true,
@@ -249,7 +249,7 @@ it("reports health from detection without invoking anything", async () => {
   await expect(missing.health()).resolves.toEqual({ healthy: false });
 });
 
-it("derives projects from configured roots and session working directories", async () => {
+test("derives projects from configured roots and session working directories", async () => {
   const { adapter, sdk } = createAdapter();
   sdk.sessions = [
     diskSession("11111111-1111-4111-8111-111111111111"),
@@ -268,7 +268,7 @@ it("derives projects from configured roots and session working directories", asy
   expect(projects[0]?.id).toBe(projectId);
 });
 
-it("creates a cwd-scoped draft session and lists it alongside disk sessions", async () => {
+test("creates a cwd-scoped draft session and lists it alongside disk sessions", async () => {
   const { adapter, controlStore, sdk } = createAdapter();
   sdk.sessions = [diskSession("11111111-1111-4111-8111-111111111111")];
 
@@ -291,7 +291,7 @@ it("creates a cwd-scoped draft session and lists it alongside disk sessions", as
   expect(persisted?.title).toBe("Investigate flaky test");
 });
 
-it("launches a new SDK session on the first turn with the pre-assigned id", async () => {
+test("launches a new SDK session on the first turn with the pre-assigned id", async () => {
   const { adapter, eventStore, sdk } = createAdapter();
   sdk.onUserMessage = (activeQuery) => {
     activeQuery.output.push({
@@ -353,7 +353,7 @@ it("launches a new SDK session on the first turn with the pre-assigned id", asyn
   expect(timeline.items[1]?.id).toBe("uuid-live-1");
 });
 
-it("resumes persisted sessions by native id and merges disk history with live items", async () => {
+test("resumes persisted sessions by native id and merges disk history with live items", async () => {
   const { adapter, sdk } = createAdapter();
   const nativeId = "33333333-3333-4333-8333-333333333333";
   sdk.sessions = [diskSession(nativeId)];
@@ -404,7 +404,7 @@ it("resumes persisted sessions by native id and merges disk history with live it
   });
 });
 
-it("keeps the final assistant text when stream twins share uuids with the transcript", async () => {
+test("keeps the final assistant text when stream twins share uuids with the transcript", async () => {
   // Regression for the 2026-07-23 live run (session 123c7e45, project dir
   // -tmp-vibepad-claude-live-47ELoZ): Claude answers "Reply with exactly:
   // ok" as TWO assistant messages — a thinking-only message, then a
@@ -491,7 +491,7 @@ it("keeps the final assistant text when stream twins share uuids with the transc
   ]);
 });
 
-it("replaces synthetic user entries once their transcript twins reach disk", async () => {
+test("replaces synthetic user entries once their transcript twins reach disk", async () => {
   const { adapter, sdk } = createAdapter();
   sdk.onUserMessage = (activeQuery) => {
     activeQuery.output.push({ subtype: "success", type: "result", uuid: "r5" });
@@ -521,7 +521,7 @@ it("replaces synthetic user entries once their transcript twins reach disk", asy
   expect(after.items.map(({ id }) => id)).toEqual(["uuid-disk-twin"]);
 });
 
-it("aborts an active turn via the SDK and refuses when no runtime exists", async () => {
+test("aborts an active turn via the SDK and refuses when no runtime exists", async () => {
   const { adapter, sdk } = createAdapter();
   const created = await adapter.createSession({ projectId });
   await adapter.sendTurn({ sessionId: created.id, text: "Long task" });
@@ -536,7 +536,7 @@ it("aborts an active turn via the SDK and refuses when no runtime exists", async
   ).rejects.toThrow("no active turn");
 });
 
-it("routes canUseTool asks through VibePad interactions and back", async () => {
+test("routes canUseTool asks through VibePad interactions and back", async () => {
   const { adapter, eventStore, sdk } = createAdapter();
   const results: ClaudePermissionResult[] = [];
   sdk.onUserMessage = (query) => {
@@ -590,7 +590,7 @@ it("routes canUseTool asks through VibePad interactions and back", async () => {
   await expect(adapter.listInteractions(created.id)).resolves.toHaveLength(0);
 });
 
-it("applies model and permission-mode selection to the store and live runtime", async () => {
+test("applies model and permission-mode selection to the store and live runtime", async () => {
   const { adapter, controlStore, sdk } = createAdapter();
   const created = await adapter.createSession({ projectId });
   await adapter.sendTurn({ sessionId: created.id, text: "hi" });
@@ -615,7 +615,7 @@ it("applies model and permission-mode selection to the store and live runtime", 
   ).rejects.toThrow("permission mode not found");
 });
 
-it("uses stored controls when launching a runtime", async () => {
+test("uses stored controls when launching a runtime", async () => {
   const { adapter, controlStore, sdk } = createAdapter();
   const nativeId = "55555555-5555-4555-8555-555555555555";
   sdk.sessions = [diskSession(nativeId)];
@@ -637,7 +637,7 @@ it("uses stored controls when launching a runtime", async () => {
   });
 });
 
-it("renames persisted sessions through the SDK and drafts locally", async () => {
+test("renames persisted sessions through the SDK and drafts locally", async () => {
   const { adapter, sdk } = createAdapter();
   const nativeId = "66666666-6666-4666-8666-666666666666";
   sdk.sessions = [diskSession(nativeId)];
@@ -661,7 +661,7 @@ it("renames persisted sessions through the SDK and drafts locally", async () => 
   expect(sdk.renames).toHaveLength(1);
 });
 
-it("bootstraps a ready session and refuses archive requests", async () => {
+test("bootstraps a ready session and refuses archive requests", async () => {
   const { adapter, sdk } = createAdapter();
   const nativeId = "77777777-7777-4777-8777-777777777777";
   sdk.sessions = [diskSession(nativeId)];
@@ -684,7 +684,7 @@ it("bootstraps a ready session and refuses archive requests", async () => {
   );
 });
 
-it("streams provider events to subscribers from the shared hub", async () => {
+test("streams provider events to subscribers from the shared hub", async () => {
   const { adapter, sdk } = createAdapter();
   sdk.onUserMessage = (query) => {
     query.output.push({ subtype: "success", type: "result", uuid: "r4" });

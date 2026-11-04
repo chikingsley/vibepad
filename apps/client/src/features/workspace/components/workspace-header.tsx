@@ -36,7 +36,7 @@ export function WorkspaceHeader({
   readonly sessionTitle: string | undefined;
 }) {
   return (
-    <View className="h-12 flex-row items-center border-border border-b bg-background px-1">
+    <View className="border-border bg-background h-12 flex-row items-center border-b px-1">
       <Button
         accessibilityLabel="Toggle sidebar"
         className="size-11 sm:size-11"
@@ -47,7 +47,7 @@ export function WorkspaceHeader({
       >
         <Icon className="text-foreground" name="panel-left" size={18} />
       </Button>
-      <View className="mx-1 h-5 w-px shrink-0 bg-border" />
+      <View className="bg-border mx-1 h-5 w-px shrink-0" />
       <View
         className="min-w-0 flex-1 flex-row items-center gap-2 px-2"
         testID="header-session-context"
@@ -61,7 +61,7 @@ export function WorkspaceHeader({
               ·
             </Text>
             <Text
-              className="max-w-40 text-muted-foreground"
+              className="text-muted-foreground max-w-40"
               numberOfLines={1}
               variant="metadata"
             >
@@ -76,7 +76,7 @@ export function WorkspaceHeader({
           selected={selectedSurface}
         />
       ) : null}
-      <View className="mx-1 h-5 w-px shrink-0 bg-border" />
+      <View className="bg-border mx-1 h-5 w-px shrink-0" />
       <StatusControl
         hostConnection={hostConnection}
         loading={servicesLoading}

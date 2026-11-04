@@ -1,4 +1,4 @@
-import { expect, it } from "vitest";
+import { expect, it as test } from "vitest";
 
 import type { ThreadItem } from "../generated/v2/ThreadItem";
 import type { Turn } from "../generated/v2/Turn";
@@ -15,7 +15,7 @@ const turn = (items: ThreadItem[]): Turn => ({
   status: "completed",
 });
 
-it("projects a real Codex fileChange into per-file actions and diff counts", () => {
+test("projects a real Codex fileChange into per-file actions and diff counts", () => {
   const item = {
     changes: [
       {
@@ -74,7 +74,7 @@ it("projects a real Codex fileChange into per-file actions and diff counts", () 
   ]);
 });
 
-it("keeps native Codex item ids for consecutive web searches", () => {
+test("keeps native Codex item ids for consecutive web searches", () => {
   const first = {
     action: null,
     id: "search-1",
@@ -94,7 +94,7 @@ it("keeps native Codex item ids for consecutive web searches", () => {
   expect(projected.map(({ turnId }) => turnId)).toEqual(["turn-1", "turn-1"]);
 });
 
-it("preserves Codex commentary and final-answer message phases", () => {
+test("preserves Codex commentary and final-answer message phases", () => {
   const commentary = {
     id: "message-commentary",
     memoryCitation: null,

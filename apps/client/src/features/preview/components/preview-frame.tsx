@@ -63,8 +63,9 @@ const selectorForElement = (element: Element): string => {
     let part = current.tagName.toLowerCase();
     const parent: Element | null = current.parentElement;
     if (parent) {
+      const { tagName } = current;
       const sameTagSiblings = Array.from(parent.children).filter(
-        (sibling: Element) => sibling.tagName === current?.tagName
+        (sibling: Element) => sibling.tagName === tagName
       );
       if (sameTagSiblings.length > 1) {
         part += `:nth-of-type(${sameTagSiblings.indexOf(current) + 1})`;
@@ -102,7 +103,7 @@ const anchorForElement = (
   viewportHeight: number
 ): DomAnchor => {
   const rect = element.getBoundingClientRect();
-  const text = element.textContent?.replace(/\s+/g, " ").trim().slice(0, 160);
+  const text = element.textContent?.replace(/\s+/gu, " ").trim().slice(0, 160);
   const ariaLabel = element.getAttribute("aria-label")?.trim();
   const role = element.getAttribute("role")?.trim();
   const component =
@@ -404,6 +405,7 @@ export function PreviewFrame({
           key={`${url}:${webFrameKey}`}
           onLoad={finishWebLoading}
           ref={webRef}
+          sandbox="allow-downloads allow-forms allow-modals allow-popups allow-same-origin allow-scripts"
           src={url}
           style={{ border: 0, height: "100%", width: "100%" }}
           title="VibePad preview"

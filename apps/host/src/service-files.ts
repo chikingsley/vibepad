@@ -1,6 +1,6 @@
 import { dirname, join } from "node:path";
 
-const environmentAssignmentPattern = /^([A-Z_][A-Z0-9_]*)=/u;
+const environmentAssignmentPattern = /^(?<name>[A-Z_][A-Z0-9_]*)=/u;
 
 export const serviceLabel = "studio.peacockery.vibepad.host";
 export const systemdUnitName = "vibepad-host.service";

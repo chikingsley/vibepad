@@ -74,7 +74,7 @@ export function TimelineContextGroup({
         title={active ? "Gathering context" : "Gathered context"}
       />
       <CollapsibleContent>
-        <View className="ml-7 gap-0.5 border-border border-l pl-2">
+        <View className="border-border ml-7 gap-0.5 border-l pl-2">
           {parts.map((part) =>
             part.type === "shell" ? (
               <TimelineShellPart

@@ -28,7 +28,7 @@ interface CdpEvent {
   readonly sessionId?: string;
 }
 
-const devToolsUrlPattern = /DevTools listening on (ws:\/\/\S+)/u;
+const devToolsUrlPattern = /DevTools listening on (?<url>ws:\/\/\S+)/u;
 const launchTimeoutMilliseconds = 15_000;
 const commandTimeoutMilliseconds = 10_000;
 

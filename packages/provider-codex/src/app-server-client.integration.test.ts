@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { expect, it } from "vitest";
+import { expect, it as test } from "vitest";
 
 import type { GetAccountResponse } from "../generated/v2/GetAccountResponse";
 import {
@@ -21,7 +21,7 @@ const fixturePath = fileURLToPath(
   new URL("../scripts/app-server-lifecycle-fixture.ts", import.meta.url)
 );
 
-it.each(["exit", "malformed"] as const)(
+test.each(["exit", "malformed"] as const)(
   "replays safe reads once after a %s wire failure without replaying mutations",
   async (failureMode) => {
     const directory = await mkdtemp(

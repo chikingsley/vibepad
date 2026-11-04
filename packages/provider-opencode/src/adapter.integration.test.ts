@@ -1,6 +1,6 @@
 import { createOpencodeClient } from "@opencode-ai/sdk/v2/client";
 import type { ProviderEvent } from "@vibepad/protocol/events";
-import { expect, it } from "vitest";
+import { expect, it as test } from "vitest";
 
 import { OpenCodeAdapter } from "./adapter";
 import { openCodeNativeSessionId, openCodeSessionId } from "./ids";
@@ -31,7 +31,7 @@ const projectDirectory = process.env.VIBEPAD_LIVE_PROJECT_DIR ?? process.cwd();
 const timelineProjectDirectory =
   process.env.VIBEPAD_LIVE_TIMELINE_PROJECT_DIR ?? projectDirectory;
 const timelineSessionId = process.env.VIBEPAD_LIVE_TIMELINE_SESSION_ID;
-const fileChangeStatus = /^(added|deleted|modified)$/;
+const fileChangeStatus = /^(?:added|deleted|modified)$/u;
 
 const delay = (milliseconds: number) =>
   new Promise<void>((resolve) => {
@@ -79,7 +79,7 @@ const waitFor = async <Value>(
   throw new Error(`${label} did not converge after ${milliseconds}ms`);
 };
 
-it("advertises only capabilities backed by adapter operations", () => {
+test("advertises only capabilities backed by adapter operations", () => {
   for (const [capabilityId, support] of Object.entries(
     openCodeManifest.capabilities
   )) {
@@ -91,16 +91,14 @@ it("advertises only capabilities backed by adapter operations", () => {
         capabilityId as keyof typeof openCodeCapabilityOperations
       ];
     expect(operation, `${capabilityId} has no adapter operation`).toBeDefined();
-    if (operation) {
-      expect(
-        typeof Reflect.get(OpenCodeAdapter.prototype, operation),
-        `${capabilityId} points to missing adapter.${operation}`
-      ).toBe("function");
-    }
+    expect(
+      typeof Reflect.get(OpenCodeAdapter.prototype, String(operation)),
+      `${capabilityId} points to missing adapter.${operation}`
+    ).toBe("function");
   }
 });
 
-it("rejects missing credentials and connects to a real authenticated server", async () => {
+test("rejects missing credentials and connects to a real authenticated server", async () => {
   if (!(authBaseUrl && authPassword && authUsername)) {
     return;
   }
@@ -117,7 +115,7 @@ it("rejects missing credentials and connects to a real authenticated server", as
   await expect(authenticated.listProjects()).resolves.not.toHaveLength(0);
 }, 30_000);
 
-it("lists and reads real files plus structured VCS changes", async () => {
+test("lists and reads real files plus structured VCS changes", async () => {
   if (!enabled) {
     return;
   }
@@ -161,7 +159,7 @@ it("lists and reads real files plus structured VCS changes", async () => {
   }
 }, 30_000);
 
-it("lists the real provider catalog and switches model and primary agent", async () => {
+test("lists the real provider catalog and switches model and primary agent", async () => {
   if (!enabled) {
     return;
   }
@@ -249,7 +247,7 @@ it("lists the real provider catalog and switches model and primary agent", async
   }
 }, 30_000);
 
-it("loads a real nested-directory timeline when the v2 projection is unavailable", async () => {
+test("loads a real nested-directory timeline when the v2 projection is unavailable", async () => {
   if (!(enabled && timelineSessionId)) {
     return;
   }
@@ -302,7 +300,7 @@ it("loads a real nested-directory timeline when the v2 projection is unavailable
   ).resolves.toEqual([]);
 }, 30_000);
 
-it("archives a real OpenCode session, filters it, and cleans it up", async () => {
+test("archives a real OpenCode session, filters it, and cleans it up", async () => {
   if (!enabled) {
     return;
   }
@@ -359,7 +357,7 @@ it("archives a real OpenCode session, filters it, and cleans it up", async () =>
   }
 }, 30_000);
 
-it("runs a complete real session lifecycle and resumes its durable event cursor", async () => {
+test("runs a complete real session lifecycle and resumes its durable event cursor", async () => {
   if (!enabled) {
     return;
   }
@@ -492,7 +490,7 @@ it("runs a complete real session lifecycle and resumes its durable event cursor"
   }
 }, 90_000);
 
-it("interrupts a real active OpenCode turn and returns the session to idle", async () => {
+test("interrupts a real active OpenCode turn and returns the session to idle", async () => {
   if (!enabled) {
     return;
   }
@@ -580,7 +578,7 @@ it("interrupts a real active OpenCode turn and returns the session to idle", asy
   }
 }, 60_000);
 
-it("answers a real permission and structured question through the adapter", async () => {
+test("answers a real permission and structured question through the adapter", async () => {
   if (!(enabled && interactionBaseUrl)) {
     return;
   }

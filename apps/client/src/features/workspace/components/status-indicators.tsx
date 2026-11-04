@@ -120,7 +120,7 @@ export function SessionStateIndicator({
     return (
       <View
         accessibilityElementsHidden
-        className="size-2.5 rounded-full border-2 border-blue-500 bg-background"
+        className="bg-background size-2.5 rounded-full border-2 border-blue-500"
         importantForAccessibility="no-hide-descendants"
       />
     );

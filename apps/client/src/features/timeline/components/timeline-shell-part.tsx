@@ -13,7 +13,7 @@ type ShellPart = Extract<TimelinePart, { type: "shell" }>;
 
 const ansiPattern = new RegExp(
   `${String.fromCharCode(27)}\\[[0-?]*[ -/]*[@-~]`,
-  "g"
+  "gu"
 );
 
 const shellTitle = (labelMode: "action" | "shell", active: boolean) => {
@@ -72,7 +72,7 @@ export function TimelineShellPart({
             </ScrollView>
           ) : null}
           {part.error ? (
-            <Text className="border-border border-t px-3 py-2 text-red-600 text-xs">
+            <Text className="border-border border-t px-3 py-2 text-xs text-red-600">
               {part.error}
             </Text>
           ) : null}

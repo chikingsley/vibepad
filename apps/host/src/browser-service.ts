@@ -18,8 +18,9 @@ import { renderBrowserViewPage } from "./browser-view-page";
 import type { ChromiumScreencastFrame } from "./chromium-browser";
 import type { HostAuthPrincipal } from "./host-auth-contract";
 
-const browserViewAssetPathPattern = /^\/v1\/browser\/view\/([^/]+)\/(.+)$/u;
-const browserSocketPathPattern = /^\/v1\/browser\/socket\/([^/]+)$/u;
+const browserViewAssetPathPattern =
+  /^\/v1\/browser\/view\/(?<token>[^/]+)\/(?<asset>.+)$/u;
+const browserSocketPathPattern = /^\/v1\/browser\/socket\/(?<token>[^/]+)$/u;
 const viewSessionTtlMs = 10 * 60 * 1000;
 const maxScreencastDimension = 4096;
 const screencastQuality = 60;
@@ -520,6 +521,38 @@ const targetRoute = (pathname: string) => {
   };
 };
 
+const targetError = (targetId: string, cause?: unknown) =>
+  new BrowserServiceError(
+    "browser_target_not_found",
+    `Browser target ${targetId} was not found`,
+    404,
+    cause === undefined ? undefined : { cause }
+  );
+
+const upstreamError = (detail: string, cause?: unknown) =>
+  new BrowserServiceError(
+    "browser_upstream_unavailable",
+    `VibePad Browser ${detail}`,
+    503,
+    cause === undefined ? undefined : { cause }
+  );
+
+const sessionCommand = async <T = Record<string, unknown>>(
+  browser: BrokeredBrowser,
+  sessionId: string,
+  method: string,
+  params: Record<string, unknown> = {}
+): Promise<T> => {
+  try {
+    return await browser.send<T>(method, params, sessionId);
+  } catch (error) {
+    throw upstreamError(
+      error instanceof Error ? error.message : `${method} failed`,
+      error
+    );
+  }
+};
+
 export class BrowserService {
   #activeTargetId: string | undefined;
   #browserRef: BrokeredBrowser | undefined;
@@ -541,10 +574,12 @@ export class BrowserService {
     this.#viewSessionTtl = config.viewSessionTtl ?? viewSessionTtlMs;
   }
 
+  // biome-ignore lint/style/useThisInClassMethods: Callers reach routing through the injected service instance.
   isSocketRequest(pathname: string) {
     return browserSocketPathPattern.test(pathname);
   }
 
+  // biome-ignore lint/style/useThisInClassMethods: Callers reach routing through the injected service instance.
   isViewAssetRequest(pathname: string) {
     return browserViewAssetPathPattern.test(pathname);
   }
@@ -715,7 +750,7 @@ export class BrowserService {
     try {
       tab = await browser.createTab(url);
     } catch (error) {
-      throw this.#upstreamError(`could not open ${url}`, error);
+      throw upstreamError(`could not open ${url}`, error);
     }
     this.#sessions.set(tab.targetId, tab.sessionId);
     this.#targetOrder = [
@@ -741,17 +776,14 @@ export class BrowserService {
     const browser = await this.#requireBrowser();
     const targets = await this.#inventory(browser);
     if (!targets.some((target) => target.targetId === targetId)) {
-      throw this.#targetError(targetId);
+      throw targetError(targetId);
     }
     if (targets.length === 1) {
       // The surface always retains one target so the view stays attachable.
       const replacement = await browser
         .createTab("about:blank")
         .catch((error: unknown) => {
-          throw this.#upstreamError(
-            "could not retain a blank browser target",
-            error
-          );
+          throw upstreamError("could not retain a blank browser target", error);
         });
       this.#sessions.set(replacement.targetId, replacement.sessionId);
       this.#targetOrder.push(replacement.targetId);
@@ -759,7 +791,7 @@ export class BrowserService {
     try {
       await browser.send("Target.closeTarget", { targetId });
     } catch (error) {
-      throw this.#targetError(targetId, error);
+      throw targetError(targetId, error);
     }
     this.#sessions.delete(targetId);
     this.#targetOrder = this.#targetOrder.filter(
@@ -779,7 +811,7 @@ export class BrowserService {
     const browser = await this.#requireBrowser();
     const targets = await this.#inventory(browser);
     if (!targets.some((target) => target.targetId === targetId)) {
-      throw this.#targetError(targetId);
+      throw targetError(targetId);
     }
     if (action.action === "activate") {
       await browser
@@ -791,16 +823,16 @@ export class BrowserService {
     }
     const sessionId = await this.#sessionFor(browser, targetId);
     if (action.action === "navigate") {
-      await this.#sessionCommand(browser, sessionId, "Page.navigate", {
+      await sessionCommand(browser, sessionId, "Page.navigate", {
         url: action.url,
       });
       return;
     }
     if (action.action === "reload") {
-      await this.#sessionCommand(browser, sessionId, "Page.reload");
+      await sessionCommand(browser, sessionId, "Page.reload");
       return;
     }
-    const history = await this.#sessionCommand<NavigationHistory>(
+    const history = await sessionCommand<NavigationHistory>(
       browser,
       sessionId,
       "Page.getNavigationHistory"
@@ -813,12 +845,9 @@ export class BrowserService {
     if (!entry) {
       return;
     }
-    await this.#sessionCommand(
-      browser,
-      sessionId,
-      "Page.navigateToHistoryEntry",
-      { entryId: entry.id }
-    );
+    await sessionCommand(browser, sessionId, "Page.navigateToHistoryEntry", {
+      entryId: entry.id,
+    });
   }
 
   async #attachActiveTarget(): Promise<ViewAttachment> {
@@ -826,7 +855,7 @@ export class BrowserService {
     const targets = await this.#inventory(browser);
     const targetId = this.#resolveActiveTarget(targets);
     if (!targetId) {
-      throw this.#upstreamError("has no viewable browser target");
+      throw upstreamError("has no viewable browser target");
     }
     const sessionId = await this.#sessionFor(browser, targetId);
     return { browser, sessionId, targetId };
@@ -850,7 +879,7 @@ export class BrowserService {
     try {
       listed = await browser.listTargets();
     } catch (error) {
-      throw this.#upstreamError("target inventory failed", error);
+      throw upstreamError("target inventory failed", error);
     }
     const pages = listed.filter((target) => target.type === "page");
     const byId = new Map(pages.map((target) => [target.targetId, target]));
@@ -929,7 +958,7 @@ export class BrowserService {
     try {
       return await this.#browser();
     } catch (error) {
-      throw this.#upstreamError("failed to start", error);
+      throw upstreamError("failed to start", error);
     }
   }
 
@@ -951,22 +980,6 @@ export class BrowserService {
     }
   }
 
-  async #sessionCommand<T = Record<string, unknown>>(
-    browser: BrokeredBrowser,
-    sessionId: string,
-    method: string,
-    params: Record<string, unknown> = {}
-  ): Promise<T> {
-    try {
-      return await browser.send<T>(method, params, sessionId);
-    } catch (error) {
-      throw this.#upstreamError(
-        error instanceof Error ? error.message : `${method} failed`,
-        error
-      );
-    }
-  }
-
   async #sessionFor(browser: BrokeredBrowser, targetId: string) {
     const cached = this.#sessions.get(targetId);
     if (cached) {
@@ -982,7 +995,7 @@ export class BrowserService {
         .send("Page.enable", {}, attached.sessionId)
         .catch(() => undefined);
     } catch (error) {
-      throw this.#targetError(targetId, error);
+      throw targetError(targetId, error);
     }
     this.#sessions.set(targetId, attached.sessionId);
     return attached.sessionId;
@@ -994,24 +1007,6 @@ export class BrowserService {
     await this.#supervisor
       .snapshotTargets(canonicalOwnerId, [...this.#targetOrder])
       .catch(() => undefined);
-  }
-
-  #targetError(targetId: string, cause?: unknown) {
-    return new BrowserServiceError(
-      "browser_target_not_found",
-      `Browser target ${targetId} was not found`,
-      404,
-      cause === undefined ? undefined : { cause }
-    );
-  }
-
-  #upstreamError(detail: string, cause?: unknown) {
-    return new BrowserServiceError(
-      "browser_upstream_unavailable",
-      `VibePad Browser ${detail}`,
-      503,
-      cause === undefined ? undefined : { cause }
-    );
   }
 
   #validViewToken(token: string) {

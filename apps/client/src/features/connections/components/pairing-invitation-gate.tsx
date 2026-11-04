@@ -88,7 +88,7 @@ export function PairingInvitationGate({
       {children}
       {pairingState.status === "idle" ? null : (
         <View
-          className="absolute inset-x-4 top-4 flex-row items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 shadow-black/20 shadow-lg"
+          className="border-border bg-card absolute inset-x-4 top-4 flex-row items-center gap-3 rounded-xl border px-4 py-3 shadow-lg shadow-black/20"
           testID="pairing-invitation-banner"
         >
           <Icon

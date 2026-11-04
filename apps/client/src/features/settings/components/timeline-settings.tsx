@@ -32,7 +32,7 @@ export function TimelineSettings() {
   return (
     <View className="gap-6">
       <View className="gap-1">
-        <Text className="font-semibold text-xl">Timeline</Text>
+        <Text className="text-xl font-semibold">Timeline</Text>
         <Text className="text-sm" variant="muted">
           Choose the point VibePad restores when a session opens or becomes
           active again.
@@ -41,7 +41,7 @@ export function TimelineSettings() {
 
       <View className="gap-3">
         <Text
-          className="font-medium text-xs uppercase tracking-wider"
+          className="text-xs font-medium tracking-wider uppercase"
           variant="muted"
         >
           Open sessions at

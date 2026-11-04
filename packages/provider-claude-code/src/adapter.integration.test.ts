@@ -6,7 +6,7 @@ import type {
   ReadySessionControls,
   SessionControlStore,
 } from "@vibepad/protocol/provider";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it as test } from "vitest";
 
 import { ClaudeCodeAdapter } from "./adapter";
 import { detectClaudeCode } from "./detect";
@@ -83,7 +83,7 @@ describe.skipIf(!enabled)("live Claude Code adapter", () => {
     }
   });
 
-  it("runs one tiny turn end to end and lands a resumable session on disk", {
+  test("runs one tiny turn end to end and lands a resumable session on disk", {
     timeout: liveTimeoutMs,
   }, async () => {
     const health = await adapter.health();
@@ -156,7 +156,7 @@ describe.skipIf(!enabled)("live Claude Code adapter", () => {
     ).toBe(true);
   });
 
-  it("surfaces a live Bash permission ask and honors a rejection", {
+  test("surfaces a live Bash permission ask and honors a rejection", {
     timeout: liveTimeoutMs,
   }, async () => {
     const created = await adapter.createSession({ projectId });

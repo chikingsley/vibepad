@@ -1,4 +1,4 @@
-import { expect, it } from "vitest";
+import { expect, it as test } from "vitest";
 
 import { mapClaudeTimeline } from "./timeline";
 
@@ -44,7 +44,7 @@ const toolResultCarrier = (
   uuid,
 });
 
-it("projects user text, assistant text, and reasoning with native payloads", () => {
+test("projects user text, assistant text, and reasoning with native payloads", () => {
   const user = userText("uuid-user", "Fix the failing test");
   const assistant = assistantBlocks("uuid-assistant", [
     { thinking: "The test asserts the wrong id.", type: "thinking" },
@@ -87,7 +87,7 @@ it("projects user text, assistant text, and reasoning with native payloads", () 
   ]);
 });
 
-it("pairs tool_use blocks with their tool_result and drops the carrier message", () => {
+test("pairs tool_use blocks with their tool_result and drops the carrier message", () => {
   const assistant = assistantBlocks("uuid-tool", [
     {
       id: "toolu_read",
@@ -122,7 +122,7 @@ it("pairs tool_use blocks with their tool_result and drops the carrier message",
   ]);
 });
 
-it("marks unpaired tool calls running and failed results as errors", () => {
+test("marks unpaired tool calls running and failed results as errors", () => {
   const running = assistantBlocks("uuid-running", [
     {
       id: "toolu_pending",
@@ -163,7 +163,7 @@ it("marks unpaired tool calls running and failed results as errors", () => {
   });
 });
 
-it("projects Bash tool calls as shell items with command and output", () => {
+test("projects Bash tool calls as shell items with command and output", () => {
   const bash = assistantBlocks("uuid-bash", [
     {
       id: "toolu_bash",
@@ -192,7 +192,7 @@ it("projects Bash tool calls as shell items with command and output", () => {
   ]);
 });
 
-it("renames MCP tools to server/tool and tags them as mcp calls", () => {
+test("renames MCP tools to server/tool and tags them as mcp calls", () => {
   const mcp = assistantBlocks("uuid-mcp", [
     {
       id: "toolu_mcp",
@@ -212,7 +212,7 @@ it("renames MCP tools to server/tool and tags them as mcp calls", () => {
   });
 });
 
-it("reads structured tool results from both key spellings", () => {
+test("reads structured tool results from both key spellings", () => {
   const assistant = assistantBlocks("uuid-spellings", [
     {
       id: "toolu_spell",
@@ -247,7 +247,7 @@ it("reads structured tool results from both key spellings", () => {
   });
 });
 
-it("projects a real recorded Claude Code transcript end to end", () => {
+test("projects a real recorded Claude Code transcript end to end", () => {
   // Shapes recorded verbatim from a live claude-haiku-4-5 run on 2026-07-23
   // (session 051039df, ~/.claude/projects/-tmp-vibepad-claude-live-rcfbLU),
   // with thinking signatures elided. Raw transcript files also contain
@@ -393,7 +393,7 @@ it("projects a real recorded Claude Code transcript end to end", () => {
   expect(items[3]?.parts[0]).toMatchObject({ type: "text" });
 });
 
-it("projects compact boundaries, attachments, and skips subagent traffic", () => {
+test("projects compact boundaries, attachments, and skips subagent traffic", () => {
   const compaction = {
     compact_metadata: { trigger: "auto" },
     parent_tool_use_id: null,

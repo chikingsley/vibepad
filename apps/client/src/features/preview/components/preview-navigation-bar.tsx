@@ -65,7 +65,7 @@ export function PreviewNavigationBar({
   readonly onToggleExpanded: () => void;
 }) {
   return (
-    <View className="h-12 flex-row items-center gap-1 border-border border-b px-2">
+    <View className="border-border h-12 flex-row items-center gap-1 border-b px-2">
       <PreviewToolButton
         accessibilityLabel="Preview back"
         disabled={!canGoBack}
@@ -87,12 +87,12 @@ export function PreviewNavigationBar({
         onPress={onReload}
         testID="preview-reload"
       />
-      <View className="mx-1 h-10 min-w-40 flex-1 flex-row items-center rounded-md border border-border bg-card px-3">
+      <View className="border-border bg-card mx-1 h-10 min-w-40 flex-1 flex-row items-center rounded-md border px-3">
         <TextInput
           accessibilityLabel="Preview URL"
           autoCapitalize="none"
           autoCorrect={false}
-          className="min-w-0 flex-1 text-foreground text-xs leading-4 outline-none"
+          className="text-foreground min-w-0 flex-1 text-xs leading-4 outline-none"
           editable={hasActiveTab}
           onChangeText={onDraftUrlChange}
           onSubmitEditing={onSubmitDraftUrl}

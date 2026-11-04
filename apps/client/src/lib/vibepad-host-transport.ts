@@ -2,6 +2,16 @@ import { hostCredentialStore } from "@/features/connections/host-credential-stor
 
 type HostWriteMethod = "DELETE" | "PATCH" | "POST";
 
+const readResponse = async (response: Response): Promise<unknown> => {
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(
+      `VibePad host ${response.status}: ${message || response.statusText}`
+    );
+  }
+  return response.json() as Promise<unknown>;
+};
+
 export class VibePadHostTransport {
   readonly #baseUrl: string;
   readonly #hostId: string;
@@ -35,7 +45,7 @@ export class VibePadHostTransport {
         ? { headers: await this.authorizationHeaders(), signal }
         : { headers: await this.authorizationHeaders() }
     );
-    return this.#read(response);
+    return readResponse(response);
   }
 
   post(path: string, body: unknown): Promise<unknown> {
@@ -56,16 +66,6 @@ export class VibePadHostTransport {
       headers,
       method,
     });
-    return this.#read(response);
-  }
-
-  async #read(response: Response): Promise<unknown> {
-    if (!response.ok) {
-      const message = await response.text();
-      throw new Error(
-        `VibePad host ${response.status}: ${message || response.statusText}`
-      );
-    }
-    return response.json() as Promise<unknown>;
+    return readResponse(response);
   }
 }

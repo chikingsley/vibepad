@@ -71,14 +71,14 @@ function ProjectOption({
     >
       <HarnessIcon
         accessibilityLabel={harnessLabel(project.harnessId)}
-        className="mt-0.5 text-muted-foreground"
+        className="text-muted-foreground mt-0.5"
         harnessId={project.harnessId}
         size={15}
       />
       <View className="min-w-0 flex-1 items-start gap-0.5">
         <View className="w-full flex-row items-center gap-2">
           <Text
-            className="min-w-0 flex-1 font-medium text-sm"
+            className="min-w-0 flex-1 text-sm font-medium"
             numberOfLines={1}
           >
             {project.name}
@@ -110,7 +110,7 @@ function NewSessionError({
 }) {
   const errorMessage = useValue(state$.errorMessage);
   return errorMessage ? (
-    <Text className="px-1 text-red-600 text-xs">{errorMessage}</Text>
+    <Text className="px-1 text-xs text-red-600">{errorMessage}</Text>
   ) : null;
 }
 
@@ -280,12 +280,12 @@ export function NewSessionControl({
             testID="new-session-backdrop"
           />
           <View
-            className="w-full max-w-96 gap-3 rounded-2xl border border-border bg-popover p-4 shadow-2xl shadow-black/25"
+            className="border-border bg-popover w-full max-w-96 gap-3 rounded-2xl border p-4 shadow-2xl shadow-black/25"
             testID="new-session-menu"
           >
             <View className="flex-row items-start gap-3">
               <View className="min-w-0 flex-1 gap-1">
-                <Text className="font-semibold text-sm">New session</Text>
+                <Text className="text-sm font-semibold">New session</Text>
                 <Text className="text-muted-foreground" variant="metadata">
                   Choose the workspace and harness for this session.
                 </Text>

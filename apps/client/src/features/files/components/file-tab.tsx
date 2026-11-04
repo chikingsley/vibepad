@@ -26,7 +26,7 @@ export function FileTab({
     <Pressable
       accessibilityLabel={`Open file ${path}`}
       className={cn(
-        "h-9 flex-row items-center gap-2 border-border border-r px-3 active:bg-accent",
+        "border-border active:bg-accent h-9 flex-row items-center gap-2 border-r px-3",
         selected && "bg-accent/70"
       )}
       onPress={select}
@@ -37,7 +37,7 @@ export function FileTab({
       </Text>
       <Pressable
         accessibilityLabel={`Close file ${path}`}
-        className="rounded p-0.5 active:bg-muted"
+        className="active:bg-muted rounded p-0.5"
         hitSlop={8}
         onPress={close}
       >

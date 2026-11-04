@@ -31,7 +31,7 @@ export function FileContent({
   if (content.status === "error") {
     return (
       <View className="flex-1 items-center justify-center px-8">
-        <Text className="text-red-600 text-sm">{content.message}</Text>
+        <Text className="text-sm text-red-600">{content.message}</Text>
       </View>
     );
   }

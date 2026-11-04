@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it as test } from "vitest";
 
 import { findChromiumExecutable } from "./chromium-browser";
 
@@ -18,7 +18,7 @@ const executable = await findChromiumExecutable();
 const skipLiveBrowser = !(executable || process.env["CI"]);
 
 describe.skipIf(skipLiveBrowser)("brokering a real Chromium view", () => {
-  it("leases, streams frames, forwards input, and reflows over the live host", async () => {
+  test("leases, streams frames, forwards input, and reflows over the live host", async () => {
     const { stdout } = await execFileAsync("bun", [fixturePath], {
       timeout: 110_000,
     });

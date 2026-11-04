@@ -22,14 +22,14 @@ function SshTargetRow({
   const setup = useCallback(() => onSetup(target), [onSetup, target]);
   return (
     <View
-      className="flex-row items-center gap-3 border-border border-b px-4 py-3 last:border-b-0"
+      className="border-border flex-row items-center gap-3 border-b px-4 py-3 last:border-b-0"
       testID={`ssh-target-${target.alias}`}
     >
-      <View className="size-9 items-center justify-center rounded-lg bg-muted">
+      <View className="bg-muted size-9 items-center justify-center rounded-lg">
         <Icon className="text-muted-foreground" name="laptop" size={15} />
       </View>
       <View className="min-w-0 flex-1">
-        <Text className="font-medium text-sm">{target.alias}</Text>
+        <Text className="text-sm font-medium">{target.alias}</Text>
         <Text className="text-xs" variant="muted">
           {target.user}@{target.hostName}
         </Text>
@@ -119,7 +119,7 @@ export function SshComputerSetup() {
   return (
     <View className="gap-3" testID="ssh-computer-setup">
       <View className="flex-row items-center justify-between gap-3">
-        <Text className="font-medium text-sm">
+        <Text className="text-sm font-medium">
           Computers available through SSH
         </Text>
         <Button onPress={load} size="icon" testID="ssh-refresh" variant="ghost">
@@ -127,7 +127,7 @@ export function SshComputerSetup() {
         </Button>
       </View>
       {targets.length > 0 ? (
-        <View className="overflow-hidden rounded-xl border border-border bg-card">
+        <View className="border-border bg-card overflow-hidden rounded-xl border">
           {targets.map((target) => (
             <SshTargetRow
               busy={busyAlias === target.alias}

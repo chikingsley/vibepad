@@ -12,7 +12,7 @@ import type { NearbyHostDiscoveryState } from "@/features/connections/nearby-hos
 export const discoverySearchWindowMs = 10_000;
 
 const permissionErrorPattern =
-  /permission|denied|not authorized|local.network/i;
+  /permission|denied|not authorized|local.network/iu;
 
 /**
  * Maps a raw nearby-host snapshot onto the typed onboarding discovery state.

@@ -103,7 +103,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const property = (record: Record<string, unknown>, key: string): unknown =>
   Reflect.get(record, key);
 
-const trailingSlash = /\/$/;
+const trailingSlash = /\/$/u;
 
 const likelyIgnored = (name: string) =>
   name === ".git" ||

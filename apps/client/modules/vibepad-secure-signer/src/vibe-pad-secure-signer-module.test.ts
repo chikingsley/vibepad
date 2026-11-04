@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
+import SecureSignerModule from "./vibe-pad-secure-signer-module";
+
 vi.mock("expo", () => ({
   requireOptionalNativeModule: () => null,
 }));
-
-import SecureSignerModule from "./vibe-pad-secure-signer-module";
 
 describe("VibePad Secure Signer native linkage", () => {
   it("defers a missing native module error until a signing operation", async () => {

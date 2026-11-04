@@ -131,6 +131,7 @@ export function usePcmCapture(onBuffer: (buffer: PcmAudioBuffer) => void) {
       await capture.context.close();
       return;
     }
+    // biome-ignore lint/suspicious/noUnnecessaryConditions: The ref changes between renders and across awaits, which flow typing cannot see.
     if (nativeStreamingRef.current) {
       nativeStreamingRef.current = false;
       nativeStream.stop();

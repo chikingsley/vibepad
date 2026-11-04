@@ -1,3 +1,4 @@
+// biome-ignore lint/correctness/noUndeclaredDependencies: This local Expo module resolves through the tsconfig path alias, not package.json.
 import SshBootstrap from "@vibepad/ssh-bootstrap";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { View } from "react-native";
@@ -60,6 +61,7 @@ export function HostConnectionRecovery({
   }, [startAndRetry]);
 
   useEffect(() => {
+    // biome-ignore lint/suspicious/noUnnecessaryConditions: The ref changes between renders and across awaits, which flow typing cannot see.
     if (attempted.current || !savedHost?.automaticStart.enabled) {
       return;
     }
@@ -97,15 +99,15 @@ export function HostConnectionRecovery({
 
   return (
     <View
-      className="flex-1 items-center justify-center bg-background px-6 py-10"
+      className="bg-background flex-1 items-center justify-center px-6 py-10"
       testID="host-connection-recovery"
     >
       <View className="w-full max-w-lg items-center gap-5">
-        <View className="size-12 items-center justify-center rounded-xl bg-muted">
+        <View className="bg-muted size-12 items-center justify-center rounded-xl">
           <Icon className="text-muted-foreground" name="laptop" size={19} />
         </View>
         <View className="items-center gap-2">
-          <Text className="text-center font-semibold text-xl">
+          <Text className="text-center text-xl font-semibold">
             Reconnect to {hostName}
           </Text>
           <Text className="text-center text-sm leading-6" variant="muted">
@@ -113,8 +115,9 @@ export function HostConnectionRecovery({
             nearby LAN.
           </Text>
         </View>
-        <View className="w-full rounded-lg bg-muted px-4 py-3">
+        <View className="bg-muted w-full rounded-lg px-4 py-3">
           <Text className="text-center text-xs leading-5" variant="muted">
+            {/* biome-ignore lint/suspicious/noUnnecessaryConditions: recoveryError is unset until a retry fails. */}
             {recoveryError ?? errorMessage}
           </Text>
         </View>

@@ -2,7 +2,7 @@ import type {
   ProviderEvent,
   ProviderEventStore,
 } from "@vibepad/protocol/events";
-import { expect, it, vi } from "vitest";
+import { expect, it as test, vi } from "vitest";
 
 import type { Turn } from "../generated/v2/Turn";
 import { CodexAdapter } from "./adapter";
@@ -61,7 +61,18 @@ class MemoryEventStore implements ProviderEventStore {
   }
 }
 
-class FakeCodexAppServerClient {
+class FakeCodexAppServerClient
+  implements
+    Pick<
+      CodexAppServerClient,
+      | "connectionGeneration"
+      | "dispose"
+      | "onRequest"
+      | "respond"
+      | "respondError"
+      | "start"
+    >
+{
   readonly requests: { method: string; params: unknown }[] = [];
   readonly #connectionListeners = new Set<
     (state: CodexConnectionState) => void
@@ -208,7 +219,7 @@ const synthesizedFrom = (event: ProviderEvent | undefined) =>
     ? Reflect.get(event.native, "synthesizedFrom")
     : undefined;
 
-it("emits one turn.completed for the real notification and ignores the trailing idle status", async () => {
+test("emits one turn.completed for the real notification and ignores the trailing idle status", async () => {
   const { adapter, client, eventStore } = createAdapter();
   try {
     startTurn(client, "turn-1");
@@ -224,7 +235,7 @@ it("emits one turn.completed for the real notification and ignores the trailing 
   }
 });
 
-it("synthesizes turn.completed from an idle thread status when Codex skips turn/completed", async () => {
+test("synthesizes turn.completed from an idle thread status when Codex skips turn/completed", async () => {
   const { adapter, client, eventStore } = createAdapter();
   try {
     startTurn(client, "turn-1");
@@ -247,7 +258,7 @@ it("synthesizes turn.completed from an idle thread status when Codex skips turn/
   }
 });
 
-it("synthesizes turn.completed from a final_answer agent message", async () => {
+test("synthesizes turn.completed from a final_answer agent message", async () => {
   const { adapter, client, eventStore } = createAdapter();
   try {
     startTurn(client, "turn-1");
@@ -267,7 +278,7 @@ it("synthesizes turn.completed from a final_answer agent message", async () => {
   }
 });
 
-it("ignores a final_answer that belongs to a different turn", async () => {
+test("ignores a final_answer that belongs to a different turn", async () => {
   const { adapter, client, eventStore } = createAdapter();
   try {
     startTurn(client, "turn-1");
@@ -281,7 +292,7 @@ it("ignores a final_answer that belongs to a different turn", async () => {
   }
 });
 
-it("does not synthesize a completion when no turn is active", async () => {
+test("does not synthesize a completion when no turn is active", async () => {
   const { adapter, client, eventStore } = createAdapter();
   try {
     idleThread(client);
@@ -292,7 +303,7 @@ it("does not synthesize a completion when no turn is active", async () => {
   }
 });
 
-it("resolves abortTurn once the interrupted turn reports a real completion", async () => {
+test("resolves abortTurn once the interrupted turn reports a real completion", async () => {
   const { adapter, client, eventStore } = createAdapter();
   client.handle("turn/interrupt", () => ({}));
   try {
@@ -310,7 +321,7 @@ it("resolves abortTurn once the interrupted turn reports a real completion", asy
   }
 });
 
-it("resolves abortTurn via the idle fallback when turn/completed never arrives", async () => {
+test("resolves abortTurn via the idle fallback when turn/completed never arrives", async () => {
   const { adapter, client, eventStore } = createAdapter();
   client.handle("turn/interrupt", () => ({}));
   try {
@@ -327,7 +338,7 @@ it("resolves abortTurn via the idle fallback when turn/completed never arrives",
   }
 });
 
-it("surfaces an unsettled interrupt and stays consistent for a later real completion", async () => {
+test("surfaces an unsettled interrupt and stays consistent for a later real completion", async () => {
   const { adapter, client, eventStore } = createAdapter(25);
   client.handle("turn/interrupt", () => ({}));
   client.handle("thread/turns/list", () => ({ data: [], nextCursor: null }));
@@ -349,7 +360,7 @@ it("surfaces an unsettled interrupt and stays consistent for a later real comple
   }
 });
 
-it("keeps the skipped-turn tolerance by discovering the active turn before interrupting", async () => {
+test("keeps the skipped-turn tolerance by discovering the active turn before interrupting", async () => {
   const { adapter, client, eventStore } = createAdapter();
   client.handle("turn/interrupt", () => ({}));
   client.handle("thread/turns/list", () => ({

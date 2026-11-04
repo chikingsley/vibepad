@@ -1,6 +1,8 @@
 import { hostAuthWebSocketProtocol } from "@vibepad/protocol/auth";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { VibePadHostClient } from "./vibepad-host";
+
 const credentials = vi.hoisted(
   () => new Map<string, { readonly kind: "bearer"; readonly token: string }>()
 );
@@ -35,8 +37,6 @@ vi.mock("expo/fetch", () => ({
 vi.mock("react-native", () => ({
   Platform: { OS: "web" },
 }));
-
-import { VibePadHostClient } from "./vibepad-host";
 
 describe("VibePad host credentials", () => {
   beforeEach(() => {

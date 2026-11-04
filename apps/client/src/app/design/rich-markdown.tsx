@@ -39,7 +39,7 @@ const streamingSample =
 
 export default function RichMarkdownDesignScreen() {
   return (
-    <ScrollView className="flex-1 bg-background">
+    <ScrollView className="bg-background flex-1">
       <View
         className="mx-auto w-full max-w-3xl gap-6 px-5 py-8 sm:px-8"
         testID="rich-markdown-fixture"

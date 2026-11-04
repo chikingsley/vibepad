@@ -1,3 +1,4 @@
+// biome-ignore lint/correctness/noUndeclaredDependencies: This local Expo module resolves through the tsconfig path alias, not package.json.
 import type { SshInspectionResult } from "@vibepad/ssh-bootstrap";
 import { describe, expect, it, vi } from "vitest";
 

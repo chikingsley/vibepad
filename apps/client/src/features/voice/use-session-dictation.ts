@@ -212,15 +212,18 @@ export function useSessionDictation({
           reject(new Error(event.reason || "Voice Lab disconnected"));
       });
       socket.onerror = () => {
+        // biome-ignore lint/suspicious/noUnnecessaryConditions: The ref changes between renders and across awaits, which flow typing cannot see.
         if (!(cancelledRef.current || terminalRef.current)) {
           fail("Unable to connect to Voice Lab").catch(() => undefined);
         }
       };
       socket.onclose = (event) => {
+        // biome-ignore lint/suspicious/noUnnecessaryConditions: The ref changes between renders and across awaits, which flow typing cannot see.
         if (!(cancelledRef.current || terminalRef.current)) {
           fail(event.reason || "Voice Lab disconnected").catch(() => undefined);
         }
       };
+      // biome-ignore lint/suspicious/noUnnecessaryConditions: The ref changes between renders and across awaits, which flow typing cannot see.
       if (cancelledRef.current) {
         return;
       }
@@ -243,6 +246,7 @@ export function useSessionDictation({
 
   const stop = useCallback(
     async (sendAfterInsert = false) => {
+      // biome-ignore lint/suspicious/noUnnecessaryConditions: The ref changes between renders and across awaits, which flow typing cannot see.
       if (cancelledRef.current || !store.beginProcessing()) {
         return;
       }

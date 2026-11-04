@@ -49,7 +49,7 @@ interface PreviewSurfaceProps {
   readonly showReviewTray: boolean;
 }
 
-const httpUrlPattern = /^https?:\/\//i;
+const httpUrlPattern = /^https?:\/\//iu;
 const browserRefreshIntervalMs = 1500;
 
 const ensureUrl = (value: string) => {
@@ -301,7 +301,7 @@ export function PreviewSurface({
   const browserMessage = browserStatusMessage(browserState, hostName);
 
   return (
-    <View className="flex-1 bg-background" testID="preview-surface">
+    <View className="bg-background flex-1" testID="preview-surface">
       <BrowserTabStrip
         activeTabId={activeTargetId}
         onClose={closeTab}
@@ -333,7 +333,7 @@ export function PreviewSurface({
         {healthy && viewUrl ? (
           <BrowserViewFrame url={viewUrl} />
         ) : (
-          <View className="flex-1 items-center justify-center gap-3 bg-muted/20">
+          <View className="bg-muted/20 flex-1 items-center justify-center gap-3">
             <Text className="max-w-md text-center text-sm" variant="muted">
               {browserMessage}
             </Text>

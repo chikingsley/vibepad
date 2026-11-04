@@ -1,5 +1,5 @@
 import type { PendingInteraction } from "@vibepad/protocol/interactions";
-import { expect, it } from "vitest";
+import { expect, it as test } from "vitest";
 
 import {
   ClaudeCodePermissionBroker,
@@ -36,7 +36,7 @@ const callOptions = (
   ...extra,
 });
 
-it("classifies Claude tools like Happy's descriptor table", () => {
+test("classifies Claude tools like Happy's descriptor table", () => {
   expect(claudeToolDescriptor("ExitPlanMode").exitPlan).toBe(true);
   expect(claudeToolDescriptor("Edit")).toEqual({
     dangerous: true,
@@ -51,7 +51,7 @@ it("classifies Claude tools like Happy's descriptor table", () => {
   });
 });
 
-it("projects a Bash ask into a VibePad permission interaction", async () => {
+test("projects a Bash ask into a VibePad permission interaction", async () => {
   const { broker, requested } = createBroker();
   const canUseTool = broker.canUseToolFor(sessionId);
 
@@ -85,7 +85,7 @@ it("projects a Bash ask into a VibePad permission interaction", async () => {
   expect(broker.listPending(sessionId)).toHaveLength(0);
 });
 
-it("denies with the caller's message and Happy's stop message by default", async () => {
+test("denies with the caller's message and Happy's stop message by default", async () => {
   const { broker, resolved } = createBroker();
   const canUseTool = broker.canUseToolFor(sessionId);
 
@@ -111,7 +111,7 @@ it("denies with the caller's message and Happy's stop message by default", async
   expect(resolved).toHaveLength(2);
 });
 
-it("returns SDK permission suggestions and remembers always-allowed tools", async () => {
+test("returns SDK permission suggestions and remembers always-allowed tools", async () => {
   const { broker } = createBroker();
   const canUseTool = broker.canUseToolFor(sessionId);
   const suggestions = [
@@ -157,7 +157,7 @@ it("returns SDK permission suggestions and remembers always-allowed tools", asyn
   await different;
 });
 
-it("applies edited tool input on approval", async () => {
+test("applies edited tool input on approval", async () => {
   const { broker } = createBroker();
   const canUseTool = broker.canUseToolFor(sessionId);
 
@@ -177,7 +177,7 @@ it("applies edited tool input on approval", async () => {
   });
 });
 
-it("honors permission modes: acceptEdits, plan, and bypassPermissions", async () => {
+test("honors permission modes: acceptEdits, plan, and bypassPermissions", async () => {
   const { broker } = createBroker();
   const canUseTool = broker.canUseToolFor(sessionId);
 
@@ -205,7 +205,7 @@ it("honors permission modes: acceptEdits, plan, and bypassPermissions", async ()
   ).resolves.toMatchObject({ behavior: "allow" });
 });
 
-it("switches back to default mode when an ExitPlanMode approval lands", async () => {
+test("switches back to default mode when an ExitPlanMode approval lands", async () => {
   const { broker, exitPlanApproved } = createBroker();
   const canUseTool = broker.canUseToolFor(sessionId);
   broker.setMode(sessionId, "plan");
@@ -222,7 +222,7 @@ it("switches back to default mode when an ExitPlanMode approval lands", async ()
   expect(exitPlanApproved).toEqual([sessionId]);
 });
 
-it("projects AskUserQuestion as a question and answers via edited input", async () => {
+test("projects AskUserQuestion as a question and answers via edited input", async () => {
   const { broker, requested } = createBroker();
   const canUseTool = broker.canUseToolFor(sessionId);
   broker.setMode(sessionId, "bypassPermissions");
@@ -275,7 +275,7 @@ it("projects AskUserQuestion as a question and answers via edited input", async 
   });
 });
 
-it("denies dismissed questions and aborted requests", async () => {
+test("denies dismissed questions and aborted requests", async () => {
   const { broker } = createBroker();
   const canUseTool = broker.canUseToolFor(sessionId);
 
@@ -301,7 +301,7 @@ it("denies dismissed questions and aborted requests", async () => {
   expect(broker.listPending(sessionId)).toHaveLength(0);
 });
 
-it("scopes agent-namespaced request ids and rejects unknown responses", async () => {
+test("scopes agent-namespaced request ids and rejects unknown responses", async () => {
   const { broker } = createBroker();
   const canUseTool = broker.canUseToolFor(sessionId);
 

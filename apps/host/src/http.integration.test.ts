@@ -14,7 +14,7 @@ import { CodexAppServerClient } from "@vibepad/provider-codex/client";
 import { codexThreadId } from "@vibepad/provider-codex/ids";
 import { OpenCodeAdapter } from "@vibepad/provider-opencode/adapter";
 import { openCodeNativeSessionId } from "@vibepad/provider-opencode/ids";
-import { expect, it } from "vitest";
+import { expect, it as test } from "vitest";
 
 import { createRequestHandler } from "./http";
 import { ProviderRouter } from "./provider-router";
@@ -133,7 +133,7 @@ const waitUntilInactive = async (
   throw new Error("OpenCode session remained active after host interrupt");
 };
 
-it("interrupts a real OpenCode turn through the VibePad host transport", async () => {
+test("interrupts a real OpenCode turn through the VibePad host transport", async () => {
   if (!enabled) {
     return;
   }
@@ -243,7 +243,7 @@ it("interrupts a real OpenCode turn through the VibePad host transport", async (
   }
 }, 60_000);
 
-it("lists the real catalog and switches model and agent through the host transport", async () => {
+test("lists the real catalog and switches model and agent through the host transport", async () => {
   if (!enabled) {
     return;
   }
@@ -336,7 +336,7 @@ it("lists the real catalog and switches model and agent through the host transpo
   }
 }, 30_000);
 
-it("answers a real OpenCode permission through the VibePad host transport", async () => {
+test("answers a real OpenCode permission through the VibePad host transport", async () => {
   if (!(enabled && interactionBaseUrl)) {
     return;
   }
@@ -416,7 +416,7 @@ it("answers a real OpenCode permission through the VibePad host transport", asyn
   }
 }, 30_000);
 
-it("routes a real Codex turn beside OpenCode through the shared host transport", async () => {
+test("routes a real Codex turn beside OpenCode through the shared host transport", async () => {
   if (!(enabled && codexEnabled)) {
     return;
   }

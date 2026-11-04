@@ -1,4 +1,4 @@
-import { expect, it } from "vitest";
+import { expect, it as test } from "vitest";
 
 import {
   claudeCodeNativeSessionId,
@@ -10,7 +10,7 @@ import {
   isClaudeCodeSessionId,
 } from "./ids";
 
-it("round-trips project ids through base64url paths", () => {
+test("round-trips project ids through base64url paths", () => {
   const cwd = "/home/simon/github/vibepad";
   const projectId = claudeCodeProjectId(cwd);
 
@@ -20,7 +20,7 @@ it("round-trips project ids through base64url paths", () => {
   expect(claudeCodeProjectName(cwd)).toBe("vibepad");
 });
 
-it("round-trips session ids with the claude-code namespace", () => {
+test("round-trips session ids with the claude-code namespace", () => {
   const nativeId = "3f4c9a52-70bb-4ff0-9605-15c4e2f4bd11";
   const sessionId = claudeCodeSessionId(nativeId);
 
@@ -29,7 +29,7 @@ it("round-trips session ids with the claude-code namespace", () => {
   expect(isClaudeCodeSessionId(sessionId)).toBe(true);
 });
 
-it("rejects foreign ids instead of guessing", () => {
+test("rejects foreign ids instead of guessing", () => {
   expect(() => claudeCodeProjectPath("codex:project:abc")).toThrow(
     "Not a Claude Code project id"
   );

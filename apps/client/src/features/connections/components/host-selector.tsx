@@ -67,7 +67,7 @@ function HostSelectorChip({
         size={14}
       />
       <Text
-        className={cn("font-medium text-xs", active && "text-background")}
+        className={cn("text-xs font-medium", active && "text-background")}
         numberOfLines={1}
       >
         {host.name}
@@ -104,10 +104,10 @@ function HostSelectorRow({
   }
   return (
     <View
-      className="flex-row items-center gap-3 border-border border-b px-4 py-4 last:border-b-0"
+      className="border-border flex-row items-center gap-3 border-b px-4 py-4 last:border-b-0"
       testID={`saved-host-${host.id}`}
     >
-      <View className="size-10 items-center justify-center rounded-lg bg-muted">
+      <View className="bg-muted size-10 items-center justify-center rounded-lg">
         <Icon className="text-muted-foreground" name="laptop" size={16} />
       </View>
       <View className="min-w-0 flex-1">
@@ -119,7 +119,7 @@ function HostSelectorRow({
             )}
             testID={`saved-host-status-${host.id}`}
           />
-          <Text className="min-w-0 font-medium text-sm" numberOfLines={1}>
+          <Text className="min-w-0 text-sm font-medium" numberOfLines={1}>
             {host.name}
           </Text>
         </View>

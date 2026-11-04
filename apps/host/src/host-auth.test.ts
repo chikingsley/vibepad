@@ -5,14 +5,14 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
-import { expect, it } from "vitest";
+import { expect, it as test } from "vitest";
 
 const execFileAsync = promisify(execFile);
 const fixturePath = fileURLToPath(
   new URL("./host-auth.fixture.ts", import.meta.url)
 );
 
-it("pairs, authenticates, revokes, and preserves loopback access through a real SQLite host", async () => {
+test("pairs, authenticates, revokes, and preserves loopback access through a real SQLite host", async () => {
   const directory = await mkdtemp(join(tmpdir(), "vibepad-host-auth-"));
   try {
     const { stdout } = await execFileAsync("bun", [

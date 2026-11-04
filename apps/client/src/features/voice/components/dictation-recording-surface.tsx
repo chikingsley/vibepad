@@ -44,7 +44,7 @@ function VoiceWaveformBar({
 
   return (
     <Animated.View
-      className="w-[3px] rounded-full bg-foreground"
+      className="bg-foreground w-[3px] rounded-full"
       style={animatedStyle}
     />
   );

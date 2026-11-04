@@ -3,7 +3,7 @@ import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it, it as test } from "vitest";
 
 import {
   ChromiumBrowser,
@@ -137,7 +137,7 @@ describe.skipIf(skipLiveBrowser)("driving a real Chromium over CDP", () => {
     }
   });
 
-  it("streams screencast frames whose metadata tracks page scroll", async () => {
+  test("streams screencast frames whose metadata tracks page scroll", async () => {
     const profileDirectory = await mkdtemp(
       join(tmpdir(), "vibepad-chromium-profile-")
     );
@@ -175,7 +175,7 @@ describe.skipIf(skipLiveBrowser)("driving a real Chromium over CDP", () => {
     await stopScreencast();
   }, 45_000);
 
-  it("seeds a second browser's logins from the canonical cookie jar", async () => {
+  test("seeds a second browser's logins from the canonical cookie jar", async () => {
     const server = createServer((_request, response) => {
       response.writeHead(200, { "content-type": "text/html" });
       response.end("<title>login probe</title><body>ok</body>");

@@ -31,7 +31,7 @@ export function SettingsChoice<Value extends string>({
       accessibilityState={{ checked: selected }}
       aria-checked={selected}
       className={cn(
-        "min-w-48 flex-1 flex-row gap-3 rounded-xl border px-3 py-3 active:bg-accent/70",
+        "active:bg-accent/70 min-w-48 flex-1 flex-row gap-3 rounded-xl border px-3 py-3",
         selected ? "border-primary bg-accent/60" : "border-border bg-background"
       )}
       onPress={select}
@@ -48,7 +48,7 @@ export function SettingsChoice<Value extends string>({
         ) : null}
       </View>
       <View className="min-w-0 flex-1 gap-1">
-        <Text className="font-medium text-sm">{label}</Text>
+        <Text className="text-sm font-medium">{label}</Text>
         <Text className="text-xs leading-5" variant="muted">
           {description}
         </Text>

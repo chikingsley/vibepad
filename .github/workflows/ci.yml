@@ -3,7 +3,7 @@ name: VibePad CI
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [ main ]
 
 permissions:
   contents: read

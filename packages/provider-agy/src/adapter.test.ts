@@ -1,7 +1,7 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, expect, it } from "vitest";
+import { afterEach, beforeEach, expect, it as test } from "vitest";
 
 import { AgyAdapter } from "./adapter";
 import { AGY_MODELS } from "./constants";
@@ -46,7 +46,7 @@ const makeAdapter = (
 const writeCache = (cache: Record<string, string>) =>
   writeFile(cachePath, JSON.stringify(cache));
 
-it("streams a turn: spawn args, deltas, completion, and timeline projection", async () => {
+test("streams a turn: spawn args, deltas, completion, and timeline projection", async () => {
   const { adapter, projectId, script, store } = makeAdapter();
   const session = await adapter.createSession({ projectId });
   expect(session.controls).toMatchObject({ agent: "sandbox", status: "ready" });
@@ -88,7 +88,7 @@ it("streams a turn: spawn args, deltas, completion, and timeline projection", as
   ]);
 });
 
-it("marks the turn failed on non-zero exit and surfaces stderr detail", async () => {
+test("marks the turn failed on non-zero exit and surfaces stderr detail", async () => {
   const { adapter, projectId, script } = makeAdapter();
   const session = await adapter.createSession({ projectId });
   await adapter.sendTurn({ sessionId: session.id, text: "explode" });
@@ -105,7 +105,7 @@ it("marks the turn failed on non-zero exit and surfaces stderr detail", async ()
   expect(single(await adapter.listSessions(projectId)).activity).toBe("idle");
 });
 
-it("reports a missing binary once even when error is followed by close", async () => {
+test("reports a missing binary once even when error is followed by close", async () => {
   const { adapter, projectId, script, store } = makeAdapter();
   const session = await adapter.createSession({ projectId });
   await adapter.sendTurn({ sessionId: session.id, text: "hi" });
@@ -123,7 +123,7 @@ it("reports a missing binary once even when error is followed by close", async (
   });
 });
 
-it("pins the conversation created by the first turn and resumes it", async () => {
+test("pins the conversation created by the first turn and resumes it", async () => {
   const { adapter, projectId, script, store } = makeAdapter();
   const session = await adapter.createSession({ projectId });
 
@@ -148,7 +148,7 @@ it("pins the conversation created by the first turn and resumes it", async () =>
   script.children[1]?.close(0);
 });
 
-it("does not adopt a pre-existing conversation left by another session", async () => {
+test("does not adopt a pre-existing conversation left by another session", async () => {
   await writeCache({ [workspace]: "other-sessions-conversation" });
   const { adapter, projectId, script } = makeAdapter();
   const session = await adapter.createSession({ projectId });
@@ -163,7 +163,7 @@ it("does not adopt a pre-existing conversation left by another session", async (
   }
 });
 
-it("abortTurn kills the running child and rejects without one", async () => {
+test("abortTurn kills the running child and rejects without one", async () => {
   const { adapter, projectId, script } = makeAdapter();
   const session = await adapter.createSession({ projectId });
   await adapter.sendTurn({ sessionId: session.id, text: "long task" });
@@ -177,7 +177,7 @@ it("abortTurn kills the running child and rejects without one", async () => {
   await expect(adapter.abortTurn(session.id)).rejects.toThrow("no active turn");
 });
 
-it("rejects a second sendTurn while a turn is running", async () => {
+test("rejects a second sendTurn while a turn is running", async () => {
   const { adapter, projectId, script } = makeAdapter();
   const session = await adapter.createSession({ projectId });
   await adapter.sendTurn({ sessionId: session.id, text: "one" });
@@ -187,7 +187,7 @@ it("rejects a second sendTurn while a turn is running", async () => {
   script.children[0]?.close(0);
 });
 
-it("lists the workspace's last agy conversation and resumes it on demand", async () => {
+test("lists the workspace's last agy conversation and resumes it on demand", async () => {
   await writeCache({ [workspace]: "cid-cached-9" });
   const { adapter, script } = makeAdapter();
 
@@ -209,7 +209,7 @@ it("lists the workspace's last agy conversation and resumes it on demand", async
   expect(relisted).toHaveLength(1);
 });
 
-it("restores recorded turns and titles from the event store after a restart", async () => {
+test("restores recorded turns and titles from the event store after a restart", async () => {
   await writeCache({ [workspace]: "cid-persist" });
   const store = new RecordingEventStore();
   const first = makeAdapter({ eventStore: store });
@@ -230,7 +230,7 @@ it("restores recorded turns and titles from the event store after a restart", as
   expect(restored.timeline.items[1]?.parts[0]).toMatchObject({ text: "55" });
 });
 
-it("selectModel validates against the recorded agy model list", async () => {
+test("selectModel validates against the recorded agy model list", async () => {
   const { adapter, projectId, script } = makeAdapter();
   const session = await adapter.createSession({ projectId });
   const updated = await adapter.selectModel({
@@ -256,7 +256,7 @@ it("selectModel validates against the recorded agy model list", async () => {
   script.children[0]?.close(0);
 });
 
-it("selectAgent switches the approval policy flag", async () => {
+test("selectAgent switches the approval policy flag", async () => {
   const { adapter, projectId, script } = makeAdapter();
   const session = await adapter.createSession({ projectId });
   await adapter.selectAgent({
@@ -274,7 +274,7 @@ it("selectAgent switches the approval policy flag", async () => {
   ).rejects.toThrow("approval policy not found");
 });
 
-it("archiving a cache-derived session suppresses its resurrection", async () => {
+test("archiving a cache-derived session suppresses its resurrection", async () => {
   await writeCache({ [workspace]: "cid-arch" });
   const { adapter } = makeAdapter();
   const session = single(await adapter.listSessions());
@@ -282,7 +282,7 @@ it("archiving a cache-derived session suppresses its resurrection", async () => 
   expect(await adapter.listSessions()).toEqual([]);
 });
 
-it("merges configured roots with cache workspaces into projects", async () => {
+test("merges configured roots with cache workspaces into projects", async () => {
   const other = await mkdtemp(join(tmpdir(), "agy-other-"));
   try {
     await writeCache({ [other]: "cid-b" });
@@ -296,7 +296,7 @@ it("merges configured roots with cache workspaces into projects", async () => {
   }
 });
 
-it("lists and reads workspace files, guarding the project root", async () => {
+test("lists and reads workspace files, guarding the project root", async () => {
   await writeFile(join(workspace, "a.txt"), "hello agy");
   await writeFile(join(workspace, "blob.bin"), Buffer.from([0, 1, 2, 0]));
   const { adapter, projectId } = makeAdapter();
@@ -317,7 +317,7 @@ it("lists and reads workspace files, guarding the project root", async () => {
   ).rejects.toThrow("escapes agy project");
 });
 
-it("exposes the recorded model list and approval agents in the catalog", async () => {
+test("exposes the recorded model list and approval agents in the catalog", async () => {
   const { adapter, projectId } = makeAdapter();
   const catalog = await adapter.listCatalog(projectId);
   expect(catalog.models.map((model) => model.id)).toEqual([...AGY_MODELS]);
@@ -330,7 +330,7 @@ it("exposes the recorded model list and approval agents in the catalog", async (
   ]);
 });
 
-it("reports health from binary resolvability", async () => {
+test("reports health from binary resolvability", async () => {
   const missing = makeAdapter({ executable: "/definitely/not/here/agy" });
   expect((await missing.adapter.health()).healthy).toBe(false);
 
@@ -340,7 +340,7 @@ it("reports health from binary resolvability", async () => {
   expect((await found.adapter.health()).healthy).toBe(true);
 });
 
-it("rejects operations on unknown live sessions with a restart hint", async () => {
+test("rejects operations on unknown live sessions with a restart hint", async () => {
   const { adapter } = makeAdapter();
   const ghost = agySessionId(
     agyLiveSessionKey("123e4567-e89b-42d3-a456-426614174000")
@@ -350,7 +350,7 @@ it("rejects operations on unknown live sessions with a restart hint", async () =
   ).rejects.toThrow("do not survive a host restart");
 });
 
-it("has no interactions and rejects permission or question responses", async () => {
+test("has no interactions and rejects permission or question responses", async () => {
   const { adapter, projectId } = makeAdapter();
   const session = await adapter.createSession({ projectId });
   expect(await adapter.listInteractions(session.id)).toEqual([]);
@@ -373,7 +373,7 @@ it("has no interactions and rejects permission or question responses", async () 
   );
 });
 
-it("replays a turn's events through subscribe from a cursor", async () => {
+test("replays a turn's events through subscribe from a cursor", async () => {
   const { adapter, projectId, script, store } = makeAdapter();
   const session = await adapter.createSession({ projectId });
   const cursor = store.events.at(-1)?.cursor;

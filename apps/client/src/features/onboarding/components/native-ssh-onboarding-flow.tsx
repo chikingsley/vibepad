@@ -6,6 +6,7 @@ import type {
   SshConnectionInput,
 } from "@vibepad/protocol/onboarding";
 import { createHostProfile } from "@vibepad/protocol/settings";
+// biome-ignore lint/correctness/noUndeclaredDependencies: This local Expo module resolves through the tsconfig path alias, not package.json.
 import SshBootstrap from "@vibepad/ssh-bootstrap";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { Platform } from "react-native";

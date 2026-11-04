@@ -81,7 +81,7 @@ const collectToolResults = (
   return results;
 };
 
-const mcpToolName = /^mcp__([^_]+(?:_[^_]+)*?)__(.+)$/;
+const mcpToolName = /^mcp__(?<server>[^_]+(?:_[^_]+)*?)__(?<tool>.+)$/u;
 
 type ToolPresentation = Pick<
   Extract<TimelinePart, { type: "tool" }>,

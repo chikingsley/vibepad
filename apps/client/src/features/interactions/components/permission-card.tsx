@@ -67,13 +67,13 @@ export function PermissionCard({
       testID={`permission-request-${interaction.id}`}
     >
       <View className="gap-1">
-        <Text className="font-semibold text-sm">Permission required</Text>
+        <Text className="text-sm font-semibold">Permission required</Text>
         <Text className="text-sm" selectable>
           {interaction.action}
         </Text>
         {interaction.resources.map((resource) => (
           <Text
-            className="font-mono text-muted-foreground text-xs"
+            className="text-muted-foreground font-mono text-xs"
             key={resource}
             selectable
           >
@@ -82,7 +82,7 @@ export function PermissionCard({
         ))}
       </View>
       {response.errorMessage ? (
-        <Text className="text-red-600 text-xs">{response.errorMessage}</Text>
+        <Text className="text-xs text-red-600">{response.errorMessage}</Text>
       ) : null}
       <View className="flex-row flex-wrap justify-end gap-2">
         <Button

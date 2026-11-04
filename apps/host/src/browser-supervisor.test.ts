@@ -3,7 +3,7 @@ import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it, it as test } from "vitest";
 
 import {
   BrowserSupervisor,
@@ -15,7 +15,7 @@ import {
   findChromiumExecutable,
 } from "./chromium-browser";
 
-const loopbackCdpEndpointPattern = /^http:\/\/127\.0\.0\.1:\d+$/;
+const loopbackCdpEndpointPattern = /^http:\/\/127\.0\.0\.1:\d+$/u;
 
 const waitForOrigin = async (
   browser: ChromiumBrowser,
@@ -116,7 +116,7 @@ describe.skipIf(skipLiveBrowser)("supervising real session browsers", () => {
     }
   });
 
-  it("keeps logins, tabs, and lifecycles per owner", async () => {
+  test("keeps logins, tabs, and lifecycles per owner", async () => {
     const dataDirectory = await mkdtemp(join(tmpdir(), "vibepad-supervisor-"));
     cleanups.push(() => rm(dataDirectory, { force: true, recursive: true }));
     const supervisor = new BrowserSupervisor({

@@ -57,7 +57,7 @@ function VoiceModelOption({
         size={15}
       />
       <View className="min-w-0 flex-1 items-start gap-0.5">
-        <Text className="font-medium text-xs" numberOfLines={1}>
+        <Text className="text-xs font-medium" numberOfLines={1}>
           {model.id}
         </Text>
         <Text className="text-[10px]" variant="muted">
@@ -246,7 +246,7 @@ export function VoiceCleanupProfileControl({
   return (
     <View
       accessibilityRole="radiogroup"
-      className="flex-row rounded-lg border border-border bg-muted/40 p-0.5"
+      className="border-border bg-muted/40 flex-row rounded-lg border p-0.5"
     >
       {promptProfiles.map((profile) => (
         <VoiceCleanupProfileOption

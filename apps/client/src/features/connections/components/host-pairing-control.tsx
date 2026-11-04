@@ -45,7 +45,7 @@ export function HostPairingControl({
       )}
       {open ? (
         <View
-          className="gap-4 rounded-xl border border-border bg-card p-4"
+          className="border-border bg-card gap-4 rounded-xl border p-4"
           testID="host-pairing-form"
         >
           <Text className="text-sm leading-6" variant="muted">
@@ -93,7 +93,7 @@ export function SavedHostList() {
     return null;
   }
   return (
-    <View className="overflow-hidden rounded-xl border border-border bg-card">
+    <View className="border-border bg-card overflow-hidden rounded-xl border">
       {connections.hosts.map((savedHost) => (
         <HostSelectorItem
           active={savedHost.id === connections.activeHostId}

@@ -8,7 +8,7 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, expect, it } from "vitest";
+import { afterEach, beforeEach, expect, it as test } from "vitest";
 
 import {
   listAgyConversationWorkspaces,
@@ -31,12 +31,12 @@ const writeCache = async (cache: unknown) => {
   return path;
 };
 
-it("returns the conversation id recorded for a cwd", async () => {
+test("returns the conversation id recorded for a cwd", async () => {
   const path = await writeCache({ "/work": "cid-1" });
   expect(readAgyConversationId("/work", path)).toBe("cid-1");
 });
 
-it("falls back to the realpath of the cwd", async () => {
+test("falls back to the realpath of the cwd", async () => {
   const link = join(directory, "link");
   const created = join(directory, "workspace");
   await mkdir(created);
@@ -46,13 +46,13 @@ it("falls back to the realpath of the cwd", async () => {
   expect(readAgyConversationId(link, path)).toBe("cid-real");
 });
 
-it("returns null when the cache file is missing", () => {
+test("returns null when the cache file is missing", () => {
   expect(
     readAgyConversationId("/work", join(directory, "missing.json"))
   ).toBeNull();
 });
 
-it("returns null for malformed or non-object caches", async () => {
+test("returns null for malformed or non-object caches", async () => {
   const broken = join(directory, "broken.json");
   await writeFile(broken, "{not json");
   expect(readAgyConversationId("/work", broken)).toBeNull();
@@ -60,12 +60,12 @@ it("returns null for malformed or non-object caches", async () => {
   expect(readAgyConversationId("/work", array)).toBeNull();
 });
 
-it("returns null when the cwd has no entry or a non-string entry", async () => {
+test("returns null when the cwd has no entry or a non-string entry", async () => {
   const path = await writeCache({ "/other": "cid-1", "/work": 42 });
   expect(readAgyConversationId("/work", path)).toBeNull();
 });
 
-it("lists every workspace with a recorded conversation", async () => {
+test("lists every workspace with a recorded conversation", async () => {
   const path = await writeCache({ "/a": "cid-a", "/b": "cid-b", "/c": 7 });
   expect(listAgyConversationWorkspaces(path)).toEqual([
     ["/a", "cid-a"],
@@ -73,7 +73,7 @@ it("lists every workspace with a recorded conversation", async () => {
   ]);
 });
 
-it("lists nothing when the cache is missing", () => {
+test("lists nothing when the cache is missing", () => {
   expect(listAgyConversationWorkspaces(join(directory, "nope.json"))).toEqual(
     []
   );

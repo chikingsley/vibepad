@@ -81,7 +81,7 @@ if (generated.status !== 0) {
   );
 }
 
-const imports = /from\s+["'](\.[^"']+)["']/g;
+const imports = /from\s+["'](?<path>\.[^"']+)["']/gu;
 const selected = new Set<string>();
 const visit = (relativePath: string) => {
   const normalized = relativePath.endsWith(".ts")

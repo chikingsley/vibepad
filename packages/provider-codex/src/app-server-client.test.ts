@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url";
 
-import { expect, it } from "vitest";
+import { expect, it as test } from "vitest";
 
 import {
   CodexAppServerClient,
@@ -12,9 +12,9 @@ const initializeErrorFixturePath = fileURLToPath(
   new URL("../scripts/app-server-initialize-error-fixture.ts", import.meta.url)
 );
 
-const reportedVersionPattern = /installed Codex CLI reports "\d+\.\d+/;
+const reportedVersionPattern = /installed Codex CLI reports "\d+\.\d+/u;
 
-it("classifies a missing Codex binary as an actionable install error", async () => {
+test("classifies a missing Codex binary as an actionable install error", async () => {
   const client = new CodexAppServerClient({
     command: ["/nonexistent/vibepad-codex-binary"],
     requestTimeoutMs: 5000,
@@ -35,7 +35,7 @@ it("classifies a missing Codex binary as an actionable install error", async () 
   }
 });
 
-it("classifies a failed initialize handshake as a version-shaped error", async () => {
+test("classifies a failed initialize handshake as a version-shaped error", async () => {
   const client = new CodexAppServerClient({
     command: ["bun", initializeErrorFixturePath],
     requestTimeoutMs: 5000,

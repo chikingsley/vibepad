@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it as test } from "vitest";
 
 const execFileAsync = promisify(execFile);
 const fixturePath = fileURLToPath(
@@ -21,7 +21,7 @@ afterEach(async () => {
   );
 });
 
-it("reopens durable provider events in another Bun process", async () => {
+test("reopens durable provider events in another Bun process", async () => {
   const directory = await mkdtemp(join(tmpdir(), "vibepad-provider-events-"));
   temporaryDirectories.push(directory);
   const path = join(directory, "events.sqlite");

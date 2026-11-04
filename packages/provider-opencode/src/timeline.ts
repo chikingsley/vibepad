@@ -92,7 +92,7 @@ const pendingPatchChanges = (
     return [];
   }
   const changes: TimelineFileChange[] = [];
-  const marker = /^\*\*\* (Add|Delete|Update) File: (.+)$/gm;
+  const marker = /^\*\*\* (?<action>Add|Delete|Update) File: (?<path>.+)$/gmu;
   for (const match of patchText.matchAll(marker)) {
     const [, operation, path] = match;
     if (!(operation && path)) {

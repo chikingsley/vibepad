@@ -58,7 +58,7 @@ function ActivityCopy({
       className="min-w-0 flex-1 flex-row items-baseline gap-1.5"
       style={animatedStyle}
     >
-      <Text className="shrink-0 font-medium text-[13px]" numberOfLines={1}>
+      <Text className="shrink-0 text-[13px] font-medium" numberOfLines={1}>
         {title}
       </Text>
       {subtitle ? (
@@ -131,7 +131,7 @@ export function TimelineActivityRow({
     return (
       <Pressable
         accessibilityLabel={accessibilityLabel}
-        className="min-h-8 flex-row items-center gap-1.5 rounded-md px-1.5 py-1 active:bg-accent/60"
+        className="active:bg-accent/60 min-h-8 flex-row items-center gap-1.5 rounded-md px-1.5 py-1"
         onPress={onPress}
         testID={testID}
       >
@@ -163,10 +163,10 @@ export function TimelineChangeStats({
   }
   return (
     <View className="shrink-0 flex-row items-center gap-1.5">
-      <Text className="font-medium text-[11px] text-emerald-600">
+      <Text className="text-[11px] font-medium text-emerald-600">
         +{additions}
       </Text>
-      <Text className="font-medium text-[11px] text-red-500">-{deletions}</Text>
+      <Text className="text-[11px] font-medium text-red-500">-{deletions}</Text>
     </View>
   );
 }
@@ -177,7 +177,7 @@ export function TimelineDetailPanel({
   readonly children: ReactNode;
 }) {
   return (
-    <View className="ml-7 overflow-hidden rounded-lg border border-border bg-muted/20">
+    <View className="border-border bg-muted/20 ml-7 overflow-hidden rounded-lg border">
       {children}
     </View>
   );

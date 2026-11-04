@@ -2,6 +2,7 @@ import type { HostProfile } from "@vibepad/protocol/settings";
 import type {
   SshRecoveryInput,
   SshRecoveryResult,
+  // biome-ignore lint/correctness/noUndeclaredDependencies: This local Expo module resolves through the tsconfig path alias, not package.json.
 } from "@vibepad/ssh-bootstrap";
 
 interface SshRecoveryModule {
@@ -58,7 +59,7 @@ const waitForHostHealth = async (
 };
 
 const wrappedNativeCausePattern =
-  /Caused by:\s*[^:\n]+:\s*(.+?)(?:\s+\(at|\n|$)/s;
+  /Caused by:\s*[^:\n]+:\s*(?<cause>.+?)(?:\s+\(at|\n|$)/su;
 
 const recoveryError = (error: unknown): Error => {
   const message = error instanceof Error ? error.message : String(error);

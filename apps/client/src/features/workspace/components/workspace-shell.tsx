@@ -39,7 +39,7 @@ function DesktopSidebar({
     <Animated.View
       accessibilityElementsHidden={!open}
       aria-hidden={!open}
-      className="overflow-hidden border-border"
+      className="border-border overflow-hidden"
       importantForAccessibility={open ? "auto" : "no-hide-descendants"}
       layout={LinearTransition.duration(180).reduceMotion(ReduceMotion.System)}
       style={{
@@ -244,11 +244,11 @@ export function WorkspaceShell() {
 
   return (
     <SafeAreaView
-      className="flex-1 bg-background"
+      className="bg-background flex-1"
       edges={["left", "right", "top"]}
     >
       <Animated.View
-        className="flex-1 flex-row border-border border-t"
+        className="border-border flex-1 flex-row border-t"
         layout={LinearTransition.reduceMotion(ReduceMotion.System)}
         style={{ flex: 1, flexDirection: "row" }}
       >
@@ -292,7 +292,7 @@ export function WorkspaceShell() {
         {!regularLayout && mobileSidebarOpen ? (
           <View className="absolute inset-0 z-50 flex-row">
             <Animated.View
-              className="w-[86%] max-w-80 border-border border-r shadow-black/20 shadow-xl"
+              className="border-border w-[86%] max-w-80 border-r shadow-xl shadow-black/20"
               entering={FadeInLeft.duration(180).reduceMotion(
                 ReduceMotion.System
               )}

@@ -184,7 +184,7 @@ export function PairingCodeForm({
       </View>
       <View className="gap-1.5">
         {stacked ? null : (
-          <Text className="font-medium text-sm">Pairing code</Text>
+          <Text className="text-sm font-medium">Pairing code</Text>
         )}
         <View className={cn("gap-3", !stacked && "sm:flex-row")}>
           <TextInput
@@ -192,10 +192,10 @@ export function PairingCodeForm({
             autoCapitalize="characters"
             autoCorrect={false}
             className={cn(
-              "min-w-0 rounded-xl border border-border font-mono text-foreground outline-none",
+              "border-border text-foreground min-w-0 rounded-xl border font-mono outline-none",
               stacked
-                ? "h-14 bg-card px-4 text-center text-lg"
-                : "h-12 flex-1 bg-muted/40 px-3 text-base"
+                ? "bg-card h-14 px-4 text-center text-lg"
+                : "bg-muted/40 h-12 flex-1 px-3 text-base"
             )}
             enterKeyHint="go"
             onChangeText={setCode}
@@ -221,7 +221,7 @@ export function PairingCodeForm({
       {errorMessage ? (
         <Text
           className={cn(
-            "text-red-600 text-xs leading-5",
+            "text-xs leading-5 text-red-600",
             stacked && "text-center text-sm"
           )}
         >

@@ -1,4 +1,4 @@
-import { expect, it } from "vitest";
+import { expect, it as test } from "vitest";
 
 import { detectClaudeCode } from "./detect";
 
@@ -8,7 +8,7 @@ const probes = (existing: readonly string[]) => ({
   resolveRealPath: (path: string) => path,
 });
 
-it("finds the claude binary on PATH without invoking it", () => {
+test("finds the claude binary on PATH without invoking it", () => {
   const detection = detectClaudeCode({
     env: { PATH: "/usr/bin:/home/simon/.local/bin" },
     homeDirectory: "/home/simon",
@@ -22,7 +22,7 @@ it("finds the claude binary on PATH without invoking it", () => {
   });
 });
 
-it("falls back to known install locations when PATH has no claude", () => {
+test("falls back to known install locations when PATH has no claude", () => {
   const detection = detectClaudeCode({
     env: { PATH: "/usr/bin" },
     homeDirectory: "/home/simon",
@@ -36,7 +36,7 @@ it("falls back to known install locations when PATH has no claude", () => {
   });
 });
 
-it("prefers a configured executable and reports absence honestly", () => {
+test("prefers a configured executable and reports absence honestly", () => {
   const configured = detectClaudeCode({
     env: { PATH: "/usr/bin" },
     executable: "/opt/tools/claude",
@@ -58,7 +58,7 @@ it("prefers a configured executable and reports absence honestly", () => {
   expect(missing).toEqual({ available: false, source: "none" });
 });
 
-it("reads the version from native-installer version directories", () => {
+test("reads the version from native-installer version directories", () => {
   const detection = detectClaudeCode({
     env: { PATH: "/home/simon/.local/bin" },
     fileExists: (path) => path === "/home/simon/.local/bin/claude",
@@ -71,7 +71,7 @@ it("reads the version from native-installer version directories", () => {
   expect(detection.version).toBe("2.1.218");
 });
 
-it("reads the version from the npm package manifest next to the real binary", () => {
+test("reads the version from the npm package manifest next to the real binary", () => {
   const packageJson =
     "/opt/node_modules/@anthropic-ai/claude-code/package.json";
   const detection = detectClaudeCode({
@@ -91,7 +91,7 @@ it("reads the version from the npm package manifest next to the real binary", ()
   expect(detection.version).toBe("2.1.0");
 });
 
-it("reports nothing found on a machine without Claude Code", () => {
+test("reports nothing found on a machine without Claude Code", () => {
   const detection = detectClaudeCode({
     env: { PATH: "/usr/bin:/usr/local/bin" },
     homeDirectory: "/home/simon",

@@ -22,7 +22,7 @@ export function SessionTitle({
       className={
         fill
           ? "min-w-0 flex-1 overflow-hidden"
-          : "min-w-0 max-w-[70%] shrink overflow-hidden"
+          : "max-w-[70%] min-w-0 shrink overflow-hidden"
       }
       style={fadeMask}
     >

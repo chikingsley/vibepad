@@ -1,7 +1,17 @@
 {
   "name": "@vibepad/client",
-  "main": "expo-router/entry",
   "version": "1.0.0",
+  "private": true,
+  "main": "expo-router/entry",
+  "scripts": {
+    "android": "expo start --android",
+    "icons:build": "react-native-nano-icons",
+    "ios": "expo start --ios",
+    "start": "expo start",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "web": "expo start --web"
+  },
   "dependencies": {
     "@expo/app-integrity": "^57.0.1",
     "@inthepocket/react-native-service-discovery": "^0.2.9",
@@ -59,7 +69,8 @@
     "@types/react": "~19.2.2",
     "babel-preset-expo": "~57.0.3",
     "tailwindcss": "3.4.19",
-    "typescript": "7.0.2"
+    "typescript": "7.0.2",
+    "vitest": "5.1.0"
   },
   "expo": {
     "install": {
@@ -67,15 +78,5 @@
         "typescript"
       ]
     }
-  },
-  "scripts": {
-    "start": "expo start",
-    "android": "expo start --android",
-    "icons:build": "react-native-nano-icons",
-    "ios": "expo start --ios",
-    "test": "vitest run",
-    "web": "expo start --web",
-    "typecheck": "tsc --noEmit"
-  },
-  "private": true
+  }
 }

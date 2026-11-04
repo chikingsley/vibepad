@@ -1,5 +1,5 @@
 const downloadPrefix = "/downloads/";
-const rangePattern = /^bytes=(\d*)-(\d*)$/u;
+const rangePattern = /^bytes=(?<start>\d*)-(?<end>\d*)$/u;
 const versionedReleasePattern =
   /^host\/v\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?\//u;
 

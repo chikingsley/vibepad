@@ -96,7 +96,7 @@ export function SessionComposer({
   return (
     <View
       className={cn(
-        "w-full gap-2 rounded-2xl border border-border bg-card p-2 shadow-black/5 shadow-sm",
+        "border-border bg-card w-full gap-2 rounded-2xl border p-2 shadow-sm shadow-black/5",
         contentOverride && "rounded-full p-1",
         className
       )}
@@ -104,14 +104,14 @@ export function SessionComposer({
       {contentOverride ?? (
         <>
           {errorMessage ? (
-            <Text className="px-2 pt-1 text-red-600 text-xs">
+            <Text className="px-2 pt-1 text-xs text-red-600">
               {errorMessage}
             </Text>
           ) : null}
           {attachments}
           <TextInput
             accessibilityLabel={placeholder}
-            className="max-h-36 min-h-14 px-2 py-2 text-[15px] text-foreground outline-none"
+            className="text-foreground max-h-36 min-h-14 px-2 py-2 text-[15px] outline-none"
             multiline
             onChangeText={onChangeText}
             onSelectionChange={handleSelectionChange}

@@ -9,7 +9,7 @@ import type {
   ReadySessionControls,
   SessionControlStore,
 } from "@vibepad/protocol/provider";
-import { expect, it } from "vitest";
+import { expect, it as test } from "vitest";
 import type { GetAccountResponse } from "../generated/v2/GetAccountResponse";
 import type { ThreadStartResponse } from "../generated/v2/ThreadStartResponse";
 import { CodexAdapter } from "./adapter";
@@ -177,7 +177,7 @@ const disposeDisposableThread = async (
   }
 };
 
-it("advertises only capabilities backed by Codex adapter operations", () => {
+test("advertises only capabilities backed by Codex adapter operations", () => {
   for (const [capabilityId, support] of Object.entries(
     codexManifest.capabilities
   )) {
@@ -189,16 +189,14 @@ it("advertises only capabilities backed by Codex adapter operations", () => {
         capabilityId as keyof typeof codexCapabilityOperations
       ];
     expect(operation, `${capabilityId} has no adapter operation`).toBeDefined();
-    if (operation) {
-      expect(
-        typeof Reflect.get(CodexAdapter.prototype, operation),
-        `${capabilityId} points to missing adapter.${operation}`
-      ).toBe("function");
-    }
+    expect(
+      typeof Reflect.get(CodexAdapter.prototype, String(operation)),
+      `${capabilityId} points to missing adapter.${operation}`
+    ).toBe("function");
   }
 });
 
-it("restarts and reinitializes the real Codex app-server after its owned child exits", async () => {
+test("restarts and reinitializes the real Codex app-server after its owned child exits", async () => {
   if (!enabled) {
     return;
   }
@@ -245,7 +243,7 @@ it("restarts and reinitializes the real Codex app-server after its owned child e
   }
 }, 60_000);
 
-it("resumes a real Codex thread after app-server restart without duplicating its turn", async () => {
+test("resumes a real Codex thread after app-server restart without duplicating its turn", async () => {
   if (!enabled) {
     return;
   }
@@ -327,7 +325,7 @@ it("resumes a real Codex thread after app-server restart without duplicating its
   }
 }, 90_000);
 
-it("hydrates real Codex controls with the initial timeline and restores them after a host restart", async () => {
+test("hydrates real Codex controls with the initial timeline and restores them after a host restart", async () => {
   if (!enabled) {
     return;
   }
@@ -376,7 +374,7 @@ it("hydrates real Codex controls with the initial timeline and restores them aft
   }
 }, 60_000);
 
-it("restores a completed command from the durable event journal after an adapter restart", async () => {
+test("restores a completed command from the durable event journal after an adapter restart", async () => {
   if (!enabled) {
     return;
   }
@@ -470,7 +468,7 @@ it("restores a completed command from the durable event journal after an adapter
   }
 }, 90_000);
 
-it("rejects a memory-only empty Codex thread after restart instead of creating a ghost turn", async () => {
+test("rejects a memory-only empty Codex thread after restart instead of creating a ghost turn", async () => {
   if (!enabled) {
     return;
   }
@@ -520,7 +518,7 @@ it("rejects a memory-only empty Codex thread after restart instead of creating a
   }
 }, 60_000);
 
-it("reports the real Codex app-server as unauthenticated with an empty isolated home", async () => {
+test("reports the real Codex app-server as unauthenticated with an empty isolated home", async () => {
   if (!enabled) {
     return;
   }
@@ -544,7 +542,7 @@ it("reports the real Codex app-server as unauthenticated with an empty isolated 
   }
 }, 60_000);
 
-it("projects real Codex projects, sessions, catalog, files, changes, and timeline", async () => {
+test("projects real Codex projects, sessions, catalog, files, changes, and timeline", async () => {
   if (!enabled) {
     return;
   }
@@ -596,16 +594,14 @@ it("projects real Codex projects, sessions, catalog, files, changes, and timelin
     const session =
       sessions.find((candidate) => candidate.title.length > 0) ??
       (await adapter.listSessions())[0];
-    if (session) {
-      const timeline = await adapter.listTimeline(session.id);
-      expect(timeline.items.length).toBeGreaterThan(0);
-    }
+    const timeline = session && (await adapter.listTimeline(session.id));
+    expect(timeline === undefined || timeline.items.length > 0).toBe(true);
   } finally {
     await adapter.dispose();
   }
 }, 60_000);
 
-it("runs, streams, switches, archives, and deletes a disposable real Codex thread", async () => {
+test("runs, streams, switches, archives, and deletes a disposable real Codex thread", async () => {
   if (!enabled) {
     return;
   }
@@ -696,7 +692,7 @@ it("runs, streams, switches, archives, and deletes a disposable real Codex threa
   }
 }, 90_000);
 
-it("interrupts a real Codex turn paused on approval", async () => {
+test("interrupts a real Codex turn paused on approval", async () => {
   if (!enabled) {
     return;
   }
@@ -769,7 +765,7 @@ it("interrupts a real Codex turn paused on approval", async () => {
   }
 }, 90_000);
 
-it("settles a real fast Codex turn with exactly one completion signal", async () => {
+test("settles a real fast Codex turn with exactly one completion signal", async () => {
   if (!enabled) {
     return;
   }
@@ -831,7 +827,7 @@ it("settles a real fast Codex turn with exactly one completion signal", async ()
   }
 }, 90_000);
 
-it("answers a real Codex request_user_input callback", async () => {
+test("answers a real Codex request_user_input callback", async () => {
   if (!enabled) {
     return;
   }
@@ -913,7 +909,7 @@ it("answers a real Codex request_user_input callback", async () => {
   }
 }, 90_000);
 
-it("answers a real Codex command approval callback", async () => {
+test("answers a real Codex command approval callback", async () => {
   if (!enabled) {
     return;
   }

@@ -24,7 +24,7 @@ function SessionActionError({
 }) {
   const errorMessage = useValue(state$.errorMessage);
   return errorMessage ? (
-    <Text className={className ?? "text-red-600 text-xs"}>{errorMessage}</Text>
+    <Text className={className ?? "text-xs text-red-600"}>{errorMessage}</Text>
   ) : null;
 }
 
@@ -43,12 +43,12 @@ function RenameTitleInput({
   const saving = useValue(state$.saving);
 
   return (
-    <View className="flex-row items-center rounded-lg border border-border bg-card">
+    <View className="border-border bg-card flex-row items-center rounded-lg border">
       <$TextInput
         $value={state$.draft}
         accessibilityLabel="Session title"
         autoFocus
-        className="h-10 flex-1 px-3 text-foreground text-sm outline-none"
+        className="text-foreground h-10 flex-1 px-3 text-sm outline-none"
         editable={!saving}
         onSubmitEditing={onSave}
         returnKeyType="done"
@@ -123,7 +123,7 @@ export function RenameSessionForm({
   return (
     <View className="gap-3">
       <View className="gap-1">
-        <Text className="font-semibold text-sm">Rename session</Text>
+        <Text className="text-sm font-semibold">Rename session</Text>
         <Text className="text-[11px]" variant="muted">
           This changes the durable harness session title.
         </Text>
@@ -163,7 +163,7 @@ export function SessionActionList({
   return (
     <View className="gap-1">
       <View className="px-2 pt-1 pb-2">
-        <Text className="font-medium text-xs" numberOfLines={1}>
+        <Text className="text-xs font-medium" numberOfLines={1}>
           {title}
         </Text>
         <Text className="text-[10px]" variant="muted">
@@ -189,7 +189,7 @@ export function SessionActionList({
         <Text>{archiving ? "Archiving…" : "Archive"}</Text>
       </Button>
       <SessionActionError
-        className="px-2 text-red-600 text-xs"
+        className="px-2 text-xs text-red-600"
         state$={state$}
       />
     </View>

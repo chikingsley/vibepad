@@ -1,6 +1,6 @@
 import type { WorkspaceFileChange } from "@vibepad/protocol/files";
 
-const diffHeader = /^diff --git a\/(.+) b\/(.+)$/;
+const diffHeader = /^diff --git a\/(?<oldPath>.+) b\/(?<newPath>.+)$/u;
 
 const finishChange = (
   lines: readonly string[],

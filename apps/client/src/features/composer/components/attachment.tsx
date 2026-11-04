@@ -58,7 +58,7 @@ export function Attachment({
           disabled: state === "error",
         }}
         className={cn(
-          "relative overflow-hidden rounded-xl border border-border bg-card",
+          "border-border bg-card relative overflow-hidden rounded-xl border",
           orientation === "horizontal"
             ? "min-h-14 flex-row items-center"
             : "w-32 flex-col",
@@ -82,7 +82,7 @@ export function AttachmentTrigger({
   return (
     <Pressable
       className={cn(
-        "min-w-0 flex-1 active:bg-accent/60",
+        "active:bg-accent/60 min-w-0 flex-1",
         orientation === "horizontal"
           ? "flex-row items-center gap-2.5 p-2"
           : "flex-col",
@@ -100,7 +100,7 @@ export function AttachmentMedia({ className, ...props }: ViewProps) {
   return (
     <View
       className={cn(
-        "shrink-0 overflow-hidden bg-muted",
+        "bg-muted shrink-0 overflow-hidden",
         orientation === "horizontal" &&
           size === "default" &&
           "size-11 rounded-lg",
@@ -134,7 +134,7 @@ export function AttachmentTitle({
 }: React.ComponentProps<typeof Text>) {
   return (
     <Text
-      className={cn("font-medium text-xs", className)}
+      className={cn("text-xs font-medium", className)}
       numberOfLines={1}
       {...props}
     />
@@ -174,7 +174,7 @@ export function AttachmentAction({ className, ...props }: PressableProps) {
   return (
     <Pressable
       className={cn(
-        "size-8 items-center justify-center rounded-full active:bg-accent",
+        "active:bg-accent size-8 items-center justify-center rounded-full",
         className
       )}
       hitSlop={6}

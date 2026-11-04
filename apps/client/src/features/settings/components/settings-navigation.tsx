@@ -37,7 +37,7 @@ function SettingsNavigationItem({
       accessibilityState={{ selected }}
       aria-selected={selected}
       className={cn(
-        "min-h-11 flex-row items-center gap-2 rounded-lg px-3 active:bg-accent",
+        "active:bg-accent min-h-11 flex-row items-center gap-2 rounded-lg px-3",
         compact && "flex-1 justify-center",
         selected && "bg-accent"
       )}
@@ -51,7 +51,7 @@ function SettingsNavigationItem({
         name={page.icon}
         size={15}
       />
-      <Text className="font-medium text-xs">{page.label}</Text>
+      <Text className="text-xs font-medium">{page.label}</Text>
     </Pressable>
   );
 }

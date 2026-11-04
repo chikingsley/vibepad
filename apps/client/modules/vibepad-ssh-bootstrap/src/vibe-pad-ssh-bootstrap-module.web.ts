@@ -2,6 +2,7 @@ import { NativeModule, registerWebModule } from "expo";
 
 import type {
   SshBootstrapInput,
+  SshBootstrapNativeModule,
   SshBootstrapResult,
   SshInspectionResult,
   SshInstallAndPairInput,
@@ -9,7 +10,10 @@ import type {
   SshRecoveryResult,
 } from "./vibe-pad-ssh-bootstrap.types";
 
-class SshBootstrapWebModule extends NativeModule<Record<never, never>> {
+class SshBootstrapWebModule
+  extends NativeModule<Record<never, never>>
+  implements SshBootstrapNativeModule
+{
   readonly installAndPairAsync = (
     _input: SshInstallAndPairInput
   ): Promise<SshBootstrapResult> =>

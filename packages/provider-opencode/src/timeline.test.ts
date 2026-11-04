@@ -1,5 +1,5 @@
 import type { SessionMessage } from "@opencode-ai/sdk/v2/types";
-import { expect, it } from "vitest";
+import { expect, it as test } from "vitest";
 
 import { mapTimelineMessage } from "./timeline";
 
@@ -14,7 +14,7 @@ const assistantMessage = (
   type: "assistant",
 });
 
-it("projects current OpenCode v2 edit metadata into a file change with stats", () => {
+test("projects current OpenCode v2 edit metadata into a file change with stats", () => {
   const message = assistantMessage([
     {
       id: "edit-1",
@@ -61,7 +61,7 @@ it("projects current OpenCode v2 edit metadata into a file change with stats", (
   ]);
 });
 
-it("keeps compatibility with stored OpenCode filediff metadata", () => {
+test("keeps compatibility with stored OpenCode filediff metadata", () => {
   const message = assistantMessage([
     {
       id: "edit-legacy-1",
@@ -101,7 +101,7 @@ it("keeps compatibility with stored OpenCode filediff metadata", () => {
   );
 });
 
-it("projects current OpenCode write metadata as a created file", () => {
+test("projects current OpenCode write metadata as a created file", () => {
   const message = assistantMessage([
     {
       id: "write-1",
@@ -141,7 +141,7 @@ it("projects current OpenCode write metadata as a created file", () => {
   ]);
 });
 
-it("projects OpenCode apply_patch metadata as one multi-file operation", () => {
+test("projects OpenCode apply_patch metadata as one multi-file operation", () => {
   const message = assistantMessage([
     {
       id: "patch-1",
@@ -199,7 +199,7 @@ it("projects OpenCode apply_patch metadata as one multi-file operation", () => {
   );
 });
 
-it("keeps shell output compact and structured instead of using a generic tool", () => {
+test("keeps shell output compact and structured instead of using a generic tool", () => {
   const message = assistantMessage([
     {
       id: "shell-1",
@@ -230,7 +230,7 @@ it("keeps shell output compact and structured instead of using a generic tool", 
   ]);
 });
 
-it("marks only trailing completed OpenCode prose as the final answer", () => {
+test("marks only trailing completed OpenCode prose as the final answer", () => {
   const message = assistantMessage([
     {
       id: "commentary-1",
@@ -272,7 +272,7 @@ it("marks only trailing completed OpenCode prose as the final answer", () => {
   );
 });
 
-it("does not call streaming OpenCode prose a final answer", () => {
+test("does not call streaming OpenCode prose a final answer", () => {
   const message = {
     ...assistantMessage([
       {

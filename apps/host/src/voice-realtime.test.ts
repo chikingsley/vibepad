@@ -2,14 +2,14 @@ import { execFile } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
-import { expect, it } from "vitest";
+import { expect, it as test } from "vitest";
 
 const execFileAsync = promisify(execFile);
 const fixturePath = fileURLToPath(
   new URL("./voice-realtime.fixture.ts", import.meta.url)
 );
 
-it("proxies authenticated realtime PCM and terminal transcripts over two real WebSockets", async () => {
+test("proxies authenticated realtime PCM and terminal transcripts over two real WebSockets", async () => {
   const { stdout } = await execFileAsync("bun", [fixturePath]);
   const result = JSON.parse(stdout) as {
     audioChunks: number[][];
