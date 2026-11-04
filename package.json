@@ -30,6 +30,7 @@
   },
   "packageManager": "bun@1.4.4",
   "trustedDependencies": [
-    "@shopify/react-native-skia"
+    "@shopify/react-native-skia",
+    "react-native-enriched-markdown"
   ]
 }

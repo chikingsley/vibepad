@@ -211,7 +211,8 @@ export function PreviewFrame({
   tabId,
   url,
 }: PreviewFrameProps) {
-  const nativeRef = useRef<WebView>(null);
+  // WebView's type parameter defaults to undefined, which would erase its props.
+  const nativeRef = useRef<WebView<object>>(null);
   const webRef = useRef<HTMLIFrameElement>(null);
   const webHistoryRef = useRef({ entries: [url], index: 0 });
   const [webFrameKey, setWebFrameKey] = useState(0);

@@ -9,6 +9,7 @@ import {
   useSettingsValue,
 } from "@/features/settings/settings-context";
 import { WorkspaceShell } from "@/features/workspace/components/workspace-shell";
+import { useHydrated } from "@/lib/use-hydrated";
 import {
   defaultVibePadHostConnection,
   type VibePadHostConnection,
@@ -16,6 +17,7 @@ import {
 import { VibePadHostProvider } from "@/lib/vibepad-host-context";
 
 export function WorkspaceScreen() {
+  const hydrated = useHydrated();
   const settings = useAppSettingsStore();
   const { connections, errorMessage, persistenceState } = useSettingsValue(
     (state$) => ({
@@ -29,7 +31,9 @@ export function WorkspaceScreen() {
     persistenceState,
     errorMessage
   );
-  if (entry.status === "loading") {
+  // Each route hydrates in its own Suspense boundary, after the root provider
+  // may already have loaded settings, so the first pass must match the server.
+  if (!hydrated || entry.status === "loading") {
     return <SettingsLoadingScreen />;
   }
   if (entry.status === "activation") {

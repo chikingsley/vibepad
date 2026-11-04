@@ -1,7 +1,15 @@
-import MaskedView from "@react-native-masked-view/masked-view";
+import MaskedViewBase from "@react-native-masked-view/masked-view";
 import { LinearGradient } from "expo-linear-gradient";
+import type { ComponentType, ReactElement } from "react";
+import type { ViewProps } from "react-native";
 
 import { Text } from "@/components/ui/text";
+
+// The package's types extend NativeMethods, which React Native 0.88 no longer
+// exports. Runtime behavior is unchanged, so only the declared type is restated.
+const MaskedView = MaskedViewBase as unknown as ComponentType<
+  ViewProps & { readonly maskElement: ReactElement }
+>;
 
 export function SessionTitle({
   fill = true,

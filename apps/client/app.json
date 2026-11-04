@@ -83,7 +83,9 @@
             "deploymentTarget": "17.0"
           }
         }
-      ]
+      ],
+      "expo-font",
+      "expo-status-bar"
     ],
     "experiments": {
       "typedRoutes": true,

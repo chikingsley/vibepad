@@ -1,9 +1,8 @@
 import { useColorScheme } from "nativewind";
 import { type ReactNode, useCallback } from "react";
 import {
-  type NativeSyntheticEvent,
   TextInput,
-  type TextInputSelectionChangeEventData,
+  type TextInputSelectionChangeEvent,
   View,
 } from "react-native";
 
@@ -79,7 +78,7 @@ export function SessionComposer({
   const { colorScheme } = useColorScheme();
   const theme = THEME[colorScheme === "dark" ? "dark" : "light"];
   const handleSelectionChange = useCallback(
-    (event: NativeSyntheticEvent<TextInputSelectionChangeEventData>) => {
+    (event: TextInputSelectionChangeEvent) => {
       onSelectionChange?.(event.nativeEvent.selection);
     },
     [onSelectionChange]
