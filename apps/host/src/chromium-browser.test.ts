@@ -8,6 +8,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import {
   ChromiumBrowser,
   type ChromiumScreencastFrame,
+  chromiumExecutableCandidates,
   findChromiumExecutable,
 } from "./chromium-browser";
 
@@ -107,6 +108,13 @@ describe("finding a Chromium executable", () => {
     await rm(directory, { force: true, recursive: true });
   });
 
+  it("prefers packaged Chrome on Linux, which can start its own sandbox", () => {
+    const candidates = chromiumExecutableCandidates("linux");
+    expect(candidates.indexOf("/usr/bin/google-chrome")).toBeLessThan(
+      candidates.indexOf("/usr/bin/chromium")
+    );
+  });
+
   it("returns undefined when nothing is executable", async () => {
     const found = await findChromiumExecutable({}, ["/nonexistent/browser"]);
     expect(found).toBeUndefined();
@@ -115,7 +123,11 @@ describe("finding a Chromium executable", () => {
 
 const executable = await findChromiumExecutable();
 
-describe.skipIf(!executable)("driving a real Chromium over CDP", () => {
+// CI must exercise a real browser. Only local machines may skip these suites.
+// biome-ignore lint/complexity/useLiteralKeys: strict index-signature access is required by the shared TypeScript config.
+const skipLiveBrowser = !(executable || process.env["CI"]);
+
+describe.skipIf(skipLiveBrowser)("driving a real Chromium over CDP", () => {
   const cleanups: Array<() => Promise<void>> = [];
 
   afterAll(async () => {

@@ -102,7 +102,11 @@ describe("browser supervisor paths and guards", () => {
 
 const executable = await findChromiumExecutable();
 
-describe.skipIf(!executable)("supervising real session browsers", () => {
+// CI must exercise a real browser. Only local machines may skip these suites.
+// biome-ignore lint/complexity/useLiteralKeys: strict index-signature access is required by the shared TypeScript config.
+const skipLiveBrowser = !(executable || process.env["CI"]);
+
+describe.skipIf(skipLiveBrowser)("supervising real session browsers", () => {
   const cleanups: Array<() => Promise<void>> = [];
 
   afterAll(async () => {
@@ -124,8 +128,6 @@ describe.skipIf(!executable)("supervising real session browsers", () => {
         profilesDirectory: join(dataDirectory, "profiles"),
       },
     });
-    cleanups.push(() => supervisor.stopAll());
-
     const server = createServer((_request, response) => {
       response.writeHead(200, { "content-type": "text/html" });
       response.end("<title>supervised</title><body>ok</body>");
@@ -139,6 +141,9 @@ describe.skipIf(!executable)("supervising real session browsers", () => {
           server.close(() => resolve());
         })
     );
+    // Cleanups run in reverse, so the browsers stop before the server closes;
+    // close() would otherwise wait on sockets the live browsers still hold.
+    cleanups.push(() => supervisor.stopAll());
     const origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}/`;
 
     const [first, second] = await Promise.all([

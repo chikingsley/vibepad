@@ -13,7 +13,11 @@ const fixturePath = fileURLToPath(
 
 const executable = await findChromiumExecutable();
 
-describe.skipIf(!executable)("brokering a real Chromium view", () => {
+// CI must exercise a real browser. Only local machines may skip these suites.
+// biome-ignore lint/complexity/useLiteralKeys: strict index-signature access is required by the shared TypeScript config.
+const skipLiveBrowser = !(executable || process.env["CI"]);
+
+describe.skipIf(skipLiveBrowser)("brokering a real Chromium view", () => {
   it("leases, streams frames, forwards input, and reflows over the live host", async () => {
     const { stdout } = await execFileAsync("bun", [fixturePath], {
       timeout: 110_000,

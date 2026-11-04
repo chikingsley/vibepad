@@ -39,10 +39,13 @@ export const chromiumExecutableCandidates = (platform = process.platform) =>
         "/Applications/Chromium.app/Contents/MacOS/Chromium",
       ]
     : [
+        // Packaged Chrome comes first, as on macOS. It ships a setuid sandbox
+        // helper, so it still starts where Ubuntu 23.10+ denies unprivileged
+        // user namespaces; an unpacked Chromium at /usr/bin/chromium cannot.
+        "/usr/bin/google-chrome-stable",
+        "/usr/bin/google-chrome",
         "/usr/bin/chromium",
         "/usr/bin/chromium-browser",
-        "/usr/bin/google-chrome",
-        "/usr/bin/google-chrome-stable",
       ];
 
 export const findChromiumExecutable = async (
